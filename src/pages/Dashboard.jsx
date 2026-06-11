@@ -33,7 +33,7 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-display font-bold tracking-tight">Command Center</h1>
-        <p className="text-muted-foreground text-sm mt-1">Your income runs on autopilot — sit back and watch it grow.</p>
+        <p className="text-muted-foreground text-sm mt-1">Your affiliate income runs on autopilot — fully automated, no experience needed.</p>
       </div>
 
       {/* Stats Grid */}

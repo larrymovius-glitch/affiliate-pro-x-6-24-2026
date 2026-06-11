@@ -78,10 +78,10 @@ export default function Sidebar({ open, onClose }) {
         <div className="p-4 border-t border-sidebar-border">
           <div className="rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 p-4">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-semibold text-sidebar-foreground">🇺🇸 Mission</span>
+              <span className="text-xs font-semibold text-sidebar-foreground">💙 Our Mission</span>
             </div>
             <p className="text-xs text-sidebar-foreground/60 leading-relaxed">
-              Empowering veterans &amp; those in need with automated affiliate income. Every link shared builds toward financial freedom.
+              Built for veterans, disabled individuals, single parents, and anyone facing hardship — real income, fully automated, no experience needed.
             </p>
           </div>
         </div>

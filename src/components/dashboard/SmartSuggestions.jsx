@@ -59,9 +59,9 @@ Affiliate platform analytics summary:
 `.trim();
 
   const result = await base44.integrations.Core.InvokeLLM({
-    prompt: `You are an AI advisor for an autonomous affiliate marketing platform built to help veterans earn income. The system automatically posts affiliate links on their behalf — affiliates are passive participants who earn without manual effort.
+    prompt: `You are an AI advisor for an autonomous affiliate marketing platform built to create real income for people facing hardship — veterans, disabled individuals, single parents, unemployed individuals, and anyone in a less fortunate situation. The system automatically handles all posting on their behalf — affiliates are passive participants who earn without manual effort or technical knowledge.
 
-Based on the following performance data, generate 3–4 smart, actionable suggestions. Focus on growth opportunities, underperforming areas, and strategic wins. Be concise, specific, and encouraging — these users may be veterans or people overcoming hardship.
+Based on the following performance data, generate 3–4 smart, actionable suggestions. Focus on growth opportunities, underperforming areas, and strategic wins. Be concise, specific, and deeply encouraging — speak to people who need this income to matter.
 
 ${contextSummary}
 

@@ -9,8 +9,8 @@ export default function AuthLayout({ icon: Icon, title, subtitle, footer, childr
         <div className="rounded-2xl bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 px-5 py-3 flex items-center gap-3">
           <Heart className="w-4 h-4 text-primary shrink-0" />
           <p className="text-xs text-muted-foreground leading-relaxed">
-            <span className="font-semibold text-foreground">Built for veterans & those in need.</span>{" "}
-            This platform automates your affiliate income — so you can focus on what matters.
+            <span className="font-semibold text-foreground">Built for those who deserve a break.</span>{" "}
+            Veterans, disabled individuals, single parents, and anyone facing hard times — this platform earns for you, automatically.
           </p>
         </div>
       </div>
