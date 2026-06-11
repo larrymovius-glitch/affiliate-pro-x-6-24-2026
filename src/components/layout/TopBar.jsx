@@ -1,5 +1,5 @@
 import React from "react";
-import { Menu, Bell, LogOut } from "lucide-react";
+import { Menu, Bell, LogOut, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
 import {
@@ -23,7 +23,18 @@ export default function TopBar({ onMenuClick }) {
         <Menu className="w-5 h-5" />
       </Button>
 
-      <div className="flex-1" />
+      <div className="flex-1 flex items-center">
+        <p className="text-xs text-muted-foreground hidden md:block">
+          No experience needed —{" "}
+          <button
+            onClick={() => window.open("/agent/phil", "_blank")}
+            className="text-primary font-semibold hover:underline inline-flex items-center gap-1"
+          >
+            <MessageCircle className="w-3 h-3" />
+            any questions, just ask Phil
+          </button>
+        </p>
+      </div>
 
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="icon" className="relative text-muted-foreground">
