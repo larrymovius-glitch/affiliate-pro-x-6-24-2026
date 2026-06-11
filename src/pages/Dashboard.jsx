@@ -19,7 +19,10 @@ export default function Dashboard() {
     queryKey: ["analytics-chart"],
     queryFn: async () => {
       const res = await analyticsAPI.chartData();
-      return res.data;
+      const raw = res.data;
+      if (Array.isArray(raw)) return raw;
+      if (Array.isArray(raw?.data)) return raw.data;
+      return [];
     },
   });
 
@@ -71,7 +74,7 @@ export default function Dashboard() {
       </div>
 
       {/* Chart */}
-      <PerformanceChart data={chartData?.data || chartData} isLoading={loadingChart} />
+      <PerformanceChart data={Array.isArray(chartData) ? chartData : []} isLoading={loadingChart} />
     </div>
   );
 }
