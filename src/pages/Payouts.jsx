@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Wallet, DollarSign, ArrowUpRight } from "lucide-react";
+import PayoutScheduleCard from "@/components/payouts/PayoutScheduleCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -91,6 +92,9 @@ export default function Payouts() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Automated Payout Schedule */}
+      <PayoutScheduleCard />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -1,0 +1,60 @@
+{
+  "name": "PayoutSchedule",
+  "type": "object",
+  "properties": {
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether auto-payout is enabled"
+    },
+    "frequency": {
+      "type": "string",
+      "enum": [
+        "daily",
+        "weekly",
+        "biweekly",
+        "monthly"
+      ],
+      "default": "weekly",
+      "description": "How often payouts are processed automatically"
+    },
+    "minimum_amount": {
+      "type": "number",
+      "default": 25,
+      "description": "Minimum balance required to trigger an automatic payout"
+    },
+    "payment_method": {
+      "type": "string",
+      "enum": [
+        "paypal",
+        "bank_transfer",
+        "check"
+      ],
+      "default": "paypal",
+      "description": "Preferred payment method"
+    },
+    "payment_email": {
+      "type": "string",
+      "description": "PayPal email or payment destination"
+    },
+    "last_processed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of the last automated payout run"
+    },
+    "next_payout_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Calculated next payout date"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Admin notes"
+    }
+  },
+  "required": [
+    "frequency",
+    "minimum_amount",
+    "payment_method"
+  ]
+}
