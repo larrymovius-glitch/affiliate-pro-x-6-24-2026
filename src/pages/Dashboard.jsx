@@ -4,6 +4,7 @@ import { analyticsAPI } from "@/lib/api";
 import { MousePointerClick, DollarSign, TrendingUp, Link2 } from "lucide-react";
 import StatCard from "@/components/dashboard/StatCard";
 import PerformanceChart from "@/components/dashboard/PerformanceChart";
+import SmartSuggestions from "@/components/dashboard/SmartSuggestions";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Dashboard() {
@@ -31,8 +32,8 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-display font-bold tracking-tight">Your Dashboard</h1>
-        <p className="text-muted-foreground text-sm mt-1">Your automated affiliate income — working for you 24/7</p>
+        <h1 className="text-2xl font-display font-bold tracking-tight">Command Center</h1>
+        <p className="text-muted-foreground text-sm mt-1">Your income runs on autopilot — sit back and watch it grow.</p>
       </div>
 
       {/* Stats Grid */}
@@ -75,6 +76,9 @@ export default function Dashboard() {
 
       {/* Chart */}
       <PerformanceChart data={Array.isArray(chartData) ? chartData : []} isLoading={loadingChart} />
+
+      {/* AI Insights */}
+      <SmartSuggestions />
     </div>
   );
 }
