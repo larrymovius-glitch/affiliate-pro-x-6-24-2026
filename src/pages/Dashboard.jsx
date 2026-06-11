@@ -28,8 +28,8 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-display font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground text-sm mt-1">Your affiliate performance at a glance</p>
+        <h1 className="text-2xl font-display font-bold tracking-tight">Your Dashboard</h1>
+        <p className="text-muted-foreground text-sm mt-1">Your automated affiliate income — working for you 24/7</p>
       </div>
 
       {/* Stats Grid */}

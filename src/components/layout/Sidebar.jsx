@@ -77,8 +77,12 @@ export default function Sidebar({ open, onClose }) {
         {/* Footer */}
         <div className="p-4 border-t border-sidebar-border">
           <div className="rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 p-4">
-            <p className="text-xs text-sidebar-foreground/70 font-medium">Pro Tip</p>
-            <p className="text-xs text-sidebar-foreground/50 mt-1">Share links consistently to maximize your earnings.</p>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs font-semibold text-sidebar-foreground">🇺🇸 Mission</span>
+            </div>
+            <p className="text-xs text-sidebar-foreground/60 leading-relaxed">
+              Empowering veterans &amp; those in need with automated affiliate income. Every link shared builds toward financial freedom.
+            </p>
           </div>
         </div>
       </aside>
