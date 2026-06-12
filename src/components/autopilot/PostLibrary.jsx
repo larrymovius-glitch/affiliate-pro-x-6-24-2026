@@ -47,6 +47,22 @@ export default function PostLibrary() {
 
   return (
     <div className="space-y-6">
+      {/* Promo Video */}
+      <Card className="bg-card border-border overflow-hidden">
+        <CardContent className="p-0">
+          <video
+            src="https://media.base44.com/videos/public/6a2a72a46235784f879b968c/80cff228d_Untitled-June072026at042635.mp4"
+            controls
+            className="w-full rounded-lg"
+            style={{ maxHeight: "400px" }}
+          />
+          <div className="p-4">
+            <p className="text-sm font-semibold text-foreground">📹 Affiliate Pro X — Promo Video</p>
+            <p className="text-xs text-muted-foreground mt-1">Use this video in your social posts to promote Affiliate Pro X</p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Top Performers */}
       {topPerformers.length > 0 && (
         <div>
