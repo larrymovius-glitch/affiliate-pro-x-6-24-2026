@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Zap, Star, FileSearch } from "lucide-react";
+import { Zap, Star, FileSearch, Upload } from "lucide-react";
 import PostGenerator from "@/components/autopilot/PostGenerator";
 import PostLibrary from "@/components/autopilot/PostLibrary";
 import AdReviewer from "@/components/autopilot/AdReviewer";
+import AdAssetUploader from "@/components/autopilot/AdAssetUploader";
 
 export default function AutoPilot() {
   return (
@@ -29,6 +30,9 @@ export default function AutoPilot() {
           <TabsTrigger value="review" className="gap-2">
             <FileSearch className="w-4 h-4" /> Review My Ad
           </TabsTrigger>
+          <TabsTrigger value="assets" className="gap-2">
+            <Upload className="w-4 h-4" /> My Creatives
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="generate" className="mt-6">
@@ -39,6 +43,9 @@ export default function AutoPilot() {
         </TabsContent>
         <TabsContent value="review" className="mt-6">
           <AdReviewer />
+        </TabsContent>
+        <TabsContent value="assets" className="mt-6">
+          <AdAssetUploader />
         </TabsContent>
       </Tabs>
     </div>

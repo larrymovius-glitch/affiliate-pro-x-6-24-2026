@@ -1,0 +1,46 @@
+{
+  "name": "AdAsset",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Name or label for this ad asset"
+    },
+    "file_url": {
+      "type": "string",
+      "description": "Uploaded file URL"
+    },
+    "file_type": {
+      "type": "string",
+      "enum": [
+        "image",
+        "video"
+      ],
+      "default": "image"
+    },
+    "platform": {
+      "type": "string",
+      "enum": [
+        "facebook",
+        "instagram",
+        "tiktok",
+        "twitter",
+        "email",
+        "general"
+      ],
+      "default": "general"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Optional notes about this asset"
+    },
+    "source": {
+      "type": "string",
+      "default": "adobe_express",
+      "description": "Where this asset was created"
+    }
+  },
+  "required": [
+    "file_url"
+  ]
+}
