@@ -24,6 +24,7 @@ import Links from '@/pages/Links';
 import Campaigns from '@/pages/Campaigns';
 import Analytics from '@/pages/Analytics';
 import Payouts from '@/pages/Payouts';
+import AutoPilot from '@/pages/AutoPilot';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -65,6 +66,7 @@ const AuthenticatedApp = () => {
           <Route path="/campaigns" element={<Campaigns />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/payouts" element={<Payouts />} />
+          <Route path="/autopilot" element={<AutoPilot />} />
         </Route>
       </Route>
 

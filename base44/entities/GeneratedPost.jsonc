@@ -1,0 +1,79 @@
+{
+  "name": "GeneratedPost",
+  "type": "object",
+  "properties": {
+    "link_id": {
+      "type": "string",
+      "description": "The affiliate link this post promotes"
+    },
+    "product_name": {
+      "type": "string",
+      "description": "Product name for reference"
+    },
+    "platform": {
+      "type": "string",
+      "enum": [
+        "facebook",
+        "instagram",
+        "tiktok",
+        "twitter",
+        "email",
+        "general"
+      ],
+      "default": "general"
+    },
+    "content": {
+      "type": "string",
+      "description": "The generated post content"
+    },
+    "hashtags": {
+      "type": "string",
+      "description": "Suggested hashtags"
+    },
+    "tone": {
+      "type": "string",
+      "enum": [
+        "inspiring",
+        "urgent",
+        "casual",
+        "professional",
+        "storytelling"
+      ],
+      "default": "inspiring"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "approved",
+        "posted",
+        "archived"
+      ],
+      "default": "draft"
+    },
+    "clicks": {
+      "type": "number",
+      "default": 0
+    },
+    "conversions": {
+      "type": "number",
+      "default": 0
+    },
+    "ai_score": {
+      "type": "number",
+      "description": "AI quality score 1-10"
+    },
+    "ai_feedback": {
+      "type": "string",
+      "description": "AI notes on why this post should perform well"
+    },
+    "trending_topics": {
+      "type": "string",
+      "description": "Trending topics used in this post"
+    }
+  },
+  "required": [
+    "content",
+    "platform"
+  ]
+}

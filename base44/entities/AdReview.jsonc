@@ -1,0 +1,58 @@
+{
+  "name": "AdReview",
+  "type": "object",
+  "properties": {
+    "ad_content": {
+      "type": "string",
+      "description": "The ad text or description submitted for review"
+    },
+    "ad_image_url": {
+      "type": "string",
+      "description": "Optional uploaded image of the ad"
+    },
+    "platform": {
+      "type": "string",
+      "description": "Where this ad was/will be used"
+    },
+    "overall_score": {
+      "type": "number",
+      "description": "AI score out of 10"
+    },
+    "hook_score": {
+      "type": "number",
+      "description": "How strong the opening hook is"
+    },
+    "clarity_score": {
+      "type": "number",
+      "description": "How clear the message is"
+    },
+    "cta_score": {
+      "type": "number",
+      "description": "How strong the call to action is"
+    },
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "strong",
+        "needs_work",
+        "weak"
+      ],
+      "default": "needs_work"
+    },
+    "strengths": {
+      "type": "string",
+      "description": "What the ad does well"
+    },
+    "improvements": {
+      "type": "string",
+      "description": "Specific suggestions to improve it"
+    },
+    "rewritten_version": {
+      "type": "string",
+      "description": "AI rewrite of the ad"
+    }
+  },
+  "required": [
+    "ad_content"
+  ]
+}

@@ -2,7 +2,7 @@ import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, Link2, Package, Megaphone, 
-  BarChart3, Wallet, X
+  BarChart3, Wallet, X, Zap
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -13,6 +13,7 @@ const navItems = [
   { label: "Campaigns", icon: Megaphone, path: "/campaigns" },
   { label: "Analytics", icon: BarChart3, path: "/analytics" },
   { label: "Payouts", icon: Wallet, path: "/payouts" },
+  { label: "AutoPilot Studio", icon: Zap, path: "/autopilot" },
 ];
 
 export default function Sidebar({ open, onClose }) {
