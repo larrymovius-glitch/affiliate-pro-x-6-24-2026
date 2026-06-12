@@ -1,5 +1,5 @@
 import React from "react";
-import { Zap, Heart } from "lucide-react";
+import { Heart } from "lucide-react";
 
 export default function AuthLayout({ icon: Icon, title, subtitle, footer, children }) {
   return (
@@ -18,8 +18,14 @@ export default function AuthLayout({ icon: Icon, title, subtitle, footer, childr
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-accent mb-4 shadow-lg shadow-primary/30">
-            <Zap className="w-8 h-8 text-white" aria-hidden="true" />
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl mb-4 shadow-2xl shadow-purple-900/60 relative overflow-hidden" style={{ background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 60%, #6d28d9 100%)" }}>
+            {/* Shine overlay */}
+            <div className="absolute inset-0 opacity-30" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.4) 0%, transparent 60%)" }} />
+            {/* Wave decoration */}
+            <div className="absolute bottom-0 left-0 right-0 h-6 opacity-20" style={{ background: "radial-gradient(ellipse at 50% 100%, #a78bfa 0%, transparent 70%)" }} />
+            <span className="relative font-black text-white text-3xl leading-none tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif", textShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>
+              A<span className="text-lg align-super" style={{ fontSize: "0.55em", lineHeight: 1 }}>+</span>
+            </span>
           </div>
           <div className="mb-1">
             <span className="font-display text-2xl font-bold text-foreground tracking-tight">Affiliate Pro</span>
