@@ -37,7 +37,7 @@ export default function TopBar({ onMenuClick }) {
             className="w-8 h-8 object-contain flex-shrink-0"
           />
           <span className="text-xs font-bold" style={{ background: "linear-gradient(90deg, #c084fc, #f59e0b)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            Ask Phil
+            Ask Phil — he'll do the work!
           </span>
         </a>
       </div>
