@@ -51,6 +51,27 @@ export default function Links() {
         earnings: 0,
       });
     },
+    onMutate: async (productId) => {
+      await queryClient.cancelQueries({ queryKey: ["links"] });
+      const previous = queryClient.getQueryData(["links"]);
+      const product = products.find(p => p.id === productId);
+      const optimistic = {
+        id: `optimistic-${Date.now()}`,
+        product_id: productId,
+        product_name: product?.name || "...",
+        destination_url: product?.url || "",
+        short_code: "------",
+        clicks: 0, conversions: 0, earnings: 0,
+        created_date: new Date().toISOString(),
+        _optimistic: true,
+      };
+      queryClient.setQueryData(["links"], old => [optimistic, ...(old || [])]);
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      queryClient.setQueryData(["links"], context.previous);
+      toast.error("Failed to create link");
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["links"] });
       setDialogOpen(false);
@@ -61,7 +82,20 @@ export default function Links() {
 
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.AffiliateLink.delete(id),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["links"] }); toast.success("Link deleted"); },
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["links"] });
+      const previous = queryClient.getQueryData(["links"]);
+      queryClient.setQueryData(["links"], old => (old || []).filter(l => l.id !== id));
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      queryClient.setQueryData(["links"], context.previous);
+      toast.error("Failed to delete link");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["links"] });
+      toast.success("Link deleted");
+    },
   });
 
   const copyLink = (link) => {

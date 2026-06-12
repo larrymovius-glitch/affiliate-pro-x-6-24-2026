@@ -79,16 +79,47 @@ export default function Products() {
 
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.Product.create(data),
+    onMutate: async (data) => {
+      await queryClient.cancelQueries({ queryKey: ["products"] });
+      const previous = queryClient.getQueryData(["products"]);
+      const optimistic = { id: `optimistic-${Date.now()}`, ...data, created_date: new Date().toISOString(), _optimistic: true };
+      queryClient.setQueryData(["products"], old => [optimistic, ...(old || [])]);
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      queryClient.setQueryData(["products"], context.previous);
+      toast.error("Failed to create product");
+    },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["products"] }); setDialogOpen(false); toast.success("Product created"); },
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Product.update(id, data),
+    onMutate: async ({ id, data }) => {
+      await queryClient.cancelQueries({ queryKey: ["products"] });
+      const previous = queryClient.getQueryData(["products"]);
+      queryClient.setQueryData(["products"], old => (old || []).map(p => p.id === id ? { ...p, ...data } : p));
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      queryClient.setQueryData(["products"], context.previous);
+      toast.error("Failed to update product");
+    },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["products"] }); setDialogOpen(false); setEditProduct(null); toast.success("Product updated"); },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.Product.delete(id),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["products"] });
+      const previous = queryClient.getQueryData(["products"]);
+      queryClient.setQueryData(["products"], old => (old || []).filter(p => p.id !== id));
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      queryClient.setQueryData(["products"], context.previous);
+      toast.error("Failed to delete product");
+    },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["products"] }); toast.success("Product deleted"); },
   });
 

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Menu, Bell, LogOut, Trash2 } from "lucide-react";
+import { Menu, Bell, LogOut, Trash2, ChevronLeft } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
 import {
@@ -24,7 +25,10 @@ import { useAuth } from "@/lib/AuthContext";
 
 export default function TopBar({ onMenuClick }) {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const isRoot = location.pathname === "/";
   const initials = user?.full_name 
     ? user.full_name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) 
     : "U";
@@ -44,9 +48,16 @@ export default function TopBar({ onMenuClick }) {
           paddingTop: "env(safe-area-inset-top)",
         }}
       >
-        <Button variant="ghost" size="icon" className="lg:hidden mr-2 h-11 w-11" onClick={onMenuClick} style={{ userSelect: "none" }}>
-          <Menu className="w-5 h-5" />
-        </Button>
+        {/* Mobile: Back button when not on root, Hamburger menu on root */}
+        {!isRoot ? (
+          <Button variant="ghost" size="icon" className="lg:hidden mr-2 h-11 w-11" onClick={() => navigate(-1)} style={{ userSelect: "none" }}>
+            <ChevronLeft className="w-5 h-5" />
+          </Button>
+        ) : (
+          <Button variant="ghost" size="icon" className="lg:hidden mr-2 h-11 w-11" onClick={onMenuClick} style={{ userSelect: "none" }}>
+            <Menu className="w-5 h-5" />
+          </Button>
+        )}
 
         <div className="flex-1 flex items-center">
           <a
