@@ -25,8 +25,13 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-display font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground text-sm mt-1">Your affiliate income overview.</p>
+        <h1
+          className="text-3xl font-display font-extrabold tracking-tight"
+          style={{ background: "linear-gradient(90deg, #e9d5ff, #a78bfa, #f59e0b)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
+        >
+          Dashboard
+        </h1>
+        <p className="text-slate-400 text-sm mt-1">Your affiliate income overview.</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

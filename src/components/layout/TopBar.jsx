@@ -28,14 +28,15 @@ export default function TopBar({ onMenuClick }) {
           href={base44.agents.getWhatsAppConnectURL('phil')}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-colors"
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full transition-all hover:opacity-90"
+          style={{ background: "linear-gradient(90deg, rgba(124,58,237,0.3), rgba(245,158,11,0.2))", border: "1px solid rgba(245,158,11,0.4)", boxShadow: "0 0 12px rgba(245,158,11,0.15)" }}
         >
           <img
             src="https://media.base44.com/images/public/6a2a72a46235784f879b968c/e653cac7b_generated_image.png"
             alt="Phil the assistant"
             className="w-8 h-8 object-contain flex-shrink-0"
           />
-          <span className="text-xs font-medium text-primary">
+          <span className="text-xs font-bold" style={{ background: "linear-gradient(90deg, #c084fc, #f59e0b)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
             Ask Phil
           </span>
         </a>
@@ -50,7 +51,7 @@ export default function TopBar({ onMenuClick }) {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="gap-2 pl-2 pr-3">
               <Avatar className="w-7 h-7">
-                <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
+                <AvatarFallback className="text-white text-xs font-bold" style={{ background: "linear-gradient(135deg, #7c3aed, #f59e0b)" }}>
                   {initials}
                 </AvatarFallback>
               </Avatar>
