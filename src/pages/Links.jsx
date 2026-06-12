@@ -9,10 +9,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Link2, Copy, Trash2, ExternalLink, Search, MousePointerClick } from "lucide-react";
+import { Plus, Link2, Copy, Trash2, ExternalLink, Search, MousePointerClick, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 
 function generateShortCode() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -24,10 +25,12 @@ export default function Links() {
   const [selectedProductId, setSelectedProductId] = useState("");
   const queryClient = useQueryClient();
 
-  const { data: links = [], isLoading } = useQuery({
+  const { data: links = [], isLoading, refetch } = useQuery({
     queryKey: ["links"],
     queryFn: () => base44.entities.AffiliateLink.list("-created_date", 100),
   });
+
+  const { onTouchStart, onTouchMove, onTouchEnd, pullDistance, pulling } = usePullToRefresh(() => refetch());
 
   const { data: products = [] } = useQuery({
     queryKey: ["products"],
@@ -72,7 +75,11 @@ export default function Links() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+      {/* Pull-to-refresh indicator */}
+      <div className="ptr-indicator" style={{ height: pullDistance }}>
+        <RefreshCw className={`w-5 h-5 text-violet-400 transition-transform ${pulling ? "animate-spin" : ""}`} style={{ transform: `rotate(${pullDistance * 2}deg)` }} />
+      </div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-display font-bold tracking-tight">Links</h1>
@@ -80,7 +87,7 @@ export default function Links() {
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2"><Plus className="w-4 h-4" /> Create Link</Button>
+            <Button className="gap-2 h-11" style={{ userSelect: "none" }}><Plus className="w-4 h-4" /> Create Link</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>

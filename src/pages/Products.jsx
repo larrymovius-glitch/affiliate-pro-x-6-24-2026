@@ -8,9 +8,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Package, ExternalLink, Trash2, Pencil, Search } from "lucide-react";
+import { Plus, Package, ExternalLink, Trash2, Pencil, Search, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 
 function ProductForm({ product, onSave, onCancel, saving }) {
   const [form, setForm] = useState({
@@ -69,10 +70,12 @@ export default function Products() {
   const [editProduct, setEditProduct] = useState(null);
   const queryClient = useQueryClient();
 
-  const { data: products = [], isLoading } = useQuery({
+  const { data: products = [], isLoading, refetch } = useQuery({
     queryKey: ["products"],
     queryFn: () => base44.entities.Product.list("-created_date", 100),
   });
+
+  const { onTouchStart, onTouchMove, onTouchEnd, pullDistance, pulling } = usePullToRefresh(() => refetch());
 
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.Product.create(data),
@@ -97,7 +100,11 @@ export default function Products() {
   const filtered = products.filter(p => !search || p.name?.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+      {/* Pull-to-refresh indicator */}
+      <div className="ptr-indicator" style={{ height: pullDistance }}>
+        <RefreshCw className={`w-5 h-5 text-violet-400 transition-transform ${pulling ? "animate-spin" : ""}`} style={{ transform: `rotate(${pullDistance * 2}deg)` }} />
+      </div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-display font-bold tracking-tight">Products</h1>
@@ -105,7 +112,7 @@ export default function Products() {
         </div>
         <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditProduct(null); }}>
           <DialogTrigger asChild>
-            <Button className="gap-2"><Plus className="w-4 h-4" /> Add Product</Button>
+            <Button className="gap-2 h-11" style={{ userSelect: "none" }}><Plus className="w-4 h-4" /> Add Product</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>

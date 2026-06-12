@@ -94,5 +94,34 @@
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
     font-family: var(--font-body);
+    overscroll-behavior: none;
   }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+.page-enter {
+  animation: slideInRight 0.22s ease-out both;
+}
+
+/* Pull-to-refresh spinner */
+.ptr-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: height 0.15s ease;
+}
+
+/* User-select none for interactive nav/button elements */
+button, a, [role="button"] {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
