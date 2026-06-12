@@ -5,6 +5,7 @@ import { MousePointerClick, DollarSign, TrendingUp, Link2 } from "lucide-react";
 import StatCard from "@/components/dashboard/StatCard";
 import PerformanceChart from "@/components/dashboard/PerformanceChart";
 import SmartSuggestions from "@/components/dashboard/SmartSuggestions";
+import VoicePhil from "@/components/dashboard/VoicePhil";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Dashboard() {
@@ -50,6 +51,8 @@ export default function Dashboard() {
       <PerformanceChart data={[]} isLoading={false} />
 
       <SmartSuggestions links={links} posts={posts} />
+
+      <VoicePhil />
     </div>
   );
 }
