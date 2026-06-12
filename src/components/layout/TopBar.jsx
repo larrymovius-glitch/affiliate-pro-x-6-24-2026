@@ -24,16 +24,17 @@ export default function TopBar({ onMenuClick }) {
       </Button>
 
       <div className="flex-1 flex items-center">
-        <p className="text-xs text-muted-foreground hidden md:block">
-          No experience needed —{" "}
-          <button
-            onClick={() => window.open("/agent/phil", "_blank")}
-            className="text-primary font-semibold hover:underline inline-flex items-center gap-1"
-          >
-            <MessageCircle className="w-3 h-3" />
-            any questions, just ask Phil
-          </button>
-        </p>
+        <a
+          href={base44.agents.getWhatsAppConnectURL('phil')}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-colors"
+        >
+          <MessageCircle className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+          <span className="text-xs font-medium text-primary">
+            No experience needed — any questions, just ask Phil
+          </span>
+        </a>
       </div>
 
       <div className="flex items-center gap-2">
