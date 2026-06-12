@@ -18,7 +18,7 @@ export default function TopBar({ onMenuClick }) {
     : "U";
 
   return (
-    <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl border-b border-border h-16 flex items-center px-4 lg:px-6">
+    <header className="sticky top-0 z-30 backdrop-blur-xl h-16 flex items-center px-4 lg:px-6" style={{ background: "rgba(15,12,41,0.85)", borderBottom: "1px solid rgba(167,139,250,0.15)" }}>
       <Button variant="ghost" size="icon" className="lg:hidden mr-2" onClick={onMenuClick}>
         <Menu className="w-5 h-5" />
       </Button>
