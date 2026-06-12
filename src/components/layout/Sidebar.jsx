@@ -2,7 +2,7 @@ import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, Link2, Package, Megaphone, 
-  BarChart3, Wallet, X, Zap
+  BarChart3, Wallet, X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -36,14 +36,16 @@ export default function Sidebar({ open, onClose }) {
         {/* Logo */}
         <div className="flex items-center justify-between p-6 border-b border-sidebar-border">
           <Link to="/" className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-              <Zap className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 shadow-lg shadow-primary/40" style={{ background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)" }}>
+              <div className="w-full h-full flex items-center justify-center">
+                <span className="font-display font-black text-white text-xl leading-none tracking-tight" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.4)" }}>A<sup style={{ fontSize: "0.5em", verticalAlign: "super" }}>+</sup></span>
+              </div>
             </div>
-            <div>
-              <span className="font-display text-lg font-bold text-sidebar-foreground tracking-tight">
-                Affiliate Pro
+            <div className="flex flex-col leading-none">
+              <span className="font-display text-base font-bold text-sidebar-foreground tracking-tight">
+                Affiliate Pro<span className="text-primary ml-0.5">X</span>
               </span>
-              <span className="text-primary font-display font-bold text-lg ml-0.5">X</span>
+              <span className="text-[10px] text-sidebar-foreground/40 tracking-wide mt-0.5">amhere4utoday.com</span>
             </div>
           </Link>
           <button onClick={onClose} className="lg:hidden text-sidebar-foreground/60 hover:text-sidebar-foreground">
