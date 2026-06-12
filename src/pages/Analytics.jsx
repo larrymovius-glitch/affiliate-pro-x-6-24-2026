@@ -1,5 +1,7 @@
 import React from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { RefreshCw } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
@@ -20,6 +22,10 @@ export default function Analytics() {
   });
 
   const isLoading = loadingLinks || loadingPayouts;
+  const queryClient = useQueryClient();
+  const { onTouchStart, onTouchMove, onTouchEnd, pullDistance, pulling } = usePullToRefresh(() =>
+    queryClient.invalidateQueries()
+  );
 
   const totalClicks = links.reduce((sum, l) => sum + (l.clicks || 0), 0);
   const totalEarnings = links.reduce((sum, l) => sum + (l.earnings || 0), 0);
@@ -43,7 +49,10 @@ export default function Analytics() {
     .map(l => ({ name: l.product_name || "Unknown", earnings: l.earnings }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+      <div className="ptr-indicator" style={{ height: pullDistance }}>
+        <RefreshCw className={`w-5 h-5 text-violet-400 transition-transform ${pulling ? "animate-spin" : ""}`} style={{ transform: `rotate(${pullDistance * 2}deg)` }} />
+      </div>
       <div>
         <h1 className="text-2xl font-display font-bold tracking-tight">Analytics</h1>
         <p className="text-muted-foreground text-sm mt-1">Your performance at a glance</p>

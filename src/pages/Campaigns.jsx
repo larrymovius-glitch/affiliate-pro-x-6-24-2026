@@ -8,8 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Megaphone, Pencil, Trash2, Calendar } from "lucide-react";
+import { Plus, Megaphone, Pencil, Trash2, Calendar, RefreshCw } from "lucide-react";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import MobileSelect from "@/components/ui/MobileSelect";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -42,15 +43,18 @@ function CampaignForm({ campaign, onSave, onCancel, saving }) {
       </div>
       <div className="space-y-2">
         <Label>Status</Label>
-        <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="draft">Draft</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="paused">Paused</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-          </SelectContent>
-        </Select>
+        <MobileSelect
+          value={form.status}
+          onValueChange={(v) => setForm({ ...form, status: v })}
+          placeholder="Select status"
+          label="Campaign Status"
+          options={[
+            { value: "draft", label: "Draft" },
+            { value: "active", label: "Active" },
+            { value: "paused", label: "Paused" },
+            { value: "completed", label: "Completed" },
+          ]}
+        />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
@@ -75,10 +79,11 @@ export default function Campaigns() {
   const [editCampaign, setEditCampaign] = useState(null);
   const queryClient = useQueryClient();
 
-  const { data: campaigns = [], isLoading } = useQuery({
+  const { data: campaigns = [], isLoading, refetch } = useQuery({
     queryKey: ["campaigns"],
     queryFn: () => base44.entities.Campaign.list("-created_date", 100),
   });
+  const { onTouchStart, onTouchMove, onTouchEnd, pullDistance, pulling } = usePullToRefresh(() => refetch());
 
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.Campaign.create(data),
@@ -101,7 +106,10 @@ export default function Campaigns() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+      <div className="ptr-indicator" style={{ height: pullDistance }}>
+        <RefreshCw className={`w-5 h-5 text-violet-400 transition-transform ${pulling ? "animate-spin" : ""}`} style={{ transform: `rotate(${pullDistance * 2}deg)` }} />
+      </div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-display font-bold tracking-tight">Campaigns</h1>

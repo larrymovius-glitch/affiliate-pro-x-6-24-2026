@@ -1,14 +1,17 @@
 import React from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { MousePointerClick, DollarSign, TrendingUp, Link2 } from "lucide-react";
+import { MousePointerClick, DollarSign, TrendingUp, Link2, RefreshCw } from "lucide-react";
 import StatCard from "@/components/dashboard/StatCard";
 import PerformanceChart from "@/components/dashboard/PerformanceChart";
 import SmartSuggestions from "@/components/dashboard/SmartSuggestions";
 import VoicePhil from "@/components/dashboard/VoicePhil";
 import { Skeleton } from "@/components/ui/skeleton";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 
 export default function Dashboard() {
+  const queryClient = useQueryClient();
+
   const { data: links = [], isLoading } = useQuery({
     queryKey: ["links"],
     queryFn: () => base44.entities.AffiliateLink.list("-created_date", 100),
@@ -19,12 +22,19 @@ export default function Dashboard() {
     queryFn: () => base44.entities.GeneratedPost.list("-created_date", 50),
   });
 
+  const { onTouchStart, onTouchMove, onTouchEnd, pullDistance, pulling } = usePullToRefresh(() =>
+    queryClient.invalidateQueries()
+  );
+
   const totalClicks = links.reduce((sum, l) => sum + (l.clicks || 0), 0);
   const totalEarnings = links.reduce((sum, l) => sum + (l.earnings || 0), 0);
   const totalConversions = links.reduce((sum, l) => sum + (l.conversions || 0), 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+      <div className="ptr-indicator" style={{ height: pullDistance }}>
+        <RefreshCw className={`w-5 h-5 text-violet-400 transition-transform ${pulling ? "animate-spin" : ""}`} style={{ transform: `rotate(${pullDistance * 2}deg)` }} />
+      </div>
       <div>
         <h1
           className="text-3xl font-display font-extrabold tracking-tight"

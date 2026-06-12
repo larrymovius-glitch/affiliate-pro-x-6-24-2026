@@ -34,6 +34,11 @@ export default function TopBar({ onMenuClick }) {
     : "U";
 
   const handleDeleteAccount = async () => {
+    try {
+      await base44.functions.invoke("deleteAccount", {});
+    } catch (_) {
+      // best-effort data deletion
+    }
     await base44.auth.logout("/");
   };
 

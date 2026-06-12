@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Wallet, DollarSign, ArrowUpRight } from "lucide-react";
+import { Wallet, DollarSign, ArrowUpRight, RefreshCw } from "lucide-react";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import PayoutScheduleCard from "@/components/payouts/PayoutScheduleCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -26,10 +27,11 @@ export default function Payouts() {
   const [amount, setAmount] = useState("");
   const queryClient = useQueryClient();
 
-  const { data: payouts = [], isLoading } = useQuery({
+  const { data: payouts = [], isLoading, refetch } = useQuery({
     queryKey: ["payouts"],
     queryFn: () => base44.entities.Payout.list("-created_date", 100),
   });
+  const { onTouchStart, onTouchMove, onTouchEnd, pullDistance, pulling } = usePullToRefresh(() => refetch());
 
   const requestMutation = useMutation({
     mutationFn: (data) => base44.entities.Payout.create(data),
@@ -40,7 +42,10 @@ export default function Payouts() {
   const totalPending = payouts.filter(p => p.status === "pending" || p.status === "approved").reduce((sum, p) => sum + (p.amount || 0), 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+      <div className="ptr-indicator" style={{ height: pullDistance }}>
+        <RefreshCw className={`w-5 h-5 text-violet-400 transition-transform ${pulling ? "animate-spin" : ""}`} style={{ transform: `rotate(${pullDistance * 2}deg)` }} />
+      </div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-display font-bold tracking-tight">Payouts</h1>
