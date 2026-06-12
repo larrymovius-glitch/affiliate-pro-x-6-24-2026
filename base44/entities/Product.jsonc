@@ -1,0 +1,34 @@
+{
+  "name": "Product",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Product name"
+    },
+    "url": {
+      "type": "string",
+      "description": "Affiliate product URL"
+    },
+    "description": {
+      "type": "string",
+      "description": "Product description"
+    },
+    "commission_rate": {
+      "type": "number",
+      "description": "Commission percentage"
+    },
+    "category": {
+      "type": "string",
+      "description": "Product category"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "Product image URL"
+    }
+  },
+  "required": [
+    "name",
+    "url"
+  ]
+}

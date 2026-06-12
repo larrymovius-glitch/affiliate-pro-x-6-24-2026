@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { campaignsAPI } from "@/lib/api";
+import { base44 } from "@/api/base44Client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,15 +8,24 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Megaphone, Pencil, Trash2, Calendar } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
+const statusColors = {
+  draft: "bg-muted text-muted-foreground",
+  active: "bg-emerald-500/10 text-emerald-600 border-emerald-200",
+  paused: "bg-amber-500/10 text-amber-600 border-amber-200",
+  completed: "bg-primary/10 text-primary border-primary/20",
+};
+
 function CampaignForm({ campaign, onSave, onCancel, saving }) {
   const [form, setForm] = useState({
     name: campaign?.name || "",
     description: campaign?.description || "",
+    status: campaign?.status || "draft",
     start_date: campaign?.start_date || "",
     end_date: campaign?.end_date || "",
   });
@@ -30,6 +39,18 @@ function CampaignForm({ campaign, onSave, onCancel, saving }) {
       <div className="space-y-2">
         <Label>Description</Label>
         <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Campaign details" />
+      </div>
+      <div className="space-y-2">
+        <Label>Status</Label>
+        <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="draft">Draft</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="paused">Paused</SelectItem>
+            <SelectItem value="completed">Completed</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
@@ -54,47 +75,29 @@ export default function Campaigns() {
   const [editCampaign, setEditCampaign] = useState(null);
   const queryClient = useQueryClient();
 
-  const { data: campaigns, isLoading } = useQuery({
+  const { data: campaigns = [], isLoading } = useQuery({
     queryKey: ["campaigns"],
-    queryFn: async () => {
-      const res = await campaignsAPI.list();
-      return res.data?.data || res.data || [];
-    },
+    queryFn: () => base44.entities.Campaign.list("-created_date", 100),
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => campaignsAPI.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
-      setDialogOpen(false);
-      toast.success("Campaign created");
-    },
+    mutationFn: (data) => base44.entities.Campaign.create(data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["campaigns"] }); setDialogOpen(false); toast.success("Campaign created"); },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => campaignsAPI.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
-      setDialogOpen(false);
-      setEditCampaign(null);
-      toast.success("Campaign updated");
-    },
+    mutationFn: ({ id, data }) => base44.entities.Campaign.update(id, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["campaigns"] }); setDialogOpen(false); setEditCampaign(null); toast.success("Campaign updated"); },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => campaignsAPI.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
-      toast.success("Campaign deleted");
-    },
+    mutationFn: (id) => base44.entities.Campaign.delete(id),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["campaigns"] }); toast.success("Campaign deleted"); },
   });
 
   const handleSave = (data) => {
-    if (editCampaign) {
-      updateMutation.mutate({ id: editCampaign.id, data });
-    } else {
-      createMutation.mutate(data);
-    }
+    if (editCampaign) updateMutation.mutate({ id: editCampaign.id, data });
+    else createMutation.mutate(data);
   };
 
   return (
@@ -126,14 +129,14 @@ export default function Campaigns() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-40 rounded-xl" />)}
         </div>
-      ) : (campaigns || []).length === 0 ? (
+      ) : campaigns.length === 0 ? (
         <Card className="p-12 text-center">
           <Megaphone className="w-12 h-12 mx-auto text-muted-foreground/40" />
-          <p className="text-muted-foreground mt-4">No campaigns yet</p>
+          <p className="text-muted-foreground mt-4">No campaigns yet — create your first one</p>
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {(campaigns || []).map((campaign) => (
+          {campaigns.map((campaign) => (
             <Card key={campaign.id} className="hover:shadow-lg transition-shadow">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between gap-2">
@@ -143,9 +146,7 @@ export default function Campaigns() {
                       <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{campaign.description}</p>
                     )}
                   </div>
-                  <Badge variant={campaign.status === "active" ? "default" : "secondary"}>
-                    {campaign.status || "draft"}
-                  </Badge>
+                  <Badge variant="outline" className={statusColors[campaign.status] || ""}>{campaign.status || "draft"}</Badge>
                 </div>
                 {(campaign.start_date || campaign.end_date) && (
                   <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">

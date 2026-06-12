@@ -24,6 +24,7 @@ import Links from '@/pages/Links';
 import Campaigns from '@/pages/Campaigns';
 import Analytics from '@/pages/Analytics';
 import Payouts from '@/pages/Payouts';
+
 import AutoPilot from '@/pages/AutoPilot';
 
 const AuthenticatedApp = () => {

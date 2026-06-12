@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { productsAPI } from "@/lib/api";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { base44 } from "@/api/base44Client";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,7 +24,7 @@ function ProductForm({ product, onSave, onCancel, saving }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave(form);
+    onSave({ ...form, commission_rate: form.commission_rate ? parseFloat(form.commission_rate) : undefined });
   };
 
   return (
@@ -34,7 +34,7 @@ function ProductForm({ product, onSave, onCancel, saving }) {
         <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Product name" required />
       </div>
       <div className="space-y-2">
-        <Label>URL</Label>
+        <Label>Affiliate URL</Label>
         <Input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="https://..." required />
       </div>
       <div className="space-y-2">
@@ -69,52 +69,32 @@ export default function Products() {
   const [editProduct, setEditProduct] = useState(null);
   const queryClient = useQueryClient();
 
-  const { data: products, isLoading } = useQuery({
+  const { data: products = [], isLoading } = useQuery({
     queryKey: ["products"],
-    queryFn: async () => {
-      const res = await productsAPI.list();
-      return res.data?.data || res.data || [];
-    },
+    queryFn: () => base44.entities.Product.list("-created_date", 100),
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => productsAPI.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      setDialogOpen(false);
-      toast.success("Product created");
-    },
+    mutationFn: (data) => base44.entities.Product.create(data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["products"] }); setDialogOpen(false); toast.success("Product created"); },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => productsAPI.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      setDialogOpen(false);
-      setEditProduct(null);
-      toast.success("Product updated");
-    },
+    mutationFn: ({ id, data }) => base44.entities.Product.update(id, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["products"] }); setDialogOpen(false); setEditProduct(null); toast.success("Product updated"); },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => productsAPI.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      toast.success("Product deleted");
-    },
+    mutationFn: (id) => base44.entities.Product.delete(id),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["products"] }); toast.success("Product deleted"); },
   });
 
   const handleSave = (data) => {
-    if (editProduct) {
-      updateMutation.mutate({ id: editProduct.id, data });
-    } else {
-      createMutation.mutate(data);
-    }
+    if (editProduct) updateMutation.mutate({ id: editProduct.id, data });
+    else createMutation.mutate(data);
   };
 
-  const filtered = (products || []).filter(p =>
-    !search || p.name?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = products.filter(p => !search || p.name?.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="space-y-6">
@@ -125,9 +105,7 @@ export default function Products() {
         </div>
         <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditProduct(null); }}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="w-4 h-4" /> Add Product
-            </Button>
+            <Button className="gap-2"><Plus className="w-4 h-4" /> Add Product</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
@@ -145,12 +123,7 @@ export default function Products() {
 
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Search products..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
-        />
+        <Input placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
       </div>
 
       {isLoading ? (
@@ -160,7 +133,7 @@ export default function Products() {
       ) : filtered.length === 0 ? (
         <Card className="p-12 text-center">
           <Package className="w-12 h-12 mx-auto text-muted-foreground/40" />
-          <p className="text-muted-foreground mt-4">No products found</p>
+          <p className="text-muted-foreground mt-4">No products yet — add your first affiliate product</p>
         </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -178,20 +151,14 @@ export default function Products() {
                     {product.category && <Badge variant="secondary" className="mt-1 text-xs">{product.category}</Badge>}
                   </div>
                   {product.commission_rate && (
-                    <Badge className="bg-emerald-500/10 text-emerald-600 border-0 shrink-0">
-                      {product.commission_rate}%
-                    </Badge>
+                    <Badge className="bg-emerald-500/10 text-emerald-600 border-0 shrink-0">{product.commission_rate}%</Badge>
                   )}
                 </div>
-                {product.description && (
-                  <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{product.description}</p>
-                )}
+                {product.description && <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{product.description}</p>}
                 <div className="flex items-center gap-1 mt-3 pt-3 border-t">
                   {product.url && (
                     <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                      <a href={product.url} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
+                      <a href={product.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-3.5 h-3.5" /></a>
                     </Button>
                   )}
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditProduct(product); setDialogOpen(true); }}>

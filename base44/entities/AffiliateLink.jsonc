@@ -1,0 +1,45 @@
+{
+  "name": "AffiliateLink",
+  "type": "object",
+  "properties": {
+    "product_id": {
+      "type": "string",
+      "description": "Reference to Product entity"
+    },
+    "product_name": {
+      "type": "string",
+      "description": "Cached product name"
+    },
+    "destination_url": {
+      "type": "string",
+      "description": "The actual affiliate URL"
+    },
+    "short_code": {
+      "type": "string",
+      "description": "Short identifier for the link"
+    },
+    "campaign_id": {
+      "type": "string",
+      "description": "Optional campaign reference"
+    },
+    "clicks": {
+      "type": "number",
+      "default": 0,
+      "description": "Click count"
+    },
+    "conversions": {
+      "type": "number",
+      "default": 0,
+      "description": "Conversion count"
+    },
+    "earnings": {
+      "type": "number",
+      "default": 0,
+      "description": "Earnings from this link"
+    }
+  },
+  "required": [
+    "product_id",
+    "destination_url"
+  ]
+}

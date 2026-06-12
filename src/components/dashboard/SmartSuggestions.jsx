@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { analyticsAPI, linksAPI, productsAPI } from "@/lib/api";
+// Native Base44 - no external API needed
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -29,33 +29,19 @@ function SuggestionItem({ type = "tip", title, detail }) {
   );
 }
 
-async function fetchSuggestions() {
-  const [overviewRes, linksRes, productsRes] = await Promise.allSettled([
-    analyticsAPI.overview(),
-    linksAPI.list(),
-    productsAPI.list(),
-  ]);
-
-  const overview = overviewRes.status === "fulfilled"
-    ? (overviewRes.value?.data?.data || overviewRes.value?.data || {})
-    : {};
-  const links = linksRes.status === "fulfilled"
-    ? (linksRes.value?.data?.data || linksRes.value?.data || [])
-    : [];
-  const products = productsRes.status === "fulfilled"
-    ? (productsRes.value?.data?.data || productsRes.value?.data || [])
-    : [];
+async function fetchSuggestions({ links = [], posts = [] } = {}) {
+  const totalClicks = links.reduce((s, l) => s + (l.clicks || 0), 0);
+  const totalEarnings = links.reduce((s, l) => s + (l.earnings || 0), 0);
+  const totalConversions = links.reduce((s, l) => s + (l.conversions || 0), 0);
 
   const contextSummary = `
 Affiliate platform analytics summary:
-- Total clicks: ${overview.total_clicks || 0}
-- Total earnings: $${(overview.total_earnings || 0).toFixed(2)}
-- Total conversions: ${overview.total_conversions || 0}
-- Active links: ${overview.active_links || 0}
-- Clicks trend: ${overview.clicks_trend || "N/A"} (${overview.clicks_trend_up ? "up" : "down"})
-- Earnings trend: ${overview.earnings_trend || "N/A"} (${overview.earnings_trend_up ? "up" : "down"})
-- Total products: ${Array.isArray(products) ? products.length : 0}
-- Total links: ${Array.isArray(links) ? links.length : 0}
+- Total clicks: ${totalClicks}
+- Total earnings: $${totalEarnings.toFixed(2)}
+- Total conversions: ${totalConversions}
+- Active links: ${links.length}
+- Generated posts: ${posts.length}
+- Posted content: ${posts.filter(p => p.status === "posted").length}
 `.trim();
 
   const result = await base44.integrations.Core.InvokeLLM({
@@ -90,12 +76,12 @@ Types: "opportunity" (growth wins), "warning" (things to fix), "tip" (best pract
   return result?.suggestions || [];
 }
 
-export default function SmartSuggestions() {
+export default function SmartSuggestions({ links = [], posts = [] }) {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const { data: suggestions, isLoading, isFetching } = useQuery({
-    queryKey: ["smart-suggestions", refreshKey],
-    queryFn: fetchSuggestions,
+    queryKey: ["smart-suggestions", refreshKey, links.length, posts.length],
+    queryFn: () => fetchSuggestions({ links, posts }),
     staleTime: 1000 * 60 * 15, // 15 min cache
     retry: 1,
   });

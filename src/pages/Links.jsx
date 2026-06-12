@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { linksAPI, productsAPI } from "@/lib/api";
+import { base44 } from "@/api/base44Client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,58 +9,65 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Link2, Copy, Trash2, ExternalLink, Search } from "lucide-react";
+import { Plus, Link2, Copy, Trash2, ExternalLink, Search, MousePointerClick } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
+function generateShortCode() {
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
 export default function Links() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [newLink, setNewLink] = useState({ product_id: "", campaign_id: "", custom_alias: "" });
+  const [selectedProductId, setSelectedProductId] = useState("");
   const queryClient = useQueryClient();
 
-  const { data: links, isLoading } = useQuery({
+  const { data: links = [], isLoading } = useQuery({
     queryKey: ["links"],
-    queryFn: async () => {
-      const res = await linksAPI.list();
-      return res.data?.data || res.data || [];
-    },
+    queryFn: () => base44.entities.AffiliateLink.list("-created_date", 100),
   });
 
-  const { data: products } = useQuery({
+  const { data: products = [] } = useQuery({
     queryKey: ["products"],
-    queryFn: async () => {
-      const res = await productsAPI.list();
-      return res.data?.data || res.data || [];
-    },
+    queryFn: () => base44.entities.Product.list("-created_date", 100),
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => linksAPI.create(data),
+    mutationFn: async (productId) => {
+      const product = products.find(p => p.id === productId);
+      if (!product) throw new Error("Product not found");
+      return base44.entities.AffiliateLink.create({
+        product_id: product.id,
+        product_name: product.name,
+        destination_url: product.url,
+        short_code: generateShortCode(),
+        clicks: 0,
+        conversions: 0,
+        earnings: 0,
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["links"] });
       setDialogOpen(false);
-      setNewLink({ product_id: "", campaign_id: "", custom_alias: "" });
-      toast.success("Link created");
+      setSelectedProductId("");
+      toast.success("Link created!");
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => linksAPI.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["links"] });
-      toast.success("Link deleted");
-    },
+    mutationFn: (id) => base44.entities.AffiliateLink.delete(id),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["links"] }); toast.success("Link deleted"); },
   });
 
-  const copyLink = (url) => {
-    navigator.clipboard.writeText(url);
-    toast.success("Link copied to clipboard");
+  const copyLink = (link) => {
+    navigator.clipboard.writeText(link.destination_url);
+    toast.success("Link copied to clipboard!");
   };
 
-  const filtered = (links || []).filter(l =>
-    !search || l.short_code?.toLowerCase().includes(search.toLowerCase()) || 
+  const filtered = links.filter(l =>
+    !search || l.short_code?.toLowerCase().includes(search.toLowerCase()) ||
     l.product_name?.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -81,28 +88,28 @@ export default function Links() {
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Product</Label>
-                <Select value={newLink.product_id} onValueChange={(v) => setNewLink({ ...newLink, product_id: v })}>
-                  <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
+                <Label>Select Product</Label>
+                <Select value={selectedProductId} onValueChange={setSelectedProductId}>
+                  <SelectTrigger><SelectValue placeholder="Choose a product" /></SelectTrigger>
                   <SelectContent>
-                    {(products || []).map(p => (
-                      <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                    {products.map(p => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {products.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No products yet — add a product first.</p>
+                )}
               </div>
-              <div className="space-y-2">
-                <Label>Custom Alias (optional)</Label>
-                <Input
-                  value={newLink.custom_alias}
-                  onChange={(e) => setNewLink({ ...newLink, custom_alias: e.target.value })}
-                  placeholder="my-link"
-                />
-              </div>
+              {selectedProductId && (
+                <div className="p-3 rounded-lg bg-muted text-xs text-muted-foreground">
+                  <p>Destination: <span className="text-foreground font-mono break-all">{products.find(p => p.id === selectedProductId)?.url}</span></p>
+                </div>
+              )}
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-                <Button onClick={() => createMutation.mutate(newLink)} disabled={createMutation.isPending || !newLink.product_id}>
-                  {createMutation.isPending ? "Creating..." : "Create"}
+                <Button onClick={() => createMutation.mutate(selectedProductId)} disabled={createMutation.isPending || !selectedProductId}>
+                  {createMutation.isPending ? "Creating..." : "Create Link"}
                 </Button>
               </div>
             </div>
@@ -122,7 +129,7 @@ export default function Links() {
       ) : filtered.length === 0 ? (
         <Card className="p-12 text-center">
           <Link2 className="w-12 h-12 mx-auto text-muted-foreground/40" />
-          <p className="text-muted-foreground mt-4">No links yet</p>
+          <p className="text-muted-foreground mt-4">No links yet — create one from a product above</p>
         </Card>
       ) : (
         <Card className="overflow-hidden">
@@ -130,9 +137,10 @@ export default function Links() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Link</TableHead>
                   <TableHead>Product</TableHead>
+                  <TableHead>Short Code</TableHead>
                   <TableHead>Clicks</TableHead>
+                  <TableHead>Earnings</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -140,34 +148,32 @@ export default function Links() {
               <TableBody>
                 {filtered.map((link) => (
                   <TableRow key={link.id}>
+                    <TableCell className="font-medium text-sm">{link.product_name || "—"}</TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <code className="text-xs bg-muted px-2 py-1 rounded font-mono">
-                          {link.short_url || link.short_code}
-                        </code>
+                      <code className="text-xs bg-muted px-2 py-1 rounded font-mono">{link.short_code}</code>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <MousePointerClick className="w-3 h-3 text-muted-foreground" />
+                        <Badge variant="secondary">{link.clicks || 0}</Badge>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <span className="font-medium text-sm">{link.product_name || "—"}</span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{link.clicks || 0}</Badge>
+                      <span className="text-emerald-500 font-medium text-sm">${(link.earnings || 0).toFixed(2)}</span>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {link.created_at ? format(new Date(link.created_at), "MMM d, yyyy") : "—"}
+                      {link.created_date ? format(new Date(link.created_date), "MMM d, yyyy") : "—"}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => copyLink(link.short_url || link.short_code)}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => copyLink(link)}>
                           <Copy className="w-3.5 h-3.5" />
                         </Button>
-                        {link.short_url && (
-                          <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                            <a href={link.short_url} target="_blank" rel="noopener noreferrer">
-                              <ExternalLink className="w-3.5 h-3.5" />
-                            </a>
-                          </Button>
-                        )}
+                        <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                          <a href={link.destination_url} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(link.id)}>
                           <Trash2 className="w-3.5 h-3.5" />
                         </Button>

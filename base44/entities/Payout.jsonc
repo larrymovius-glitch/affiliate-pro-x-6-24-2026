@@ -1,0 +1,43 @@
+{
+  "name": "Payout",
+  "type": "object",
+  "properties": {
+    "amount": {
+      "type": "number",
+      "description": "Payout amount in dollars"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "paid",
+        "rejected"
+      ],
+      "default": "pending"
+    },
+    "payment_method": {
+      "type": "string",
+      "enum": [
+        "paypal",
+        "bank_transfer",
+        "check"
+      ],
+      "default": "paypal"
+    },
+    "payment_email": {
+      "type": "string",
+      "description": "PayPal or payment destination"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "paid_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "amount"
+  ]
+}

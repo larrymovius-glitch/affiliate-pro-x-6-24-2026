@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { payoutsAPI } from "@/lib/api";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { base44 } from "@/api/base44Client";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -26,31 +26,18 @@ export default function Payouts() {
   const [amount, setAmount] = useState("");
   const queryClient = useQueryClient();
 
-  const { data: payouts, isLoading } = useQuery({
+  const { data: payouts = [], isLoading } = useQuery({
     queryKey: ["payouts"],
-    queryFn: async () => {
-      const res = await payoutsAPI.list();
-      return res.data?.data || res.data || [];
-    },
+    queryFn: () => base44.entities.Payout.list("-created_date", 100),
   });
 
   const requestMutation = useMutation({
-    mutationFn: (data) => payoutsAPI.request(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["payouts"] });
-      setDialogOpen(false);
-      setAmount("");
-      toast.success("Payout requested");
-    },
+    mutationFn: (data) => base44.entities.Payout.create(data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["payouts"] }); setDialogOpen(false); setAmount(""); toast.success("Payout requested!"); },
   });
 
-  const totalPaid = (payouts || [])
-    .filter(p => p.status === "paid")
-    .reduce((sum, p) => sum + (p.amount || 0), 0);
-
-  const totalPending = (payouts || [])
-    .filter(p => p.status === "pending" || p.status === "approved")
-    .reduce((sum, p) => sum + (p.amount || 0), 0);
+  const totalPaid = payouts.filter(p => p.status === "paid").reduce((sum, p) => sum + (p.amount || 0), 0);
+  const totalPending = payouts.filter(p => p.status === "pending" || p.status === "approved").reduce((sum, p) => sum + (p.amount || 0), 0);
 
   return (
     <div className="space-y-6">
@@ -70,21 +57,11 @@ export default function Payouts() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Amount ($)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="50.00"
-                />
+                <Input type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="50.00" />
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-                <Button
-                  onClick={() => requestMutation.mutate({ amount: parseFloat(amount) })}
-                  disabled={requestMutation.isPending || !amount}
-                >
+                <Button onClick={() => requestMutation.mutate({ amount: parseFloat(amount), status: "pending" })} disabled={requestMutation.isPending || !amount}>
                   {requestMutation.isPending ? "Requesting..." : "Request"}
                 </Button>
               </div>
@@ -93,10 +70,8 @@ export default function Payouts() {
         </Dialog>
       </div>
 
-      {/* Automated Payout Schedule */}
       <PayoutScheduleCard />
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card className="p-5">
           <div className="flex items-center gap-3">
@@ -122,12 +97,9 @@ export default function Payouts() {
         </Card>
       </div>
 
-      {/* Payouts Table */}
       {isLoading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 rounded-xl" />)}
-        </div>
-      ) : (payouts || []).length === 0 ? (
+        <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 rounded-xl" />)}</div>
+      ) : payouts.length === 0 ? (
         <Card className="p-12 text-center">
           <Wallet className="w-12 h-12 mx-auto text-muted-foreground/40" />
           <p className="text-muted-foreground mt-4">No payout requests yet</p>
@@ -145,20 +117,12 @@ export default function Payouts() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(payouts || []).map((payout) => (
+                {payouts.map((payout) => (
                   <TableRow key={payout.id}>
                     <TableCell className="font-semibold font-display">${(payout.amount || 0).toFixed(2)}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={statusStyles[payout.status] || ""}>
-                        {payout.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {payout.created_at ? format(new Date(payout.created_at), "MMM d, yyyy") : "—"}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {payout.paid_at ? format(new Date(payout.paid_at), "MMM d, yyyy") : "—"}
-                    </TableCell>
+                    <TableCell><Badge variant="outline" className={statusStyles[payout.status] || ""}>{payout.status}</Badge></TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{payout.created_date ? format(new Date(payout.created_date), "MMM d, yyyy") : "—"}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{payout.paid_at ? format(new Date(payout.paid_at), "MMM d, yyyy") : "—"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
