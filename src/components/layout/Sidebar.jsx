@@ -36,11 +36,12 @@ export default function Sidebar({ open, onClose }) {
         {/* Logo */}
         <div className="flex items-center justify-between p-6 border-b border-sidebar-border">
           <Link to="/" className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 shadow-lg shadow-primary/40" style={{ background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)" }}>
-              <div className="w-full h-full flex items-center justify-center">
-                <span className="font-display font-black text-white text-xl leading-none tracking-tight" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.4)" }}>A<sup style={{ fontSize: "0.5em", verticalAlign: "super" }}>+</sup></span>
-              </div>
-            </div>
+            <img 
+              src="https://media.base44.com/images/public/6a2a72a46235784f879b968c/f664aa924_Screenshot_20260612_052424_Photos.jpg"
+              alt="AmHere4UToday logo"
+              className="w-10 h-10 rounded-full object-cover flex-shrink-0 shadow-lg"
+              style={{ border: "2px solid rgba(124,58,237,0.5)" }}
+            />
             <div className="flex flex-col leading-none">
               <span className="font-display text-base font-bold text-sidebar-foreground tracking-tight">
                 Affiliate Pro<span className="text-primary ml-0.5">X</span>
