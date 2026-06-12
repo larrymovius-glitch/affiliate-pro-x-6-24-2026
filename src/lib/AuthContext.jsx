@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { appParams } from '@/lib/app-params';
-import { createAxiosClient } from '@base44/sdk/dist/utils/axios-client';
+import axios from 'axios';
 
 const AuthContext = createContext();
 
@@ -25,17 +25,17 @@ export const AuthProvider = ({ children }) => {
       
       // First, check app public settings (with token if available)
       // This will tell us if auth is required, user not registered, etc.
-      const appClient = createAxiosClient({
+      const appClient = axios.create({
         baseURL: `/api/apps/public`,
         headers: {
-          'X-App-Id': appParams.appId
-        },
-        token: appParams.token, // Include token if available
-        interceptResponses: true
+          'X-App-Id': appParams.appId,
+          ...(appParams.token ? { 'Authorization': `Bearer ${appParams.token}` } : {})
+        }
       });
       
       try {
-        const publicSettings = await appClient.get(`/prod/public-settings/by-id/${appParams.appId}`);
+        const resp = await appClient.get(`/prod/public-settings/by-id/${appParams.appId}`);
+        const publicSettings = resp.data;
         setAppPublicSettings(publicSettings);
         
         // If we got the app public settings successfully, check if user is authenticated
@@ -51,8 +51,8 @@ export const AuthProvider = ({ children }) => {
         console.error('App state check failed:', appError);
         
         // Handle app-level errors
-        if (appError.status === 403 && appError.data?.extra_data?.reason) {
-          const reason = appError.data.extra_data.reason;
+        if (appError.response?.status === 403 && appError.response?.data?.extra_data?.reason) {
+          const reason = appError.response.data.extra_data.reason;
           if (reason === 'auth_required') {
             setAuthError({
               type: 'auth_required',

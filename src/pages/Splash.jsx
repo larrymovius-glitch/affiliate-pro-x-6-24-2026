@@ -13,13 +13,11 @@ export default function Splash() {
 
   return (
     <div className="fixed inset-0 bg-[hsl(222,47%,6%)] flex flex-col items-center justify-center">
-      {/* Glow background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px]" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-accent/10 rounded-full blur-[80px]" />
       </div>
 
-      {/* Logo + brand */}
       <div
         className="relative flex flex-col items-center gap-6 transition-all duration-1000"
         style={{ opacity: visible ? 1 : 0, transform: visible ? "translateY(0)" : "translateY(24px)" }}
@@ -35,7 +33,6 @@ export default function Splash() {
           <p className="mt-2 text-lg text-white/50 font-body">Your income. On autopilot.</p>
         </div>
 
-        {/* Gold cursive credit */}
         <div
           className="mt-8 text-center transition-all duration-1000 delay-700"
           style={{ opacity: visible ? 1 : 0 }}
@@ -53,25 +50,19 @@ export default function Splash() {
         </div>
       </div>
 
-      {/* Loading bar */}
       <div
         className="absolute bottom-16 w-48 h-0.5 bg-white/10 rounded-full overflow-hidden transition-all duration-700 delay-300"
         style={{ opacity: visible ? 1 : 0 }}
       >
         <div
           className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
-          style={{
-            animation: "loadBar 3s ease-in-out forwards",
-          }}
+          style={{ animation: "loadBar 3s ease-in-out forwards" }}
         />
       </div>
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&display=swap');
-        @keyframes loadBar {
-          from { width: 0%; }
-          to { width: 100%; }
-        }
+        @keyframes loadBar { from { width: 0%; } to { width: 100%; } }
       `}</style>
     </div>
   );

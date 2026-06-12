@@ -17,7 +17,7 @@ import ResetPassword from '@/pages/ResetPassword';
 import AppLayout from '@/components/layout/AppLayout';
 
 // Pages
-import Splash from '@/pages/Splash';
+import Splash from '@/pages/Splash.jsx';
 import Dashboard from '@/pages/Dashboard';
 import Products from '@/pages/Products';
 import Links from '@/pages/Links';
