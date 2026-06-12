@@ -30,9 +30,13 @@ export default function TopBar({ onMenuClick }) {
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-colors"
         >
-          <MessageCircle className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+          <img
+            src="https://media.base44.com/images/public/6a2a72a46235784f879b968c/e653cac7b_generated_image.png"
+            alt="Phil the assistant"
+            className="w-8 h-8 object-contain flex-shrink-0"
+          />
           <span className="text-xs font-medium text-primary">
-            No experience needed — any questions, just ask Phil
+            No experience needed — any questions, just ask Phil!
           </span>
         </a>
       </div>
