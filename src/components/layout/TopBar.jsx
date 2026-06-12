@@ -36,7 +36,7 @@ export default function TopBar({ onMenuClick }) {
             className="w-8 h-8 object-contain flex-shrink-0"
           />
           <span className="text-xs font-medium text-primary">
-            No experience needed — any questions, just ask Phil!
+            Ask Phil
           </span>
         </a>
       </div>
