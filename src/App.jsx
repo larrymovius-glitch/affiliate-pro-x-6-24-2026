@@ -17,6 +17,7 @@ import ResetPassword from '@/pages/ResetPassword';
 import AppLayout from '@/components/layout/AppLayout';
 
 // Pages
+import Splash from '@/pages/Splash';
 import Dashboard from '@/pages/Dashboard';
 import Products from '@/pages/Products';
 import Links from '@/pages/Links';
@@ -49,8 +50,10 @@ const AuthenticatedApp = () => {
 
   return (
     <Routes>
+      <Route path="/splash" element={<Splash />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
 

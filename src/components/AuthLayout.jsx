@@ -3,7 +3,7 @@ import { Zap, Heart } from "lucide-react";
 
 export default function AuthLayout({ icon: Icon, title, subtitle, footer, children }) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4 py-10">
+    <div className="dark min-h-screen flex flex-col items-center justify-center bg-background px-4 py-10">
       {/* Mission Banner */}
       <div className="w-full max-w-md mb-6">
         <div className="rounded-2xl bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 px-5 py-3 flex items-center gap-3">
