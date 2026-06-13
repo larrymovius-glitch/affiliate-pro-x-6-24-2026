@@ -2,9 +2,10 @@ import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, Link2, Package, Megaphone, 
-  BarChart3, Wallet, X, Zap
+  BarChart3, Wallet, X, Zap, Crown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/AuthContext";
 
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/" },
@@ -18,6 +19,7 @@ const navItems = [
 
 export default function Sidebar({ open, onClose }) {
   const location = useLocation();
+  const { user } = useAuth();
 
   return (
     <>
@@ -84,6 +86,26 @@ export default function Sidebar({ open, onClose }) {
             );
           })}
         </nav>
+
+        {/* Admin link */}
+        {user?.role === "admin" && (
+          <div className="px-3 pb-2">
+            <Link
+              to="/admin"
+              onClick={onClose}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+                location.pathname === "/admin"
+                  ? "text-white shadow-lg"
+                  : "text-yellow-400/70 hover:text-yellow-300 hover:bg-yellow-400/10"
+              )}
+              style={location.pathname === "/admin" ? { background: "linear-gradient(90deg, rgba(245,158,11,0.4), rgba(124,58,237,0.3))", borderLeft: "3px solid #f59e0b" } : {}}
+            >
+              <Crown className="w-4 h-4" />
+              Admin Panel
+            </Link>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="p-4 border-t border-sidebar-border">

@@ -1,0 +1,21 @@
+{
+  "name": "GoogleReviewer",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Reviewer display name"
+    },
+    "email": {
+      "type": "string",
+      "description": "Google account email for Play Store reviewing"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Optional admin notes about this reviewer"
+    }
+  },
+  "required": [
+    "email"
+  ]
+}
