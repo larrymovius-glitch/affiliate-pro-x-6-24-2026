@@ -26,6 +26,7 @@ import Analytics from '@/pages/Analytics';
 import Payouts from '@/pages/Payouts';
 
 import AutoPilot from '@/pages/AutoPilot';
+import PrivacyPolicy from '@/pages/PrivacyPolicy';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -52,6 +53,7 @@ const AuthenticatedApp = () => {
 
   return (
     <Routes>
+      <Route path="/privacy-policy" element={<PrivacyPolicy />} />
       <Route path="/splash" element={<Splash />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
