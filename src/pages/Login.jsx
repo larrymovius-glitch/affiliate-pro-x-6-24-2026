@@ -89,8 +89,8 @@ export default function Login() {
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="pl-10 h-14 text-base rounded-xl text-white placeholder:text-slate-500"
-              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(167,139,250,0.3)" }}
+              className="pl-10 h-14 text-base rounded-xl text-white placeholder:text-slate-400"
+              style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(167,139,250,0.5)", color: "#fff" }}
               required
             />
           </div>
@@ -111,8 +111,8 @@ export default function Login() {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="pl-10 h-14 text-base rounded-xl text-white placeholder:text-slate-500"
-              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(167,139,250,0.3)" }}
+              className="pl-10 h-14 text-base rounded-xl text-white placeholder:text-slate-400"
+              style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(167,139,250,0.5)", color: "#fff" }}
               required
             />
           </div>

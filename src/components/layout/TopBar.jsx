@@ -55,11 +55,11 @@ export default function TopBar({ onMenuClick }) {
       >
         {/* Mobile: Back button when not on root, Hamburger menu on root */}
         {!isRoot ? (
-          <Button variant="ghost" size="icon" className="lg:hidden mr-2 h-11 w-11" onClick={() => navigate(-1)} style={{ userSelect: "none" }}>
+          <Button variant="ghost" size="icon" className="mr-2 h-11 w-11" onClick={() => navigate(-1)} style={{ userSelect: "none" }}>
             <ChevronLeft className="w-5 h-5" />
           </Button>
         ) : (
-          <Button variant="ghost" size="icon" className="lg:hidden mr-2 h-11 w-11" onClick={onMenuClick} style={{ userSelect: "none" }}>
+          <Button variant="ghost" size="icon" className="mr-2 h-11 w-11" onClick={onMenuClick} style={{ userSelect: "none" }}>
             <Menu className="w-5 h-5" />
           </Button>
         )}

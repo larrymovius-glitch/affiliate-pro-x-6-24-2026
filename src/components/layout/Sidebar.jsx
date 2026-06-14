@@ -34,7 +34,6 @@ export default function Sidebar({ open, onClose }) {
       <aside
         className={cn(
           "fixed top-0 left-0 h-full w-64 z-50 flex flex-col transition-transform duration-300 ease-out",
-          "lg:translate-x-0 lg:static lg:z-auto",
           open ? "translate-x-0" : "-translate-x-full"
         )}
         style={{
