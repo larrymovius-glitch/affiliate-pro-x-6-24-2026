@@ -24,6 +24,9 @@ export default function Links() {
   const [cbDialogOpen, setCbDialogOpen] = useState(false);
   const [cbVendor, setCbVendor] = useState("");
   const [cbNickname] = useState("apxalaska");
+  const [jvDialogOpen, setJvDialogOpen] = useState(false);
+  const [jvProductUrl, setJvProductUrl] = useState("");
+  const [jvProductName, setJvProductName] = useState("");
   const [search, setSearch] = useState("");
   const [selectedProductId, setSelectedProductId] = useState("");
   const queryClient = useQueryClient();
@@ -139,6 +142,41 @@ export default function Links() {
     onError: () => toast.error("Failed to add HopLink"),
   });
 
+  const addJvZooMutation = useMutation({
+    mutationFn: async () => {
+      const name = jvProductName.trim() || new URL(jvProductUrl.trim()).hostname;
+      const existing = await base44.entities.Product.filter({ name });
+      let productId;
+      if (existing.length > 0) {
+        productId = existing[0].id;
+      } else {
+        const product = await base44.entities.Product.create({
+          name,
+          url: jvProductUrl.trim(),
+          description: `JVZoo product`,
+          category: "jvzoo",
+        });
+        productId = product.id;
+      }
+      return base44.entities.AffiliateLink.create({
+        product_id: productId,
+        product_name: name,
+        destination_url: jvProductUrl.trim(),
+        short_code: `jv_${name.replace(/\s+/g, "_").toLowerCase().substring(0, 12)}`,
+        clicks: 0, conversions: 0, earnings: 0,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["links"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      setJvDialogOpen(false);
+      setJvProductUrl("");
+      setJvProductName("");
+      toast.success("JVZoo link added!");
+    },
+    onError: () => toast.error("Failed to add JVZoo link"),
+  });
+
   const copyLink = (link) => {
     navigator.clipboard.writeText(link.destination_url);
     toast.success("Link copied to clipboard!");
@@ -193,6 +231,42 @@ export default function Links() {
                   <Button variant="outline" onClick={() => setCbDialogOpen(false)}>Cancel</Button>
                   <Button onClick={() => addClickBankMutation.mutate()} disabled={addClickBankMutation.isPending || !cbVendor.trim()}>
                     {addClickBankMutation.isPending ? "Adding..." : "Add HopLink"}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* JVZoo Link Dialog */}
+          <Dialog open={jvDialogOpen} onOpenChange={setJvDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2 h-11" style={{ userSelect: "none" }}>
+                <ShoppingBag className="w-4 h-4 text-green-400" /> Add JVZoo Link
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="font-display">Add JVZoo Affiliate Link</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">Paste your JVZoo affiliate link URL from the JVZoo marketplace.</p>
+                <div className="space-y-2">
+                  <Label>Product Name</Label>
+                  <Input placeholder="e.g. My JVZoo Product" value={jvProductName} onChange={e => setJvProductName(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Affiliate Link URL</Label>
+                  <Input
+                    placeholder="https://www.jvzoo.com/b/xxxx/xxxx/x"
+                    value={jvProductUrl}
+                    onChange={e => setJvProductUrl(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && jvProductUrl.trim() && addJvZooMutation.mutate()}
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button variant="outline" onClick={() => setJvDialogOpen(false)}>Cancel</Button>
+                  <Button onClick={() => addJvZooMutation.mutate()} disabled={addJvZooMutation.isPending || !jvProductUrl.trim()}>
+                    {addJvZooMutation.isPending ? "Adding..." : "Add Link"}
                   </Button>
                 </div>
               </div>
