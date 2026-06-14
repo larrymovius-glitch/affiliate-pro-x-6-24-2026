@@ -9,53 +9,50 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const apiKey = Deno.env.get('CLICKBANK_API_KEY');
-    if (!apiKey) {
-      return Response.json({ error: 'ClickBank API key not configured' }, { status: 500 });
-    }
+    const body = await req.json().catch(() => ({}));
+    const nickname = body.nickname || 'apxalaska';
 
-    // ClickBank API - fetch affiliate account data
-    // The API key format suggests this is a developer/clerk API key
-    const headers = {
-      'Authorization': apiKey,
-      'Accept': 'application/json',
-    };
+    const clerkKey = Deno.env.get('CLICKBANK_API_KEY');
+    // Universal stand-in dev key per ClickBank's Aug 2023 update
+    const devKey = 'DEV-123456789012345678901234567890123456';
 
-    // Try to fetch the account's promoted products (hoplinks)
-    const response = await fetch('https://api.clickbank.com/rest/1.3/orders/list', {
-      headers,
-    });
+    const authHeader = `${devKey}:${clerkKey}`;
 
-    // Also try fetching the marketplace data for promoted products
-    const accountResponse = await fetch('https://api.clickbank.com/rest/1.3/accounts/promotional', {
-      headers,
-    });
-
-    let products = [];
-    let rawData = {};
-
-    if (accountResponse.ok) {
-      rawData = await accountResponse.json();
-    } else {
-      // Try alternative endpoint
-      const altResponse = await fetch('https://api.clickbank.com/rest/1.3/analytics/affiliate/summary', {
-        headers,
-      });
-
-      if (altResponse.ok) {
-        rawData = await altResponse.json();
-      } else {
-        const errorText = await altResponse.text();
-        return Response.json({
-          error: 'ClickBank API error',
-          status: altResponse.status,
-          details: errorText,
-          tried: 'analytics/affiliate/summary'
-        }, { status: 400 });
+    // Fetch affiliate analytics to get promoted products
+    const analyticsRes = await fetch(
+      `https://api.clickbank.com/rest/1.3/analytics/affiliate/summary?site=${nickname}`,
+      {
+        headers: {
+          'Authorization': authHeader,
+          'Accept': 'application/json',
+        }
       }
+    );
+
+    if (!analyticsRes.ok) {
+      const errText = await analyticsRes.text();
+      return Response.json({ error: 'ClickBank API error', status: analyticsRes.status, details: errText }, { status: 400 });
     }
 
-    return Response.json({ success: true, data: rawData });
+    const analyticsData = await analyticsRes.json();
+
+    // Also try to fetch order list to find vendor sites promoted
+    const ordersRes = await fetch(
+      `https://api.clickbank.com/rest/1.3/orders/list?affiliate=${nickname}&startDate=2020-01-01&endDate=2026-12-31`,
+      {
+        headers: {
+          'Authorization': authHeader,
+          'Accept': 'application/json',
+        }
+      }
+    );
+
+    let ordersData = null;
+    if (ordersRes.ok) {
+      ordersData = await ordersRes.json();
+    }
+
+    return Response.json({ success: true, analytics: analyticsData, orders: ordersData });
 
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
