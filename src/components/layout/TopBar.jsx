@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Menu, Bell, LogOut, Trash2, ChevronLeft } from "lucide-react";
+import { Menu, Bell, LogOut, Trash2, ChevronLeft, MessageCircle } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
@@ -65,10 +65,8 @@ export default function TopBar({ onMenuClick }) {
         )}
 
         <div className="flex-1 flex items-center">
-          <a
-            href={base44.agents.getWhatsAppConnectURL('phil')}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            onClick={() => navigate("/")}
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full transition-all hover:opacity-90"
             style={{ background: "linear-gradient(90deg, rgba(124,58,237,0.3), rgba(245,158,11,0.2))", border: "1px solid rgba(245,158,11,0.4)", boxShadow: "0 0 12px rgba(245,158,11,0.15)", userSelect: "none" }}
           >
@@ -80,7 +78,7 @@ export default function TopBar({ onMenuClick }) {
             <span className="text-xs font-bold hidden sm:inline" style={{ background: "linear-gradient(90deg, #c084fc, #f59e0b)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
               Ask Phil — he'll do the work!
             </span>
-          </a>
+          </button>
         </div>
 
         <div className="flex items-center gap-2">
