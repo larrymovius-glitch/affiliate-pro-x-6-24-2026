@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Users, UserPlus, Trash2, Shield, ShieldOff, Mail,
-  Star, RefreshCw, Settings, Crown, AlertCircle, CheckCircle
+  Star, RefreshCw, Settings, Crown, AlertCircle, CheckCircle, Search, Edit2
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
@@ -30,6 +30,7 @@ export default function Admin() {
   const [inviteRole, setInviteRole] = useState("user");
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteMsg, setInviteMsg] = useState(null);
+  const [userSearch, setUserSearch] = useState("");
 
   const [reviewerEmail, setReviewerEmail] = useState("");
   const [reviewerName, setReviewerName] = useState("");
@@ -39,19 +40,16 @@ export default function Admin() {
 
   const [confirmDelete, setConfirmDelete] = useState(null);
 
-  // Fetch all users
   const { data: users = [], isLoading: loadingUsers, refetch: refetchUsers } = useQuery({
     queryKey: ["admin-users"],
     queryFn: () => base44.entities.User.list(),
   });
 
-  // Fetch Google reviewers
-  const { data: reviewers = [], isLoading: loadingReviewers, refetch: refetchReviewers } = useQuery({
+  const { data: reviewers = [], isLoading: loadingReviewers } = useQuery({
     queryKey: ["admin-reviewers"],
     queryFn: () => base44.entities.GoogleReviewer.list(),
   });
 
-  // Invite user
   const handleInvite = async () => {
     if (!inviteEmail.trim()) return;
     setInviteLoading(true);
@@ -67,13 +65,11 @@ export default function Admin() {
     setInviteLoading(false);
   };
 
-  // Toggle admin role
   const toggleRoleMutation = useMutation({
     mutationFn: ({ id, role }) => base44.entities.User.update(id, { role }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-users"] }),
   });
 
-  // Delete user
   const deleteUserMutation = useMutation({
     mutationFn: (id) => base44.entities.User.delete(id),
     onSuccess: () => {
@@ -82,7 +78,6 @@ export default function Admin() {
     },
   });
 
-  // Save reviewer
   const saveReviewerMutation = useMutation({
     mutationFn: (data) =>
       editReviewer
@@ -92,13 +87,10 @@ export default function Admin() {
       queryClient.invalidateQueries({ queryKey: ["admin-reviewers"] });
       setShowReviewerDialog(false);
       setEditReviewer(null);
-      setReviewerEmail("");
-      setReviewerName("");
-      setReviewerNotes("");
+      setReviewerEmail(""); setReviewerName(""); setReviewerNotes("");
     },
   });
 
-  // Delete reviewer
   const deleteReviewerMutation = useMutation({
     mutationFn: (id) => base44.entities.GoogleReviewer.delete(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-reviewers"] }),
@@ -106,85 +98,109 @@ export default function Admin() {
 
   const openAddReviewer = () => {
     setEditReviewer(null);
-    setReviewerEmail("");
-    setReviewerName("");
-    setReviewerNotes("");
+    setReviewerEmail(""); setReviewerName(""); setReviewerNotes("");
     setShowReviewerDialog(true);
   };
 
   const openEditReviewer = (r) => {
     setEditReviewer(r);
-    setReviewerEmail(r.email || "");
-    setReviewerName(r.name || "");
-    setReviewerNotes(r.notes || "");
+    setReviewerEmail(r.email || ""); setReviewerName(r.name || ""); setReviewerNotes(r.notes || "");
     setShowReviewerDialog(true);
   };
 
-  // Guard: only admins — must be after all hooks
-  if (user && user.role !== "admin") {
-    return <Navigate to="/" replace />;
-  }
+  if (user && user.role !== "admin") return <Navigate to="/" replace />;
 
-  const handleSaveReviewer = () => {
-    saveReviewerMutation.mutate({
-      email: reviewerEmail.trim(),
-      name: reviewerName.trim(),
-      notes: reviewerNotes.trim(),
-    });
-  };
+  const adminCount = users.filter(u => u.role === "admin").length;
+  const filteredUsers = users.filter(u =>
+    !userSearch || u.email?.toLowerCase().includes(userSearch.toLowerCase()) || u.full_name?.toLowerCase().includes(userSearch.toLowerCase())
+  );
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ background: "linear-gradient(135deg, #7c3aed, #f59e0b)" }}>
-          <Crown className="w-5 h-5 text-white" />
+      <div className="flex items-center gap-4">
+        <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
+          style={{ background: "linear-gradient(135deg, #7c3aed, #f59e0b)", boxShadow: "0 0 24px rgba(124,58,237,0.4)" }}>
+          <Crown className="w-6 h-6 text-white" />
         </div>
         <div>
           <h1 className="text-2xl font-bold text-white font-display">Admin Control Panel</h1>
-          <p className="text-sm text-slate-400">Full platform management</p>
+          <p className="text-sm text-slate-400">Manage users, roles, and reviewer accounts</p>
         </div>
       </div>
 
+      {/* Stats Row */}
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          { label: "Total Users", value: users.length, icon: Users, color: "#7c3aed" },
+          { label: "Admins", value: adminCount, icon: Crown, color: "#f59e0b" },
+          { label: "Reviewers", value: reviewers.length, icon: Star, color: "#10b981" },
+        ].map(({ label, value, icon: Icon, color }) => (
+          <Card key={label} className="border-white/10 bg-white/5">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: `${color}22`, border: `1px solid ${color}44` }}>
+                <Icon className="w-5 h-5" style={{ color }} />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-white">{value}</p>
+                <p className="text-xs text-slate-400">{label}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
       <Tabs defaultValue="users">
-        <TabsList className="bg-white/5 border border-white/10">
-          <TabsTrigger value="users" className="data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+        <TabsList className="bg-white/5 border border-white/10 w-full">
+          <TabsTrigger value="users" className="flex-1 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
             <Users className="w-4 h-4 mr-1.5" /> Users
           </TabsTrigger>
-          <TabsTrigger value="invite" className="data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+          <TabsTrigger value="invite" className="flex-1 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
             <UserPlus className="w-4 h-4 mr-1.5" /> Invite
           </TabsTrigger>
-          <TabsTrigger value="reviewers" className="data-[state=active]:bg-violet-600 data-[state=active]:text-white">
-            <Star className="w-4 h-4 mr-1.5" /> Google Reviewers
+          <TabsTrigger value="reviewers" className="flex-1 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+            <Star className="w-4 h-4 mr-1.5" /> Reviewers
           </TabsTrigger>
         </TabsList>
 
         {/* ── USERS TAB ── */}
         <TabsContent value="users" className="mt-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-slate-400">{users.length} total users</p>
-            <Button size="sm" variant="ghost" onClick={() => refetchUsers()}>
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <Input
+                placeholder="Search by name or email…"
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                className="pl-9 bg-white/5 border-white/10 text-white placeholder:text-slate-500"
+              />
+            </div>
+            <Button size="icon" variant="ghost" onClick={() => refetchUsers()} className="flex-shrink-0 text-slate-400 hover:text-white">
               <RefreshCw className="w-4 h-4" />
             </Button>
           </div>
 
           {loadingUsers ? (
             <div className="space-y-2">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-16 rounded-xl bg-white/5 animate-pulse" />
-              ))}
+              {[...Array(4)].map((_, i) => <div key={i} className="h-16 rounded-xl bg-white/5 animate-pulse" />)}
             </div>
+          ) : filteredUsers.length === 0 ? (
+            <Card className="border-white/10 bg-white/5">
+              <CardContent className="py-10 text-center text-slate-400">
+                <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">No users found.</p>
+              </CardContent>
+            </Card>
           ) : (
             <div className="space-y-2">
-              {users.map((u) => (
-                <Card key={u.id} className="border-white/10 bg-white/5">
+              {filteredUsers.map((u) => (
+                <Card key={u.id} className="border-white/10 bg-white/5 hover:bg-white/8 transition-colors">
                   <CardContent className="p-4 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded-full bg-violet-600/30 flex items-center justify-center flex-shrink-0">
-                        <span className="text-sm font-bold text-violet-300">
-                          {(u.full_name || u.email || "?")[0].toUpperCase()}
-                        </span>
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm"
+                        style={{ background: u.role === "admin" ? "linear-gradient(135deg,#7c3aed,#f59e0b)" : "rgba(124,58,237,0.25)", color: "white" }}>
+                        {(u.full_name || u.email || "?")[0].toUpperCase()}
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-white truncate">{u.full_name || "—"}</p>
@@ -195,30 +211,25 @@ export default function Admin() {
                       <Badge className={`text-xs border ${ROLE_COLORS[u.role] || ROLE_COLORS.user}`}>
                         {u.role || "user"}
                       </Badge>
-                      {u.id !== user?.id && (
+                      {u.id !== user?.id ? (
                         <>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 px-2 text-slate-400 hover:text-yellow-400"
+                          <Button size="sm" variant="ghost"
+                            className="h-8 w-8 p-0 text-slate-400 hover:text-yellow-400"
                             title={u.role === "admin" ? "Remove Admin" : "Make Admin"}
                             onClick={() => toggleRoleMutation.mutate({ id: u.id, role: u.role === "admin" ? "user" : "admin" })}
                           >
                             {u.role === "admin" ? <ShieldOff className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 px-2 text-slate-400 hover:text-red-400"
+                          <Button size="sm" variant="ghost"
+                            className="h-8 w-8 p-0 text-slate-400 hover:text-red-400"
                             title="Remove User"
                             onClick={() => setConfirmDelete(u)}
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </>
-                      )}
-                      {u.id === user?.id && (
-                        <span className="text-xs text-slate-500 italic">you</span>
+                      ) : (
+                        <span className="text-xs text-slate-500 italic px-1">you</span>
                       )}
                     </div>
                   </CardContent>
@@ -236,43 +247,53 @@ export default function Admin() {
                 <UserPlus className="w-4 h-4 text-violet-400" /> Invite New User
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-5">
               <div className="space-y-2">
-                <Label className="text-slate-300">Email Address</Label>
-                <Input
-                  placeholder="email@example.com"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  className="bg-white/5 border-white/10 text-white placeholder:text-slate-500"
-                  onKeyDown={(e) => e.key === "Enter" && handleInvite()}
-                />
+                <Label className="text-slate-300 text-sm">Email Address</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <Input
+                    placeholder="email@example.com"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleInvite()}
+                    className="pl-9 bg-white/5 border-white/10 text-white placeholder:text-slate-500"
+                  />
+                </div>
               </div>
               <div className="space-y-2">
-                <Label className="text-slate-300">Role</Label>
-                <div className="flex gap-2">
-                  {["user", "admin"].map((r) => (
+                <Label className="text-slate-300 text-sm">Role</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: "user", label: "Regular User", desc: "Standard platform access", icon: Users },
+                    { value: "admin", label: "Admin", desc: "Full control panel access", icon: Crown },
+                  ].map(({ value, label, desc, icon: Icon }) => (
                     <button
-                      key={r}
-                      onClick={() => setInviteRole(r)}
-                      className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-all ${
-                        inviteRole === r
-                          ? "bg-violet-600 border-violet-500 text-white"
-                          : "bg-white/5 border-white/10 text-slate-400 hover:border-white/20"
+                      key={value}
+                      onClick={() => setInviteRole(value)}
+                      className={`p-3 rounded-xl text-left border transition-all ${
+                        inviteRole === value
+                          ? "border-violet-500 bg-violet-600/20"
+                          : "border-white/10 bg-white/5 hover:border-white/20"
                       }`}
                     >
-                      {r === "admin" ? "Admin" : "Regular User"}
+                      <div className="flex items-center gap-2 mb-1">
+                        <Icon className={`w-4 h-4 ${inviteRole === value ? "text-violet-400" : "text-slate-500"}`} />
+                        <span className={`text-sm font-medium ${inviteRole === value ? "text-white" : "text-slate-400"}`}>{label}</span>
+                      </div>
+                      <p className="text-xs text-slate-500">{desc}</p>
                     </button>
                   ))}
                 </div>
               </div>
 
               {inviteMsg && (
-                <div className={`flex items-center gap-2 text-sm rounded-lg p-3 ${
+                <div className={`flex items-center gap-2 text-sm rounded-xl p-3 ${
                   inviteMsg.type === "success"
                     ? "bg-green-500/10 text-green-400 border border-green-500/20"
                     : "bg-red-500/10 text-red-400 border border-red-500/20"
                 }`}>
-                  {inviteMsg.type === "success" ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                  {inviteMsg.type === "success" ? <CheckCircle className="w-4 h-4 flex-shrink-0" /> : <AlertCircle className="w-4 h-4 flex-shrink-0" />}
                   {inviteMsg.text}
                 </div>
               )}
@@ -280,71 +301,64 @@ export default function Admin() {
               <Button
                 onClick={handleInvite}
                 disabled={inviteLoading || !inviteEmail.trim()}
-                className="w-full"
+                className="w-full h-11 font-semibold"
                 style={{ background: "linear-gradient(90deg, #7c3aed, #f59e0b)" }}
               >
-                {inviteLoading ? "Sending..." : "Send Invitation"}
+                {inviteLoading ? "Sending Invite…" : "Send Invitation"}
               </Button>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* ── GOOGLE REVIEWERS TAB ── */}
+        {/* ── REVIEWERS TAB ── */}
         <TabsContent value="reviewers" className="mt-4 space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-slate-400">{reviewers.length} reviewer accounts</p>
-            <Button
-              size="sm"
-              onClick={openAddReviewer}
-              style={{ background: "linear-gradient(90deg, #7c3aed, #f59e0b)" }}
-            >
-              <UserPlus className="w-4 h-4 mr-1" /> Add Reviewer
+            <p className="text-sm text-slate-400">{reviewers.length} reviewer account{reviewers.length !== 1 ? "s" : ""}</p>
+            <Button size="sm" onClick={openAddReviewer} style={{ background: "linear-gradient(90deg, #7c3aed, #f59e0b)" }}>
+              <UserPlus className="w-4 h-4 mr-1.5" /> Add Reviewer
             </Button>
           </div>
 
           {loadingReviewers ? (
             <div className="space-y-2">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-16 rounded-xl bg-white/5 animate-pulse" />
-              ))}
+              {[...Array(3)].map((_, i) => <div key={i} className="h-16 rounded-xl bg-white/5 animate-pulse" />)}
             </div>
           ) : reviewers.length === 0 ? (
             <Card className="border-white/10 bg-white/5">
-              <CardContent className="py-10 text-center text-slate-400">
-                <Star className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                <p className="text-sm">No Google reviewer accounts added yet.</p>
+              <CardContent className="py-12 text-center">
+                <Star className="w-10 h-10 mx-auto mb-3 text-yellow-500/30" />
+                <p className="text-sm text-slate-400 mb-1">No reviewer accounts yet</p>
+                <p className="text-xs text-slate-500">Add Google accounts for Play Store reviewing</p>
+                <Button size="sm" className="mt-4" onClick={openAddReviewer}
+                  style={{ background: "linear-gradient(90deg, #7c3aed, #f59e0b)" }}>
+                  <UserPlus className="w-4 h-4 mr-1.5" /> Add First Reviewer
+                </Button>
               </CardContent>
             </Card>
           ) : (
             <div className="space-y-2">
               {reviewers.map((r) => (
-                <Card key={r.id} className="border-white/10 bg-white/5">
+                <Card key={r.id} className="border-white/10 bg-white/5 hover:bg-white/8 transition-colors">
                   <CardContent className="p-4 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded-full bg-yellow-500/20 flex items-center justify-center flex-shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-yellow-500/20 border border-yellow-500/30 flex items-center justify-center flex-shrink-0">
                         <Star className="w-4 h-4 text-yellow-400" />
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-white truncate">{r.name || "Unnamed"}</p>
                         <p className="text-xs text-slate-400 truncate">{r.email}</p>
-                        {r.notes && <p className="text-xs text-slate-500 truncate">{r.notes}</p>}
+                        {r.notes && <p className="text-xs text-slate-500 truncate mt-0.5">{r.notes}</p>}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 px-2 text-slate-400 hover:text-violet-400"
-                        onClick={() => openEditReviewer(r)}
-                      >
-                        <Settings className="w-4 h-4" />
+                      <Button size="sm" variant="ghost"
+                        className="h-8 w-8 p-0 text-slate-400 hover:text-violet-400"
+                        onClick={() => openEditReviewer(r)}>
+                        <Edit2 className="w-4 h-4" />
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 px-2 text-slate-400 hover:text-red-400"
-                        onClick={() => deleteReviewerMutation.mutate(r.id)}
-                      >
+                      <Button size="sm" variant="ghost"
+                        className="h-8 w-8 p-0 text-slate-400 hover:text-red-400"
+                        onClick={() => deleteReviewerMutation.mutate(r.id)}>
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
@@ -364,16 +378,18 @@ export default function Admin() {
               <Trash2 className="w-5 h-5" /> Remove User
             </DialogTitle>
           </DialogHeader>
-          <p className="text-slate-300 text-sm">
-            Are you sure you want to remove <strong>{confirmDelete?.email}</strong>? This cannot be undone.
-          </p>
+          <div className="py-2">
+            <p className="text-slate-300 text-sm">
+              Are you sure you want to remove <strong className="text-white">{confirmDelete?.email}</strong>?
+            </p>
+            <p className="text-xs text-slate-500 mt-1">This action cannot be undone.</p>
+          </div>
           <DialogFooter className="gap-2">
-            <Button variant="ghost" onClick={() => setConfirmDelete(null)}>Cancel</Button>
-            <Button
-              variant="destructive"
-              onClick={() => deleteUserMutation.mutate(confirmDelete.id)}
-            >
-              Remove User
+            <Button variant="ghost" className="text-slate-400" onClick={() => setConfirmDelete(null)}>Cancel</Button>
+            <Button variant="destructive"
+              disabled={deleteUserMutation.isPending}
+              onClick={() => deleteUserMutation.mutate(confirmDelete.id)}>
+              {deleteUserMutation.isPending ? "Removing…" : "Remove User"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -388,43 +404,32 @@ export default function Admin() {
               {editReviewer ? "Edit Reviewer" : "Add Google Reviewer"}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <Label className="text-slate-300">Name</Label>
-              <Input
-                placeholder="Reviewer name"
-                value={reviewerName}
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-slate-300 text-sm">Name</Label>
+              <Input placeholder="Reviewer name" value={reviewerName}
                 onChange={(e) => setReviewerName(e.target.value)}
-                className="bg-white/5 border-white/10 text-white placeholder:text-slate-500"
-              />
+                className="bg-white/5 border-white/10 text-white placeholder:text-slate-500" />
             </div>
-            <div className="space-y-1">
-              <Label className="text-slate-300">Google Account Email</Label>
-              <Input
-                placeholder="reviewer@gmail.com"
-                value={reviewerEmail}
+            <div className="space-y-1.5">
+              <Label className="text-slate-300 text-sm">Google Account Email</Label>
+              <Input placeholder="reviewer@gmail.com" value={reviewerEmail}
                 onChange={(e) => setReviewerEmail(e.target.value)}
-                className="bg-white/5 border-white/10 text-white placeholder:text-slate-500"
-              />
+                className="bg-white/5 border-white/10 text-white placeholder:text-slate-500" />
             </div>
-            <div className="space-y-1">
-              <Label className="text-slate-300">Notes (optional)</Label>
-              <Input
-                placeholder="e.g. Primary review account"
-                value={reviewerNotes}
+            <div className="space-y-1.5">
+              <Label className="text-slate-300 text-sm">Notes (optional)</Label>
+              <Input placeholder="e.g. Primary review account" value={reviewerNotes}
                 onChange={(e) => setReviewerNotes(e.target.value)}
-                className="bg-white/5 border-white/10 text-white placeholder:text-slate-500"
-              />
+                className="bg-white/5 border-white/10 text-white placeholder:text-slate-500" />
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="ghost" onClick={() => setShowReviewerDialog(false)}>Cancel</Button>
-            <Button
-              onClick={handleSaveReviewer}
+            <Button variant="ghost" className="text-slate-400" onClick={() => setShowReviewerDialog(false)}>Cancel</Button>
+            <Button onClick={() => saveReviewerMutation.mutate({ email: reviewerEmail.trim(), name: reviewerName.trim(), notes: reviewerNotes.trim() })}
               disabled={!reviewerEmail.trim() || saveReviewerMutation.isPending}
-              style={{ background: "linear-gradient(90deg, #7c3aed, #f59e0b)" }}
-            >
-              {saveReviewerMutation.isPending ? "Saving..." : editReviewer ? "Save Changes" : "Add Reviewer"}
+              style={{ background: "linear-gradient(90deg, #7c3aed, #f59e0b)" }}>
+              {saveReviewerMutation.isPending ? "Saving…" : editReviewer ? "Save Changes" : "Add Reviewer"}
             </Button>
           </DialogFooter>
         </DialogContent>
