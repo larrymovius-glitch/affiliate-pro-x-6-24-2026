@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Link2, Copy, Trash2, ExternalLink, Search, MousePointerClick, RefreshCw } from "lucide-react";
+import { Plus, Link2, Copy, Trash2, ExternalLink, Search, MousePointerClick, RefreshCw, ShoppingBag } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -21,6 +21,9 @@ function generateShortCode() {
 
 export default function Links() {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [cbDialogOpen, setCbDialogOpen] = useState(false);
+  const [cbVendor, setCbVendor] = useState("");
+  const [cbNickname] = useState("apxalaska");
   const [search, setSearch] = useState("");
   const [selectedProductId, setSelectedProductId] = useState("");
   const queryClient = useQueryClient();
@@ -98,6 +101,44 @@ export default function Links() {
     },
   });
 
+  const cbHopLink = cbVendor ? `https://${cbNickname}.${cbVendor.trim().toLowerCase()}.hop.clickbank.net` : "";
+
+  const addClickBankMutation = useMutation({
+    mutationFn: async () => {
+      const vendor = cbVendor.trim().toLowerCase();
+      const hopLink = `https://${cbNickname}.${vendor}.hop.clickbank.net`;
+      // Create product if not exists
+      const existing = await base44.entities.Product.filter({ name: vendor });
+      let productId;
+      if (existing.length > 0) {
+        productId = existing[0].id;
+      } else {
+        const product = await base44.entities.Product.create({
+          name: vendor,
+          url: hopLink,
+          description: `ClickBank product — vendor: ${vendor}`,
+          category: "clickbank",
+        });
+        productId = product.id;
+      }
+      return base44.entities.AffiliateLink.create({
+        product_id: productId,
+        product_name: vendor,
+        destination_url: hopLink,
+        short_code: `cb_${vendor}`,
+        clicks: 0, conversions: 0, earnings: 0,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["links"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      setCbDialogOpen(false);
+      setCbVendor("");
+      toast.success("ClickBank HopLink added!");
+    },
+    onError: () => toast.error("Failed to add HopLink"),
+  });
+
   const copyLink = (link) => {
     navigator.clipboard.writeText(link.destination_url);
     toast.success("Link copied to clipboard!");
@@ -119,43 +160,84 @@ export default function Links() {
           <h1 className="text-2xl font-display font-bold tracking-tight">Links</h1>
           <p className="text-muted-foreground text-sm mt-1">Create and manage your affiliate tracking links</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2 h-11" style={{ userSelect: "none" }}><Plus className="w-4 h-4" /> Create Link</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle className="font-display">Create New Link</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Select Product</Label>
-                <Select value={selectedProductId} onValueChange={setSelectedProductId}>
-                  <SelectTrigger><SelectValue placeholder="Choose a product" /></SelectTrigger>
-                  <SelectContent>
-                    {products.map(p => (
-                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {products.length === 0 && (
-                  <p className="text-xs text-muted-foreground">No products yet — add a product first.</p>
-                )}
-              </div>
-              {selectedProductId && (
-                <div className="p-3 rounded-lg bg-muted text-xs text-muted-foreground">
-                  <p>Destination: <span className="text-foreground font-mono break-all">{products.find(p => p.id === selectedProductId)?.url}</span></p>
+        <div className="flex gap-2 flex-wrap">
+          {/* ClickBank HopLink Dialog */}
+          <Dialog open={cbDialogOpen} onOpenChange={setCbDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2 h-11" style={{ userSelect: "none" }}>
+                <ShoppingBag className="w-4 h-4 text-orange-400" /> Add ClickBank Link
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="font-display">Add ClickBank HopLink</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">Enter the <strong>vendor nickname</strong> found in the ClickBank Marketplace product URL.</p>
+                <div className="space-y-2">
+                  <Label>Vendor Nickname</Label>
+                  <Input
+                    placeholder="e.g. vendorname"
+                    value={cbVendor}
+                    onChange={e => setCbVendor(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && cbVendor.trim() && addClickBankMutation.mutate()}
+                  />
                 </div>
-              )}
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-                <Button onClick={() => createMutation.mutate(selectedProductId)} disabled={createMutation.isPending || !selectedProductId}>
-                  {createMutation.isPending ? "Creating..." : "Create Link"}
-                </Button>
+                {cbVendor.trim() && (
+                  <div className="p-3 rounded-lg bg-muted text-xs">
+                    <p className="text-muted-foreground">Your HopLink will be:</p>
+                    <p className="font-mono text-foreground break-all mt-1">{cbHopLink}</p>
+                  </div>
+                )}
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button variant="outline" onClick={() => setCbDialogOpen(false)}>Cancel</Button>
+                  <Button onClick={() => addClickBankMutation.mutate()} disabled={addClickBankMutation.isPending || !cbVendor.trim()}>
+                    {addClickBankMutation.isPending ? "Adding..." : "Add HopLink"}
+                  </Button>
+                </div>
               </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+
+          {/* Standard create link dialog */}
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2 h-11" style={{ userSelect: "none" }}><Plus className="w-4 h-4" /> Create Link</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="font-display">Create New Link</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Select Product</Label>
+                  <Select value={selectedProductId} onValueChange={setSelectedProductId}>
+                    <SelectTrigger><SelectValue placeholder="Choose a product" /></SelectTrigger>
+                    <SelectContent>
+                      {products.map(p => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {products.length === 0 && (
+                    <p className="text-xs text-muted-foreground">No products yet — add a product first.</p>
+                  )}
+                </div>
+                {selectedProductId && (
+                  <div className="p-3 rounded-lg bg-muted text-xs text-muted-foreground">
+                    <p>Destination: <span className="text-foreground font-mono break-all">{products.find(p => p.id === selectedProductId)?.url}</span></p>
+                  </div>
+                )}
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+                  <Button onClick={() => createMutation.mutate(selectedProductId)} disabled={createMutation.isPending || !selectedProductId}>
+                    {createMutation.isPending ? "Creating..." : "Create Link"}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="relative max-w-sm">
