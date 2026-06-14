@@ -13,14 +13,12 @@ Deno.serve(async (req) => {
     const nickname = body.nickname || 'apxalaska';
 
     const clerkKey = Deno.env.get('CLICKBANK_API_KEY');
-    // Universal stand-in dev key per ClickBank's Aug 2023 update
     const devKey = 'DEV-123456789012345678901234567890123456';
-
     const authHeader = `${devKey}:${clerkKey}`;
 
-    // Fetch affiliate analytics to get promoted products
-    const analyticsRes = await fetch(
-      `https://api.clickbank.com/rest/1.3/analytics/affiliate/summary?site=${nickname}`,
+    // First check API status
+    const statusRes = await fetch(
+      `https://api.clickbank.com/rest/1.3/analytics/status`,
       {
         headers: {
           'Authorization': authHeader,
@@ -28,17 +26,14 @@ Deno.serve(async (req) => {
         }
       }
     );
+    const statusText = await statusRes.text();
 
-    if (!analyticsRes.ok) {
-      const errText = await analyticsRes.text();
-      return Response.json({ error: 'ClickBank API error', status: analyticsRes.status, details: errText }, { status: 400 });
-    }
+    // Try the orders list endpoint to find promoted vendors
+    const endDate = new Date().toISOString().split('T')[0];
+    const startDate = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-    const analyticsData = await analyticsRes.json();
-
-    // Also try to fetch order list to find vendor sites promoted
     const ordersRes = await fetch(
-      `https://api.clickbank.com/rest/1.3/orders/list?affiliate=${nickname}&startDate=2020-01-01&endDate=2026-12-31`,
+      `https://api.clickbank.com/rest/1.3/orders/list?affiliate=${nickname}&startDate=${startDate}&endDate=${endDate}`,
       {
         headers: {
           'Authorization': authHeader,
@@ -46,13 +41,34 @@ Deno.serve(async (req) => {
         }
       }
     );
+    const ordersStatus = ordersRes.status;
+    const ordersText = await ordersRes.text();
 
-    let ordersData = null;
-    if (ordersRes.ok) {
-      ordersData = await ordersRes.json();
-    }
+    // Try analytics by site dimension
+    const params = new URLSearchParams({
+      account: nickname,
+      startDate,
+      endDate,
+    });
 
-    return Response.json({ success: true, analytics: analyticsData, orders: ordersData });
+    const analyticsRes = await fetch(
+      `https://api.clickbank.com/rest/1.3/analytics/affiliate/site?${params}`,
+      {
+        headers: {
+          'Authorization': authHeader,
+          'Accept': 'application/json',
+        }
+      }
+    );
+    const analyticsStatus = analyticsRes.status;
+    const analyticsText = await analyticsRes.text();
+
+    return Response.json({
+      debug: true,
+      statusCheck: { status: statusRes.status, body: statusText },
+      orders: { status: ordersStatus, body: ordersText.substring(0, 500) },
+      analytics: { status: analyticsStatus, body: analyticsText.substring(0, 500) },
+    });
 
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
