@@ -53,6 +53,8 @@ export default function PostLibrary() {
           <video
             src="https://media.base44.com/videos/public/6a2a72a46235784f879b968c/80cff228d_Untitled-June072026at042635.mp4"
             controls
+            playsInline
+            preload="none"
             className="w-full rounded-lg"
             style={{ maxHeight: "400px" }}
           />
