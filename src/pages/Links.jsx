@@ -144,7 +144,7 @@ export default function Links() {
 
   const addJvZooMutation = useMutation({
     mutationFn: async () => {
-      const name = jvProductName.trim() || new URL(jvProductUrl.trim()).hostname;
+      const name = jvProductName.trim();
       const existing = await base44.entities.Product.filter({ name });
       let productId;
       if (existing.length > 0) {
@@ -203,7 +203,7 @@ export default function Links() {
           <Dialog open={cbDialogOpen} onOpenChange={setCbDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" className="gap-2 h-11" style={{ userSelect: "none" }}>
-                <ShoppingBag className="w-4 h-4 text-orange-400" /> Add ClickBank Link
+                <ShoppingBag className="w-4 h-4 text-orange-400" /> ClickBank
               </Button>
             </DialogTrigger>
             <DialogContent>
@@ -241,7 +241,7 @@ export default function Links() {
           <Dialog open={jvDialogOpen} onOpenChange={setJvDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" className="gap-2 h-11" style={{ userSelect: "none" }}>
-                <ShoppingBag className="w-4 h-4 text-green-400" /> Add JVZoo Link
+                <ShoppingBag className="w-4 h-4 text-green-400" /> JVZoo
               </Button>
             </DialogTrigger>
             <DialogContent>
@@ -249,23 +249,22 @@ export default function Links() {
                 <DialogTitle className="font-display">Add JVZoo Affiliate Link</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">Paste your JVZoo affiliate link URL from the JVZoo marketplace.</p>
+                <p className="text-sm text-muted-foreground">Paste your JVZoo affiliate link URL and give it a name.</p>
                 <div className="space-y-2">
-                  <Label>Product Name</Label>
-                  <Input placeholder="e.g. My JVZoo Product" value={jvProductName} onChange={e => setJvProductName(e.target.value)} />
+                  <Label>Product Name <span className="text-muted-foreground">(required)</span></Label>
+                  <Input placeholder="e.g. Video Suite Pro" value={jvProductName} onChange={e => setJvProductName(e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Affiliate Link URL</Label>
+                  <Label>Affiliate Link URL <span className="text-muted-foreground">(required)</span></Label>
                   <Input
                     placeholder="https://www.jvzoo.com/b/xxxx/xxxx/x"
                     value={jvProductUrl}
                     onChange={e => setJvProductUrl(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && jvProductUrl.trim() && addJvZooMutation.mutate()}
                   />
                 </div>
                 <div className="flex justify-end gap-2 pt-2">
                   <Button variant="outline" onClick={() => setJvDialogOpen(false)}>Cancel</Button>
-                  <Button onClick={() => addJvZooMutation.mutate()} disabled={addJvZooMutation.isPending || !jvProductUrl.trim()}>
+                  <Button onClick={() => addJvZooMutation.mutate()} disabled={addJvZooMutation.isPending || !jvProductUrl.trim() || !jvProductName.trim()}>
                     {addJvZooMutation.isPending ? "Adding..." : "Add Link"}
                   </Button>
                 </div>
@@ -273,39 +272,40 @@ export default function Links() {
             </DialogContent>
           </Dialog>
 
-          {/* Standard create link dialog */}
+          {/* Any Link Dialog */}
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="gap-2 h-11" style={{ userSelect: "none" }}><Plus className="w-4 h-4" /> Create Link</Button>
+              <Button className="gap-2 h-11" style={{ userSelect: "none" }}><Plus className="w-4 h-4" /> Add Any Link</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle className="font-display">Create New Link</DialogTitle>
+                <DialogTitle className="font-display">Add Affiliate Link</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">Works with Warrior Plus, Digistore24, or any affiliate network — just paste the URL.</p>
                 <div className="space-y-2">
-                  <Label>Select Product</Label>
-                  <Select value={selectedProductId} onValueChange={setSelectedProductId}>
-                    <SelectTrigger><SelectValue placeholder="Choose a product" /></SelectTrigger>
-                    <SelectContent>
-                      {products.map(p => (
-                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {products.length === 0 && (
-                    <p className="text-xs text-muted-foreground">No products yet — add a product first.</p>
-                  )}
+                  <Label>Product / Link Name <span className="text-muted-foreground">(required)</span></Label>
+                  <Input
+                    placeholder="e.g. Warrior Plus Offer"
+                    value={jvProductName}
+                    onChange={e => setJvProductName(e.target.value)}
+                  />
                 </div>
-                {selectedProductId && (
-                  <div className="p-3 rounded-lg bg-muted text-xs text-muted-foreground">
-                    <p>Destination: <span className="text-foreground font-mono break-all">{products.find(p => p.id === selectedProductId)?.url}</span></p>
-                  </div>
-                )}
+                <div className="space-y-2">
+                  <Label>Affiliate URL <span className="text-muted-foreground">(required)</span></Label>
+                  <Input
+                    placeholder="https://..."
+                    value={jvProductUrl}
+                    onChange={e => setJvProductUrl(e.target.value)}
+                  />
+                </div>
                 <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-                  <Button onClick={() => createMutation.mutate(selectedProductId)} disabled={createMutation.isPending || !selectedProductId}>
-                    {createMutation.isPending ? "Creating..." : "Create Link"}
+                  <Button variant="outline" onClick={() => { setDialogOpen(false); setJvProductName(""); setJvProductUrl(""); }}>Cancel</Button>
+                  <Button
+                    onClick={() => addJvZooMutation.mutate()}
+                    disabled={addJvZooMutation.isPending || !jvProductUrl.trim() || !jvProductName.trim()}
+                  >
+                    {addJvZooMutation.isPending ? "Adding..." : "Add Link"}
                   </Button>
                 </div>
               </div>
