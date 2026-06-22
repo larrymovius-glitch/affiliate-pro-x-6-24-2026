@@ -23,7 +23,7 @@ export default function Links() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [cbDialogOpen, setCbDialogOpen] = useState(false);
   const [cbVendor, setCbVendor] = useState("");
-  const [cbNickname] = useState("apxalaska");
+  const [cbNickname] = useState("amxalaska");
   const [jvDialogOpen, setJvDialogOpen] = useState(false);
   const [jvProductUrl, setJvProductUrl] = useState("");
   const [jvProductName, setJvProductName] = useState("");
