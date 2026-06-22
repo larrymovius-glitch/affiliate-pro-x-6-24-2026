@@ -237,41 +237,6 @@ export default function Links() {
             </DialogContent>
           </Dialog>
 
-          {/* JVZoo Link Dialog */}
-          <Dialog open={jvDialogOpen} onOpenChange={setJvDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="gap-2 h-11" style={{ userSelect: "none" }}>
-                <ShoppingBag className="w-4 h-4 text-green-400" /> JVZoo
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle className="font-display">Add JVZoo Affiliate Link</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">Paste your JVZoo affiliate link URL and give it a name.</p>
-                <div className="space-y-2">
-                  <Label>Product Name <span className="text-muted-foreground">(required)</span></Label>
-                  <Input placeholder="e.g. Video Suite Pro" value={jvProductName} onChange={e => setJvProductName(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Affiliate Link URL <span className="text-muted-foreground">(required)</span></Label>
-                  <Input
-                    placeholder="https://www.jvzoo.com/b/xxxx/xxxx/x"
-                    value={jvProductUrl}
-                    onChange={e => setJvProductUrl(e.target.value)}
-                  />
-                </div>
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="outline" onClick={() => setJvDialogOpen(false)}>Cancel</Button>
-                  <Button onClick={() => addJvZooMutation.mutate()} disabled={addJvZooMutation.isPending || !jvProductUrl.trim() || !jvProductName.trim()}>
-                    {addJvZooMutation.isPending ? "Adding..." : "Add Link"}
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-
           {/* Any Link Dialog */}
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
