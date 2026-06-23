@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Mic, MicOff, Loader2, Volume2, Send } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 
-const ATLAS_AVATAR = "https://media.base44.com/images/public/6a2a72a46235784f879b968c/a6cbd43e5_generated_image.png";
-const MAYA_AVATAR = "https://media.base44.com/images/public/6a2a72a46235784f879b968c/c0640056e_generated_image.png";
+const ATLAS_DEFAULT = "https://media.base44.com/images/public/6a2a72a46235784f879b968c/a6cbd43e5_generated_image.png";
+const MAYA_DEFAULT = "https://media.base44.com/images/public/6a2a72a46235784f879b968c/c0640056e_generated_image.png";
 
 export default function VoiceAtlas({ onClose } = {}) {
   const [listening, setListening] = useState(false);
@@ -17,9 +18,17 @@ export default function VoiceAtlas({ onClose } = {}) {
   const [textInput, setTextInput] = useState("");
   const [activeTab, setActiveTab] = useState("text");
   const [selectedAssistant, setSelectedAssistant] = useState("maya"); // "atlas" | "maya"
-  const currentAvatar = selectedAssistant === "atlas" ? ATLAS_AVATAR : MAYA_AVATAR;
   const currentName = selectedAssistant === "atlas" ? "Atlas" : "Maya";
   const currentAgentName = selectedAssistant === "atlas" ? "atlas" : "maya";
+
+  const { data: avatars = [] } = useQuery({
+    queryKey: ["assistant-avatars"],
+    queryFn: () => base44.entities.AssistantAvatar.list(),
+  });
+
+  const mayaAvatar = avatars.find(a => a.assistant === "maya");
+  const atlasAvatar = avatars.find(a => a.assistant === "atlas");
+  const currentAvatar = selectedAssistant === "atlas" ? (atlasAvatar?.image_url || ATLAS_DEFAULT) : (mayaAvatar?.image_url || MAYA_DEFAULT);
   const [quickActions, setQuickActions] = useState([
     { label: "💰 My Earnings", command: "Show my total earnings" },
     { label: "🔥 What's Trending", command: "What products are trending right now?" },

@@ -1,0 +1,27 @@
+{
+  "name": "AssistantAvatar",
+  "type": "object",
+  "properties": {
+    "assistant": {
+      "type": "string",
+      "enum": [
+        "maya",
+        "atlas"
+      ],
+      "description": "Which AI assistant this avatar belongs to"
+    },
+    "file_url": {
+      "type": "string",
+      "description": "URL of the uploaded avatar image"
+    },
+    "uploaded_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the avatar was uploaded"
+    }
+  },
+  "required": [
+    "assistant",
+    "file_url"
+  ]
+}

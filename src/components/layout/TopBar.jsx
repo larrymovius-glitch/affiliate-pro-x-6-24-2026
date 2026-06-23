@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Menu, Bell, LogOut, Trash2, ChevronLeft, MessageCircle } from "lucide-react";
 import VoiceAtlasModal from "@/components/dashboard/VoiceAtlasModal";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -34,6 +35,13 @@ export default function TopBar({ onMenuClick }) {
   const initials = user?.full_name 
     ? user.full_name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) 
     : "U";
+
+  const { data: avatars = [] } = useQuery({
+    queryKey: ["assistant-avatars"],
+    queryFn: () => base44.entities.AssistantAvatar.list(),
+  });
+  const mayaAvatar = avatars.find(a => a.assistant === "maya");
+  const displayAvatar = mayaAvatar?.image_url || "https://media.base44.com/images/public/6a2a72a46235784f879b968c/c0640056e_generated_image.png";
 
   const handleDeleteAccount = async () => {
     try {
@@ -74,7 +82,7 @@ export default function TopBar({ onMenuClick }) {
           >
             <div style={{ width: 32, height: 32, borderRadius: "50%", overflow: "hidden", background: "transparent", flexShrink: 0 }}>
               <img
-                src="https://media.base44.com/images/public/6a2a72a46235784f879b968c/c0640056e_generated_image.png"
+                src={displayAvatar}
                 alt="Maya the assistant"
                 style={{ width: "100%", height: "100%", objectFit: "cover", mixBlendMode: "screen" }}
               />

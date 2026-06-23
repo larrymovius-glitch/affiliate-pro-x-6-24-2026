@@ -10,12 +10,13 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Users, UserPlus, Trash2, Shield, ShieldOff, Mail,
-  Star, RefreshCw, Settings, Crown, AlertCircle, CheckCircle, Search, Edit2, ShoppingBag, Link2, Medal
+  Star, RefreshCw, Settings, Crown, AlertCircle, CheckCircle, Search, Edit2, ShoppingBag, Link2, Medal, Image
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import AvatarUploader from "@/components/admin/AvatarUploader";
 
 const ROLE_COLORS = {
   admin: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
@@ -198,6 +199,9 @@ export default function Admin() {
           </TabsTrigger>
           <TabsTrigger value="ebay" className="flex-1 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
             <ShoppingBag className="w-4 h-4 mr-1.5" /> eBay
+          </TabsTrigger>
+          <TabsTrigger value="avatars" className="flex-1 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+            <Image className="w-4 h-4 mr-1.5" /> Avatars
           </TabsTrigger>
         </TabsList>
 
@@ -420,6 +424,15 @@ export default function Admin() {
             </div>
           )}
         </TabsContent>
+        {/* ── AVATARS TAB ── */}
+        <TabsContent value="avatars" className="mt-4">
+          <Card className="border-white/10 bg-white/5">
+            <CardContent className="p-6">
+              <AvatarUploader />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* ── EBAY TAB ── */}
         <TabsContent value="ebay" className="mt-4 space-y-4">
           <Card className="border-white/10 bg-white/5">
