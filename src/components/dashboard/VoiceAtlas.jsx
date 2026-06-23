@@ -87,79 +87,62 @@ export default function VoiceAtlas({ onClose } = {}) {
     if (!text.trim()) return;
     setLoading(true);
     setReply("");
+
     try {
+      // Create conversation if needed
       if (!conversationRef.current) {
-        try {
-          const newConvo = await base44.agents.createConversation({
-            agent_name: currentAgentName,
-            metadata: { name: "Voice Session" },
-          });
-          conversationRef.current = newConvo;
-          setConversationId(newConvo.id);
-        } catch (createErr) {
-          console.error("Failed to create conversation:", createErr);
-          setReply("Having trouble connecting. Please try again!");
-          setLoading(false);
-          return;
-        }
-      }
-      
-      // Add user message
-      let updated;
-      try {
-        updated = await base44.agents.addMessage(conversationRef.current, {
-          role: "user",
-          content: text,
-        });
-        conversationRef.current = updated;
-      } catch (addErr) {
-        console.error("Failed to add message:", addErr);
-        // Conversation was deleted - create new one
-        conversationRef.current = null;
-        setConversationId(null);
         const newConvo = await base44.agents.createConversation({
           agent_name: currentAgentName,
           metadata: { name: "Voice Session" },
         });
         conversationRef.current = newConvo;
         setConversationId(newConvo.id);
-        updated = await base44.agents.addMessage(conversationRef.current, {
-          role: "user",
-          content: text,
-        });
       }
-      
-      // Subscribe to get the streaming response
-      const unsubscribe = base44.agents.subscribeToConversation(conversationRef.current.id, (data) => {
-        const messages = data.messages || [];
-        const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
-        if (lastAssistant?.content) {
-          setReply(lastAssistant.content);
-        }
-      });
-      
-      // Wait a bit for response, then cleanup
-      await new Promise(resolve => setTimeout(resolve, 500));
-      unsubscribe();
-      
-      // Get final response
+
+      // Add user message — recreate convo if it was deleted
       try {
-        const finalConvo = await base44.agents.getConversation(conversationRef.current.id);
-        const messages = finalConvo?.messages || [];
-        const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
-        const replyText = lastAssistant?.content || "Sorry, I didn't catch that!";
-        setReply(replyText);
-        speakReply(replyText);
-      } catch (convErr) {
-        console.error("Failed to get conversation:", convErr);
-        // If conversation is invalid, create a new one
-        conversationRef.current = null;
-        setConversationId(null);
-        setReply("Let's start fresh! What can I help you with?");
-        speakReply("Let's start fresh! What can I help you with?");
+        const updated = await base44.agents.addMessage(conversationRef.current, { role: "user", content: text });
+        conversationRef.current = updated;
+      } catch {
+        const newConvo = await base44.agents.createConversation({
+          agent_name: currentAgentName,
+          metadata: { name: "Voice Session" },
+        });
+        conversationRef.current = newConvo;
+        setConversationId(newConvo.id);
+        const updated = await base44.agents.addMessage(conversationRef.current, { role: "user", content: text });
+        conversationRef.current = updated;
       }
+
+      // Wait for streaming response via subscription (up to 30s)
+      await new Promise((resolve) => {
+        let lastContent = "";
+        let stableTimer = null;
+
+        const unsubscribe = base44.agents.subscribeToConversation(conversationRef.current.id, (data) => {
+          const messages = data.messages || [];
+          const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+          const content = lastAssistant?.content || "";
+          if (content) {
+            setReply(content);
+            // If content stopped changing for 1.5s, consider it done
+            if (content !== lastContent) {
+              lastContent = content;
+              if (stableTimer) clearTimeout(stableTimer);
+              stableTimer = setTimeout(() => { unsubscribe(); resolve(); }, 1500);
+            }
+          }
+        });
+
+        // Hard timeout at 30s
+        setTimeout(() => { unsubscribe(); resolve(); }, 30000);
+      });
+
+      // Speak whatever reply we have
+      setReply(prev => { speakReply(prev); return prev; });
+
     } catch (err) {
-      console.error("Atlas error:", err);
+      console.error("Assistant error:", err);
       setReply("Oops! Something went wrong. Try again.");
     } finally {
       setLoading(false);
