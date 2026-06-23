@@ -73,8 +73,8 @@
   "telegram_greeting": "Hi there! I'm Atlas \ud83d\udc99 Let's build your affiliate income together! I'm here to help every step of the way.",
   "model": "gemini_3_flash",
   "voice_settings": {
-    "voice": "river",
-    "speed": 0.9,
+    "voice": "storm",
+    "speed": 1.0,
     "pitch": 1.0
   },
   "name": "atlas"
