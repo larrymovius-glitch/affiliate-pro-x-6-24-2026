@@ -96,12 +96,16 @@ export default function VoiceAtlas({ onClose } = {}) {
     return newConvo;
   }, []);
 
+  // Create a fresh conversation on mount
+  useEffect(() => {
+    createFreshConversation(currentAgentName);
+  }, []);
+
   // Reset conversation whenever the selected assistant changes
   useEffect(() => {
     if (activeAgentRef.current !== currentAgentName) {
       activeAgentRef.current = currentAgentName;
-      conversationRef.current = null;
-      setConversationId(null);
+      createFreshConversation(currentAgentName);
     }
   }, [currentAgentName]);
 
@@ -116,15 +120,20 @@ export default function VoiceAtlas({ onClose } = {}) {
         await createFreshConversation(currentAgentName);
       }
 
-      // Add user message — always retry with a fresh conversation on any error
+      // Add user message — retry with a fresh conversation on any error
       let updated;
-      try {
-        updated = await base44.agents.addMessage(conversationRef.current, { role: "user", content: text });
-      } catch (e) {
-        // Conversation gone (deleted/expired) — force a brand new one and retry
-        conversationRef.current = null;
-        await createFreshConversation(currentAgentName);
-        updated = await base44.agents.addMessage(conversationRef.current, { role: "user", content: text });
+      let attempts = 0;
+      while (attempts < 3) {
+        try {
+          updated = await base44.agents.addMessage(conversationRef.current, { role: "user", content: text });
+          break;
+        } catch (e) {
+          attempts++;
+          if (attempts >= 3) throw e;
+          // Conversation gone (deleted/expired/invalid id) — force a brand new one and retry
+          conversationRef.current = null;
+          await createFreshConversation(currentAgentName);
+        }
       }
       conversationRef.current = updated;
 
@@ -137,8 +146,8 @@ export default function VoiceAtlas({ onClose } = {}) {
 
         try {
           unsubscribe = base44.agents.subscribeToConversation(convoId, (data) => {
-            // If the subscription returns an error object, reset and bail
-            if (data?.error || data?.status === 404) {
+            // If the subscription returns an error object or 404, reset and bail
+            if (data?.error || data?.status === 404 || data?.message?.includes?.("not found") || data?.message?.includes?.("Invalid id")) {
               conversationRef.current = null;
               unsubscribe();
               resolve();
