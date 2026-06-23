@@ -74,8 +74,8 @@ export default function TopBar({ onMenuClick }) {
           >
             <div style={{ width: 32, height: 32, borderRadius: "50%", overflow: "hidden", background: "transparent", flexShrink: 0 }}>
               <img
-                src="https://media.base44.com/images/public/6a2a72a46235784f879b968c/e653cac7b_generated_image.png"
-                alt="Atlas the assistant"
+                src="https://media.base44.com/images/public/6a2a72a46235784f879b968c/c0640056e_generated_image.png"
+                alt="Maya the assistant"
                 style={{ width: "100%", height: "100%", objectFit: "cover", mixBlendMode: "screen" }}
               />
             </div>
