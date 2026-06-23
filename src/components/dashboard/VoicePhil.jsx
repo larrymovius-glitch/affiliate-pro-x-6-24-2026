@@ -33,8 +33,9 @@ export default function VoicePhil({ onClose } = {}) {
     if (!text) return;
     synthRef.current.cancel();
     const utter = new SpeechSynthesisUtterance(text);
-    utter.rate = 1.05;
-    utter.pitch = 1.1;
+    utter.rate = 0.9;
+    utter.pitch = 1.0;
+    utter.volume = 1.0;
     utter.onstart = () => setSpeaking(true);
     utter.onend = () => setSpeaking(false);
     utter.onerror = () => setSpeaking(false);
