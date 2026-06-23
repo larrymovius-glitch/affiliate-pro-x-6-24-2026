@@ -78,7 +78,7 @@ export default function Products() {
 
   const { data: products = [], isLoading, refetch } = useQuery({
     queryKey: ["products"],
-    queryFn: () => base44.entities.Product.list("-created_date", 500),
+    queryFn: () => base44.entities.Product.list("-created_date"),
   });
 
   const { onTouchStart, onTouchMove, onTouchEnd, pullDistance, pulling } = usePullToRefresh(() => refetch());
