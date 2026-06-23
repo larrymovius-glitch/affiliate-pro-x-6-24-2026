@@ -83,42 +83,37 @@ export default function VoiceAtlas({ onClose } = {}) {
     synthRef.current.speak(utter);
   }, [selectedAssistant]);
 
+  const createFreshConversation = useCallback(async (agentName) => {
+    const newConvo = await base44.agents.createConversation({
+      agent_name: agentName,
+      metadata: { name: "Voice Session" },
+    });
+    conversationRef.current = newConvo;
+    setConversationId(newConvo.id);
+    return newConvo;
+  }, []);
+
   const sendToAtlas = useCallback(async (text) => {
     if (!text.trim()) return;
     setLoading(true);
     setReply("");
 
     try {
-      // Create conversation if needed
+      // Ensure we have a valid conversation
       if (!conversationRef.current) {
-        const newConvo = await base44.agents.createConversation({
-          agent_name: currentAgentName,
-          metadata: { name: "Voice Session" },
-        });
-        conversationRef.current = newConvo;
-        setConversationId(newConvo.id);
+        await createFreshConversation(currentAgentName);
       }
 
-      // Add user message — recreate convo if it was deleted/not found
-      const addMessageSafe = async () => {
-        try {
-          const updated = await base44.agents.addMessage(conversationRef.current, { role: "user", content: text });
-          conversationRef.current = updated;
-        } catch {
-          // Conversation gone — start fresh
-          conversationRef.current = null;
-          setConversationId(null);
-          const newConvo = await base44.agents.createConversation({
-            agent_name: currentAgentName,
-            metadata: { name: "Voice Session" },
-          });
-          conversationRef.current = newConvo;
-          setConversationId(newConvo.id);
-          const updated = await base44.agents.addMessage(conversationRef.current, { role: "user", content: text });
-          conversationRef.current = updated;
-        }
-      };
-      await addMessageSafe();
+      // Add user message — always retry with a fresh conversation on any error
+      let updated;
+      try {
+        updated = await base44.agents.addMessage(conversationRef.current, { role: "user", content: text });
+      } catch {
+        // Conversation gone (deleted/expired) — create a new one and retry once
+        await createFreshConversation(currentAgentName);
+        updated = await base44.agents.addMessage(conversationRef.current, { role: "user", content: text });
+      }
+      conversationRef.current = updated;
 
       // Wait for streaming response via subscription (up to 30s)
       const convoId = conversationRef.current.id;
@@ -154,7 +149,7 @@ export default function VoiceAtlas({ onClose } = {}) {
     } finally {
       setLoading(false);
     }
-  }, [speakReply, currentAgentName]);
+  }, [speakReply, currentAgentName, createFreshConversation]);
 
   const startListening = useCallback(() => {
     if (!supported) return;
