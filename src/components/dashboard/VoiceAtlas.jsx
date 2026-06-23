@@ -28,7 +28,7 @@ export default function VoiceAtlas({ onClose } = {}) {
 
   const mayaAvatar = avatars.find(a => a.assistant === "maya");
   const atlasAvatar = avatars.find(a => a.assistant === "atlas");
-  const currentAvatar = selectedAssistant === "atlas" ? (atlasAvatar?.image_url || ATLAS_DEFAULT) : (mayaAvatar?.image_url || MAYA_DEFAULT);
+  const currentAvatar = selectedAssistant === "atlas" ? (atlasAvatar?.file_url || ATLAS_DEFAULT) : (mayaAvatar?.file_url || MAYA_DEFAULT);
   const [quickActions, setQuickActions] = useState([
     { label: "💰 My Earnings", command: "Show my total earnings" },
     { label: "🔥 What's Trending", command: "What products are trending right now?" },
@@ -47,14 +47,20 @@ export default function VoiceAtlas({ onClose } = {}) {
     if (!text) return;
     synthRef.current.cancel();
     const utter = new SpeechSynthesisUtterance(text);
-    utter.rate = 1.0;
-    utter.pitch = 1.0;
+    // Use agent-specific voice settings
+    if (selectedAssistant === "atlas") {
+      utter.rate = 1.0;
+      utter.pitch = 1.0;
+    } else {
+      utter.rate = 0.85;
+      utter.pitch = 1.1;
+    }
     utter.volume = 1.0;
     utter.onstart = () => setSpeaking(true);
     utter.onend = () => setSpeaking(false);
     utter.onerror = () => setSpeaking(false);
     synthRef.current.speak(utter);
-  }, []);
+  }, [selectedAssistant]);
 
   const sendToAtlas = useCallback(async (text) => {
     if (!text.trim()) return;
@@ -69,17 +75,36 @@ export default function VoiceAtlas({ onClose } = {}) {
         conversationRef.current = newConvo;
         setConversationId(newConvo.id);
       }
+      
+      // Add user message
       const updated = await base44.agents.addMessage(conversationRef.current, {
         role: "user",
         content: text,
       });
       conversationRef.current = updated;
-      const messages = updated?.messages || [];
+      
+      // Subscribe to get the streaming response
+      const unsubscribe = base44.agents.subscribeToConversation(conversationRef.current.id, (data) => {
+        const messages = data.messages || [];
+        const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+        if (lastAssistant?.content) {
+          setReply(lastAssistant.content);
+        }
+      });
+      
+      // Wait a bit for response, then cleanup
+      await new Promise(resolve => setTimeout(resolve, 500));
+      unsubscribe();
+      
+      // Get final response
+      const finalConvo = await base44.agents.getConversation(conversationRef.current.id);
+      const messages = finalConvo?.messages || [];
       const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
       const replyText = lastAssistant?.content || "Sorry, I didn't catch that!";
       setReply(replyText);
       speakReply(replyText);
-    } catch {
+    } catch (err) {
+      console.error("Atlas error:", err);
       setReply("Oops! Something went wrong. Try again.");
     } finally {
       setLoading(false);

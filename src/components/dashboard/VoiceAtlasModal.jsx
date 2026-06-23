@@ -78,7 +78,7 @@ export default function VoiceAtlasModal({ open, onClose }) {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 18 }}>☰</span>
           <span style={{ color: "#fff", fontWeight: 700, fontSize: 15, letterSpacing: 0.3 }}>
-            Atlas — AI Assistant
+            AI Assistant
           </span>
         </div>
         <button

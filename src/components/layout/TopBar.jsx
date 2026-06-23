@@ -41,7 +41,7 @@ export default function TopBar({ onMenuClick }) {
     queryFn: () => base44.entities.AssistantAvatar.list(),
   });
   const mayaAvatar = avatars.find(a => a.assistant === "maya");
-  const displayAvatar = mayaAvatar?.image_url || "https://media.base44.com/images/public/6a2a72a46235784f879b968c/c0640056e_generated_image.png";
+  const displayAvatar = mayaAvatar?.file_url || "https://media.base44.com/images/public/6a2a72a46235784f879b968c/c0640056e_generated_image.png";
 
   const handleDeleteAccount = async () => {
     try {
