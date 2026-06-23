@@ -25,6 +25,19 @@
     "veteran_notes": {
       "type": "string",
       "description": "Admin notes about veteran status"
+    },
+    "stripeAccountId": {
+      "type": "string",
+      "description": "User's Stripe account ID for commission payouts (starts with acct_)"
+    },
+    "paymentEmail": {
+      "type": "string",
+      "description": "Email address for payment notifications"
+    },
+    "payoutReady": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether user has complete payment info"
     }
   },
   "required": [

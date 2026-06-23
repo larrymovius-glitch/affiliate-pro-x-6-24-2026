@@ -26,6 +26,7 @@ import Analytics from '@/pages/Analytics';
 import Payouts from '@/pages/Payouts';
 
 import AutoPilot from '@/pages/AutoPilot';
+import SocialConnect from '@/pages/SocialConnect';
 import PrivacyPolicy from '@/pages/PrivacyPolicy';
 import TermsOfService from '@/pages/TermsOfService';
 import Admin from '@/pages/Admin';
@@ -74,6 +75,7 @@ const AuthenticatedApp = () => {
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/payouts" element={<Payouts />} />
           <Route path="/autopilot" element={<AutoPilot />} />
+          <Route path="/social" element={<SocialConnect />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/pricing" element={<Pricing />} />
         </Route>
