@@ -106,41 +106,49 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
       if (!mountedRef.current) return;
       conversationRef.current = updated;
 
-      // Subscribe for streaming response
+      // Poll for the assistant's response
       const convoId = conversationRef.current.id;
       await new Promise((resolve) => {
+        let done = false;
         let lastContent = "";
-        let stableTimer = null;
-        let unsubscribeFn = null;
+        let stableCount = 0;
+        let intervalId = null;
+        let timeoutId = null;
 
-        const cleanup = () => {
-          if (unsubscribeFn) { unsubscribeFn(); unsubscribeFn = null; }
+        const finish = () => {
+          if (done) return;
+          done = true;
           activeUnsubscribeRef.current = null;
-          if (stableTimer) clearTimeout(stableTimer);
+          if (intervalId) clearInterval(intervalId);
+          if (timeoutId) clearTimeout(timeoutId);
           resolve();
         };
 
-        // Register cleanup so unmount can abort it immediately
-        activeUnsubscribeRef.current = cleanup;
+        activeUnsubscribeRef.current = finish;
 
-        try {
-          unsubscribeFn = base44.agents.subscribeToConversation(convoId, (data) => {
-            if (!mountedRef.current) { cleanup(); return; }
-            if (data?.error || data?.status === 404) { cleanup(); return; }
-            const messages = data.messages || [];
+        const poll = async () => {
+          if (done || !mountedRef.current) { finish(); return; }
+          try {
+            const convo = await base44.agents.getConversation(convoId);
+            if (done || !mountedRef.current) { finish(); return; }
+            const messages = convo.messages || [];
             const lastAssistant = [...messages].reverse().find(m => m.role === "assistant");
             const content = lastAssistant?.content || "";
-            if (content && content !== lastContent) {
-              lastContent = content;
+            if (content) {
               if (mountedRef.current) setReply(content);
-              if (stableTimer) clearTimeout(stableTimer);
-              stableTimer = setTimeout(cleanup, 800);
+              if (content === lastContent) {
+                stableCount++;
+                if (stableCount >= 2) { finish(); return; } // stable for 2 polls = done
+              } else {
+                stableCount = 0;
+                lastContent = content;
+              }
             }
-          });
-        } catch {
-          cleanup();
-        }
-        setTimeout(cleanup, 30000);
+          } catch { /* ignore poll errors */ }
+        };
+
+        intervalId = setInterval(poll, 1000);
+        timeoutId = setTimeout(finish, 30000);
       });
 
       if (!mountedRef.current) return;
