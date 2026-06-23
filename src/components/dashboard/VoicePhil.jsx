@@ -3,6 +3,7 @@ import { Mic, MicOff, Loader2, Volume2, Send } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 
 const PHIL_AVATAR = "https://media.base44.com/images/public/6a2a72a46235784f879b968c/e653cac7b_generated_image.png";
+const MAYA_AVATAR = "https://media.base44.com/images/public/6a2a72a46235784f879b968c/c0640056e_generated_image.png";
 
 export default function VoicePhil({ onClose } = {}) {
   const [listening, setListening] = useState(false);
@@ -14,7 +15,11 @@ export default function VoicePhil({ onClose } = {}) {
   const conversationRef = useRef(null);
   const [pulse, setPulse] = useState(false);
   const [textInput, setTextInput] = useState("");
-  const [activeTab, setActiveTab] = useState("text"); // "text" | "voice"
+  const [activeTab, setActiveTab] = useState("text");
+  const [selectedAssistant, setSelectedAssistant] = useState("phil"); // "phil" | "maya"
+  const currentAvatar = selectedAssistant === "phil" ? PHIL_AVATAR : MAYA_AVATAR;
+  const currentName = selectedAssistant === "phil" ? "Phil" : "Maya";
+  const currentAgentName = selectedAssistant === "phil" ? "phil" : "maya";
   const [quickActions, setQuickActions] = useState([
     { label: "💰 My Earnings", command: "Show my total earnings" },
     { label: "🔥 What's Trending", command: "What products are trending right now?" },
@@ -49,7 +54,7 @@ export default function VoicePhil({ onClose } = {}) {
     try {
       if (!conversationRef.current) {
         const newConvo = await base44.agents.createConversation({
-          agent_name: "phil",
+          agent_name: currentAgentName,
           metadata: { name: "Voice Session" },
         });
         conversationRef.current = newConvo;
@@ -59,7 +64,6 @@ export default function VoicePhil({ onClose } = {}) {
         role: "user",
         content: text,
       });
-      // Get the latest assistant message
       conversationRef.current = updated;
       const messages = updated?.messages || [];
       const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
@@ -71,7 +75,7 @@ export default function VoicePhil({ onClose } = {}) {
     } finally {
       setLoading(false);
     }
-  }, [speakReply]);
+  }, [speakReply, currentAgentName]);
 
   const startListening = useCallback(() => {
     if (!supported) return;
@@ -127,12 +131,52 @@ export default function VoicePhil({ onClose } = {}) {
         border: "none",
       }}
     >
-      {/* Phil avatar + status bar */}
+      {/* Assistant selector */}
+      <div className="flex items-center gap-2 px-5 py-3 border-b border-violet-500/20">
+        <button
+          onClick={() => {
+            setSelectedAssistant("phil");
+            conversationRef.current = null;
+            setTranscript("");
+            setReply("");
+          }}
+          className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
+            selectedAssistant === "phil" ? "scale-105" : "opacity-60 hover:opacity-80"
+          }`}
+          style={{
+            background: selectedAssistant === "phil" ? "linear-gradient(135deg, rgba(124,58,237,0.3), rgba(245,158,11,0.2))" : "rgba(255,255,255,0.05)",
+            border: selectedAssistant === "phil" ? "2px solid rgba(124,58,237,0.5)" : "1px solid rgba(255,255,255,0.1)",
+            color: "#e2e8f0",
+          }}
+        >
+          👨 Phil
+        </button>
+        <button
+          onClick={() => {
+            setSelectedAssistant("maya");
+            conversationRef.current = null;
+            setTranscript("");
+            setReply("");
+          }}
+          className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
+            selectedAssistant === "maya" ? "scale-105" : "opacity-60 hover:opacity-80"
+          }`}
+          style={{
+            background: selectedAssistant === "maya" ? "linear-gradient(135deg, rgba(236,72,153,0.3), rgba(168,85,247,0.2))" : "rgba(255,255,255,0.05)",
+            border: selectedAssistant === "maya" ? "2px solid rgba(236,72,153,0.5)" : "1px solid rgba(255,255,255,0.1)",
+            color: "#e2e8f0",
+          }}
+        >
+          👩 Maya
+        </button>
+      </div>
+
+      {/* Assistant avatar + status bar */}
       <div className="flex items-center gap-4 px-5 py-4 border-b border-violet-500/20">
-        <img src={PHIL_AVATAR} alt="Phil" className="w-14 h-14 object-contain flex-shrink-0" style={{ filter: "drop-shadow(0 0 10px rgba(192,132,252,0.6))" }} />
+        <img src={currentAvatar} alt={currentName} className="w-14 h-14 object-contain flex-shrink-0" style={{ filter: "drop-shadow(0 0 10px rgba(192,132,252,0.6))" }} />
         <div className="flex-1">
-          <p className="text-lg font-extrabold" style={{ background: "linear-gradient(90deg, #c084fc, #f59e0b)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            Phil — Your AI Guide
+          <p className="text-lg font-extrabold" style={{ background: selectedAssistant === "phil" ? "linear-gradient(90deg, #c084fc, #f59e0b)" : "linear-gradient(90deg, #ec4899, #a855f7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+            {currentName} — Your AI Guide
           </p>
           <p className="text-sm font-medium" style={{ color: listening ? "#34d399" : speaking ? "#f59e0b" : loading ? "#a78bfa" : "#94a3b8" }}>
             {listening ? "🎙 Listening…" : speaking ? "🔊 Speaking…" : loading ? "⏳ Thinking…" : "✅ Ready to help"}
@@ -194,15 +238,15 @@ export default function VoicePhil({ onClose } = {}) {
         {loading && (
           <div className="flex items-center gap-3 text-violet-400">
             <Loader2 className="w-5 h-5 animate-spin" />
-            <span className="text-base font-medium">Phil is thinking…</span>
+            <span className="text-base font-medium">{currentName} is thinking…</span>
           </div>
         )}
 
         {reply && !loading && (
           <div className="w-full rounded-xl px-4 py-4" style={{ background: "linear-gradient(135deg, rgba(124,58,237,0.18), rgba(245,158,11,0.1))", border: "1px solid rgba(167,139,250,0.3)" }}>
             <div className="flex items-center gap-3 mb-2">
-              <img src={PHIL_AVATAR} alt="Phil" className="w-8 h-8 object-contain" />
-              <p className="text-sm font-bold text-violet-300">Phil says:</p>
+              <img src={currentAvatar} alt={currentName} className="w-8 h-8 object-contain" />
+              <p className="text-sm font-bold" style={{ color: selectedAssistant === "phil" ? "#c084fc" : "#ec4899" }}>{currentName} says:</p>
               {speaking && (
                 <button onClick={stopSpeaking} className="ml-auto" style={{ userSelect: "none" }}>
                   <Volume2 className="w-5 h-5 text-amber-400 animate-pulse" />
@@ -221,7 +265,7 @@ export default function VoicePhil({ onClose } = {}) {
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleTextSend()}
-              placeholder="Ask Phil anything…"
+              placeholder={`Ask ${currentName} anything…`}
               disabled={loading}
               className="flex-1 rounded-xl px-4 py-3 text-base text-white placeholder:text-slate-500 outline-none disabled:opacity-50"
               style={{ background: "rgba(255,255,255,0.09)", border: "1px solid rgba(167,139,250,0.35)", fontSize: 16 }}
