@@ -96,17 +96,10 @@ export default function VoiceAtlas({ onClose } = {}) {
     return newConvo;
   }, []);
 
-  // Create a fresh conversation on mount
+  // Create a fresh conversation whenever the agent changes (and on mount)
   useEffect(() => {
+    activeAgentRef.current = currentAgentName;
     createFreshConversation(currentAgentName);
-  }, []);
-
-  // Reset conversation whenever the selected assistant changes
-  useEffect(() => {
-    if (activeAgentRef.current !== currentAgentName) {
-      activeAgentRef.current = currentAgentName;
-      createFreshConversation(currentAgentName);
-    }
   }, [currentAgentName]);
 
   const sendToAtlas = useCallback(async (text) => {
@@ -303,8 +296,6 @@ export default function VoiceAtlas({ onClose } = {}) {
         <button
           onClick={() => {
             setSelectedAssistant("atlas");
-            conversationRef.current = null;
-            setConversationId(null);
             setTranscript("");
             setReply("");
             setSpeaking(false);
@@ -323,8 +314,6 @@ export default function VoiceAtlas({ onClose } = {}) {
         <button
           onClick={() => {
             setSelectedAssistant("maya");
-            conversationRef.current = null;
-            setConversationId(null);
             setTranscript("");
             setReply("");
             setSpeaking(false);
