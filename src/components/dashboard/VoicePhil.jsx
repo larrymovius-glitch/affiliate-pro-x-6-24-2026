@@ -15,6 +15,12 @@ export default function VoicePhil({ onClose } = {}) {
   const [pulse, setPulse] = useState(false);
   const [textInput, setTextInput] = useState("");
   const [activeTab, setActiveTab] = useState("text"); // "text" | "voice"
+  const [quickActions, setQuickActions] = useState([
+    { label: "💰 My Earnings", command: "Show my total earnings" },
+    { label: "🔥 What's Trending", command: "What products are trending right now?" },
+    { label: "📝 Generate Posts", command: "Generate social media posts from trending products" },
+    { label: "🛍️ Connect eBay", command: "How do I connect my eBay account?" },
+  ]);
 
   const recognitionRef = useRef(null);
   const synthRef = useRef(window.speechSynthesis);
@@ -147,6 +153,29 @@ export default function VoicePhil({ onClose } = {}) {
             }}
           >
             {tab === "text" ? "💬 Type" : "🎤 Voice"}
+          </button>
+        ))}
+      </div>
+
+      {/* Quick Actions for Vets (Accessibility) */}
+      <div className="grid grid-cols-2 gap-2">
+        {quickActions.map((action, idx) => (
+          <button
+            key={idx}
+            onClick={() => {
+              setTranscript(action.command);
+              sendToPhil(action.command);
+            }}
+            disabled={loading}
+            className="p-3 rounded-xl text-sm font-bold transition-all active:scale-95 disabled:opacity-50"
+            style={{
+              background: "linear-gradient(135deg, rgba(124,58,237,0.2), rgba(245,158,11,0.15))",
+              border: "1px solid rgba(167,139,250,0.3)",
+              color: "#e2e8f0",
+              userSelect: "none",
+            }}
+          >
+            {action.label}
           </button>
         ))}
       </div>
