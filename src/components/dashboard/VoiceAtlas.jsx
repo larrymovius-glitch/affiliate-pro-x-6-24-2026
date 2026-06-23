@@ -161,17 +161,12 @@ export default function VoiceAtlas({ onClose } = {}) {
     recognition.continuous = true; // Keep listening until we manually stop
 
     let silenceTimer = null;
-    let lastSpeechTime = Date.now();
 
     // Reset silence timer on any speech detection
     const resetSilenceTimer = () => {
-      lastSpeechTime = Date.now();
       if (silenceTimer) clearTimeout(silenceTimer);
       silenceTimer = setTimeout(() => {
-        // Stop after 2 seconds of silence
-        if (listening && recognitionRef.current) {
-          recognition.stop();
-        }
+        recognition.stop();
       }, 2000);
     };
 
@@ -180,6 +175,15 @@ export default function VoiceAtlas({ onClose } = {}) {
       setPulse(true); 
       setTranscript(""); 
       setReply("");
+      // Start silence timer immediately — stops if no speech after 2s
+      resetSilenceTimer();
+    };
+
+    recognition.onspeechstart = () => {
+      resetSilenceTimer();
+    };
+
+    recognition.onspeechend = () => {
       resetSilenceTimer();
     };
     recognition.onend = () => { 
