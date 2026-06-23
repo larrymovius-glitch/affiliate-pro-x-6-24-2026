@@ -82,9 +82,13 @@
     "6a3a07c065bdc0135ac226a2"
   ],
   "memory_config": {
-    "enabled": true,
+    "enabled": false,
     "scope": "both",
+    "include_other_conversation_context": false,
     "instructions": null
   },
+  "context_files": [],
+  "app_user_connector_configs": [],
+  "line_greeting": "",
   "name": "atlas"
 }
