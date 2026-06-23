@@ -17,6 +17,15 @@ export default function VoiceAtlas({ onClose } = {}) {
   const [pulse, setPulse] = useState(false);
   const [textInput, setTextInput] = useState("");
   const [activeTab, setActiveTab] = useState("text");
+
+  // Auto-start voice when switching to voice tab
+  useEffect(() => {
+    if (activeTab === "voice" && supported && !listening && !loading) {
+      startListening();
+    } else if (activeTab !== "voice" && listening) {
+      stopListening();
+    }
+  }, [activeTab, supported, listening, loading, startListening, stopListening]);
   const [selectedAssistant, setSelectedAssistant] = useState("maya"); // "atlas" | "maya"
   const currentName = selectedAssistant === "atlas" ? "Atlas" : "Maya";
   const currentAgentName = selectedAssistant === "atlas" ? "atlas" : "maya";
