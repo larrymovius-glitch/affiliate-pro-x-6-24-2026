@@ -12,6 +12,7 @@ export default function VoicePhil() {
   const [loading, setLoading] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [conversationId, setConversationId] = useState(null);
+  const conversationRef = useRef(null);
   const [pulse, setPulse] = useState(false);
   const [textInput, setTextInput] = useState("");
   const [activeTab, setActiveTab] = useState("text"); // "text" | "voice"
@@ -40,21 +41,20 @@ export default function VoicePhil() {
     setLoading(true);
     setReply("");
     try {
-      let convo = conversationId;
-      if (!convo) {
+      if (!conversationRef.current) {
         const newConvo = await base44.agents.createConversation({
           agent_name: "phil",
           metadata: { name: "Voice Session" },
         });
-        convo = newConvo.id;
-        setConversationId(convo);
+        conversationRef.current = newConvo;
+        setConversationId(newConvo.id);
       }
-      const convoObj = { id: convo };
-      const updated = await base44.agents.addMessage(convoObj, {
+      const updated = await base44.agents.addMessage(conversationRef.current, {
         role: "user",
         content: text,
       });
       // Get the latest assistant message
+      conversationRef.current = updated;
       const messages = updated?.messages || [];
       const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
       const replyText = lastAssistant?.content || "Sorry, I didn't catch that!";
@@ -65,7 +65,7 @@ export default function VoicePhil() {
     } finally {
       setLoading(false);
     }
-  }, [conversationId, speakReply]);
+  }, [speakReply]);
 
   const startListening = useCallback(() => {
     if (!supported) return;
