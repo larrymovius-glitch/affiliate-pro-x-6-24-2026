@@ -6,7 +6,8 @@ import { base44 } from "@/api/base44Client";
 const ATLAS_DEFAULT = "https://media.base44.com/images/public/6a2a72a46235784f879b968c/a6cbd43e5_generated_image.png";
 const MAYA_DEFAULT = "https://media.base44.com/images/public/6a2a72a46235784f879b968c/c0640056e_generated_image.png";
 
-export default function VoiceAtlas({ onClose } = {}) {
+// Inner component — one instance per assistant, fully isolated
+function AssistantChat({ agentName, avatar, accentColor, name }) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const supported = !!SpeechRecognition;
 
@@ -16,26 +17,14 @@ export default function VoiceAtlas({ onClose } = {}) {
   const [loading, setLoading] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
-  const isInitializingRef = useRef(true);
-  const [conversationId, setConversationId] = useState(null);
-  const conversationRef = useRef(null);
-  // Incremented every time the assistant switches — in-flight sendToAtlas checks this and bails if it changed
-  const sessionTokenRef = useRef(0);
-  const [pulse, setPulse] = useState(false);
-  const [textInput, setTextInput] = useState("");
   const [activeTab, setActiveTab] = useState("text");
-  const [selectedAssistant, setSelectedAssistant] = useState("maya");
-  const currentName = selectedAssistant === "atlas" ? "Atlas" : "Maya";
-  const currentAgentName = selectedAssistant === "atlas" ? "atlas" : "maya";
+  const [textInput, setTextInput] = useState("");
+  const [pulse, setPulse] = useState(false);
 
-  const { data: avatars = [] } = useQuery({
-    queryKey: ["assistant-avatars"],
-    queryFn: () => base44.entities.AssistantAvatar.list(),
-  });
-
-  const mayaAvatar = avatars.find(a => a.assistant === "maya");
-  const atlasAvatar = avatars.find(a => a.assistant === "atlas");
-  const currentAvatar = selectedAssistant === "atlas" ? (atlasAvatar?.file_url || ATLAS_DEFAULT) : (mayaAvatar?.file_url || MAYA_DEFAULT);
+  const conversationRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const synthRef = useRef(window.speechSynthesis);
+  const mountedRef = useRef(true);
 
   const quickActions = [
     { label: "💰 My Earnings", command: "Show my total earnings" },
@@ -44,92 +33,70 @@ export default function VoiceAtlas({ onClose } = {}) {
     { label: "🛍️ Connect eBay", command: "How do I connect my eBay account?" },
   ];
 
-  const recognitionRef = useRef(null);
-  const synthRef = useRef(window.speechSynthesis);
+  // Init conversation on mount
+  useEffect(() => {
+    mountedRef.current = true;
+    (async () => {
+      try {
+        const convo = await base44.agents.createConversation({
+          agent_name: agentName,
+          metadata: { name: "Voice Session" },
+        });
+        if (!mountedRef.current) return;
+        conversationRef.current = convo;
+      } finally {
+        if (mountedRef.current) setIsInitializing(false);
+      }
+    })();
 
-  const speakReply = useCallback((text) => {
+    return () => {
+      mountedRef.current = false;
+      recognitionRef.current?.abort();
+      synthRef.current.cancel();
+    };
+  }, []);
+
+  const speakText = useCallback((text) => {
     if (!text) return;
     synthRef.current.cancel();
     const utter = new SpeechSynthesisUtterance(text);
     const voices = synthRef.current.getVoices();
-    if (selectedAssistant === "atlas") {
-      utter.rate = 1.0; utter.pitch = 1.0; utter.volume = 1.0;
-      const v = voices.find(v => v.name.includes('Google US English') || v.name.includes('Microsoft David') || v.name.includes('Daniel') || v.name.includes('Male'));
+    if (agentName === "atlas") {
+      const v = voices.find(v => v.name.includes('Microsoft David') || v.name.includes('Daniel') || v.name.includes('Google US English'));
       if (v) utter.voice = v;
     } else {
-      utter.rate = 1.0; utter.pitch = 1.0; utter.volume = 1.0;
-      const v = voices.find(v => v.name.includes('Microsoft Zira') || v.name.includes('Samantha') || v.name.includes('Female') || v.name.includes('Google US English'));
+      const v = voices.find(v => v.name.includes('Microsoft Zira') || v.name.includes('Samantha') || v.name.includes('Female'));
       if (v) utter.voice = v;
     }
-    utter.onstart = () => setSpeaking(true);
-    utter.onend = () => setSpeaking(false);
-    utter.onerror = () => setSpeaking(false);
+    utter.rate = 1.0; utter.pitch = 1.0; utter.volume = 1.0;
+    utter.onstart = () => { if (mountedRef.current) setSpeaking(true); };
+    utter.onend = () => { if (mountedRef.current) setSpeaking(false); };
+    utter.onerror = () => { if (mountedRef.current) setSpeaking(false); };
     synthRef.current.speak(utter);
-  }, [selectedAssistant]);
+  }, [agentName]);
 
-  // Creates a fresh conversation; set gating=true only for the top-level mount/switch call
-  const createFreshConversation = useCallback(async (agentName, { gate = false } = {}) => {
-    if (gate) { setIsInitializing(true); isInitializingRef.current = true; }
-    conversationRef.current = null;
-    setConversationId(null);
-    try {
-      const newConvo = await base44.agents.createConversation({
-        agent_name: agentName,
-        metadata: { name: "Voice Session" },
-      });
-      conversationRef.current = newConvo;
-      setConversationId(newConvo.id);
-      return newConvo;
-    } finally {
-      if (gate) { setIsInitializing(false); isInitializingRef.current = false; }
-    }
-  }, []);
-
-  // Create a fresh conversation on mount and on every agent switch
-  useEffect(() => {
-    // Invalidate any in-flight sendToAtlas calls from the previous assistant
-    sessionTokenRef.current += 1;
-    setLoading(false);
-    setTranscript("");
-    setReply("");
-    setSpeaking(false);
-    synthRef.current.cancel();
-    recognitionRef.current?.abort();
-    setListening(false);
-    setPulse(false);
-    createFreshConversation(currentAgentName, { gate: true });
-  }, [currentAgentName]);
-
-  const sendToAtlas = useCallback(async (text) => {
-    if (!text.trim() || isInitializingRef.current) return;
-    // Capture the session token at call time — if it changes mid-flight, we were switched away
-    const myToken = sessionTokenRef.current;
-    const isStale = () => sessionTokenRef.current !== myToken;
-
+  const sendMessage = useCallback(async (text) => {
+    if (!text.trim() || !conversationRef.current || !mountedRef.current) return;
     setLoading(true);
     setReply("");
 
     try {
-      if (!conversationRef.current) {
-        await createFreshConversation(currentAgentName);
-      }
-      if (isStale()) return;
-
+      // Add user message with one retry
       let updated;
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          updated = await base44.agents.addMessage(conversationRef.current, { role: "user", content: text });
-          break;
-        } catch (e) {
-          if (isStale()) return;
-          if (attempt >= 2) throw e;
-          conversationRef.current = null;
-          await createFreshConversation(currentAgentName, { gate: false });
-        }
+      try {
+        updated = await base44.agents.addMessage(conversationRef.current, { role: "user", content: text });
+      } catch {
+        if (!mountedRef.current) return;
+        // Recreate conversation and retry once
+        const convo = await base44.agents.createConversation({ agent_name: agentName, metadata: { name: "Voice Session" } });
+        if (!mountedRef.current) return;
+        conversationRef.current = convo;
+        updated = await base44.agents.addMessage(conversationRef.current, { role: "user", content: text });
       }
-      if (isStale()) return;
+      if (!mountedRef.current) return;
       conversationRef.current = updated;
 
+      // Subscribe for streaming response
       const convoId = conversationRef.current.id;
       await new Promise((resolve) => {
         let lastContent = "";
@@ -138,73 +105,65 @@ export default function VoiceAtlas({ onClose } = {}) {
 
         try {
           unsubscribe = base44.agents.subscribeToConversation(convoId, (data) => {
-            if (isStale()) { unsubscribe(); resolve(); return; }
-            if (data?.error || data?.status === 404 || data?.message?.includes?.("not found") || data?.message?.includes?.("Invalid id")) {
-              conversationRef.current = null;
-              unsubscribe();
-              resolve();
-              return;
-            }
+            if (!mountedRef.current) { unsubscribe(); resolve(); return; }
+            if (data?.error || data?.status === 404) { unsubscribe(); resolve(); return; }
             const messages = data.messages || [];
-            const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+            const lastAssistant = [...messages].reverse().find(m => m.role === "assistant");
             const content = lastAssistant?.content || "";
             if (content && content !== lastContent) {
               lastContent = content;
-              setReply(content);
+              if (mountedRef.current) setReply(content);
               if (stableTimer) clearTimeout(stableTimer);
               stableTimer = setTimeout(() => { unsubscribe(); resolve(); }, 800);
             }
           });
         } catch {
-          conversationRef.current = null;
           resolve();
         }
-
         setTimeout(() => { unsubscribe(); resolve(); }, 30000);
       });
 
-      if (isStale()) return;
-      setReply(prev => { speakReply(prev); return prev; });
+      if (!mountedRef.current) return;
+      setReply(prev => { speakText(prev); return prev; });
 
     } catch (err) {
-      if (isStale()) return;
+      if (!mountedRef.current) return;
       console.error("Assistant error:", err);
       setReply("Oops! Something went wrong. Try again.");
     } finally {
-      if (!isStale()) setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
-  }, [speakReply, currentAgentName, createFreshConversation]);
+  }, [agentName, speakText]);
 
   const startListening = useCallback(() => {
-    if (!supported || isInitializingRef.current) return;
+    if (!supported || isInitializing || !conversationRef.current) return;
     if (recognitionRef.current) recognitionRef.current.abort();
 
     const recognition = new SpeechRecognition();
     recognitionRef.current = recognition;
     recognition.lang = "en-US";
     recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
     recognition.continuous = true;
 
     let silenceTimer = null;
-    const resetSilenceTimer = () => {
+    const resetSilence = () => {
       if (silenceTimer) clearTimeout(silenceTimer);
       silenceTimer = setTimeout(() => recognition.stop(), 2000);
     };
 
-    recognition.onstart = () => { setListening(true); setPulse(true); setTranscript(""); setReply(""); resetSilenceTimer(); };
-    recognition.onspeechstart = () => resetSilenceTimer();
-    recognition.onspeechend = () => resetSilenceTimer();
+    recognition.onstart = () => { setListening(true); setPulse(true); setTranscript(""); setReply(""); resetSilence(); };
+    recognition.onspeechstart = resetSilence;
+    recognition.onspeechend = resetSilence;
     recognition.onend = () => { setListening(false); setPulse(false); if (silenceTimer) clearTimeout(silenceTimer); };
     recognition.onerror = () => { setListening(false); setPulse(false); if (silenceTimer) clearTimeout(silenceTimer); };
     recognition.onresult = (e) => {
       const result = e.results[e.results.length - 1];
       const text = result[0].transcript;
-      if (text.trim()) resetSilenceTimer();
-      if (result.isFinal) { setTranscript(text); sendToAtlas(text); }
+      if (text.trim()) resetSilence();
+      if (result.isFinal) { setTranscript(text); sendMessage(text); }
     };
     recognition.start();
-  }, [supported, sendToAtlas, isInitializing]);
+  }, [supported, isInitializing, sendMessage]);
 
   const stopListening = useCallback(() => {
     recognitionRef.current?.stop();
@@ -212,40 +171,30 @@ export default function VoiceAtlas({ onClose } = {}) {
     setPulse(false);
   }, []);
 
-  const stopSpeaking = () => { synthRef.current.cancel(); setSpeaking(false); };
-
-  // Auto-start listening when switching to voice tab (only when ready)
+  // Auto-start mic when switching to voice tab
   useEffect(() => {
     if (activeTab === "voice" && supported && !listening && !loading && !isInitializing) {
-      const timer = setTimeout(() => startListening(), 300);
-      return () => clearTimeout(timer);
+      const t = setTimeout(() => startListening(), 300);
+      return () => clearTimeout(t);
     }
-  }, [activeTab, supported, listening, loading, isInitializing, startListening]);
+  }, [activeTab, isInitializing]);
 
-  // Stop voice when switching away from voice tab
+  // Stop mic when leaving voice tab
   useEffect(() => {
     if (activeTab !== "voice" && listening) stopListening();
-  }, [activeTab, listening]);
-
-  // Cleanup on unmount
-  useEffect(() => () => {
-    recognitionRef.current?.abort();
-    synthRef.current.cancel();
-  }, []);
+  }, [activeTab]);
 
   const handleTextSend = () => {
-    if (!textInput.trim() || loading || isInitializingRef.current) return;
+    if (!textInput.trim() || loading || isInitializing) return;
     const msg = textInput.trim();
     setTextInput("");
     setTranscript(msg);
-    sendToAtlas(msg);
+    sendMessage(msg);
   };
 
-  // Derived: block all actions while initializing or loading
   const blocked = isInitializing || loading;
 
-  const statusText = isInitializing
-    ? "⚡ Starting session…"
+  const statusText = isInitializing ? "⚡ Starting session…"
     : listening ? "🎙 Listening…"
     : speaking ? "🔊 Speaking…"
     : loading ? "⏳ Thinking…"
@@ -254,48 +203,10 @@ export default function VoiceAtlas({ onClose } = {}) {
   const statusColor = isInitializing ? "#f59e0b" : listening ? "#34d399" : speaking ? "#f59e0b" : loading ? "#a78bfa" : "#94a3b8";
 
   return (
-    <div style={{ background: "linear-gradient(160deg, #0f0c29 0%, #1e1b4b 100%)", border: "none" }}>
-      {/* Assistant selector */}
-      <div className="flex items-center gap-2 px-5 py-3 border-b border-violet-500/20">
-        {["atlas", "maya"].map((agent) => (
-          <button
-            key={agent}
-            onClick={() => setSelectedAssistant(agent)}
-            disabled={isInitializing}
-            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-50 ${
-              selectedAssistant === agent ? "scale-105" : "opacity-60 hover:opacity-80"
-            }`}
-            style={{
-              background: selectedAssistant === agent
-                ? agent === "atlas"
-                  ? "linear-gradient(135deg, rgba(124,58,237,0.3), rgba(245,158,11,0.2))"
-                  : "linear-gradient(135deg, rgba(236,72,153,0.3), rgba(168,85,247,0.2))"
-                : "rgba(255,255,255,0.05)",
-              border: selectedAssistant === agent
-                ? agent === "atlas" ? "2px solid rgba(124,58,237,0.5)" : "2px solid rgba(236,72,153,0.5)"
-                : "1px solid rgba(255,255,255,0.1)",
-              color: "#e2e8f0",
-            }}
-          >
-            {agent === "atlas" ? "👨 Atlas" : "👩 Maya"}
-          </button>
-        ))}
-      </div>
-
-      {/* Avatar + status */}
-      <div className="flex items-center gap-4 px-5 py-4 border-b border-violet-500/20">
-        <img src={currentAvatar} alt={currentName} className="w-14 h-14 object-contain flex-shrink-0" style={{ filter: "drop-shadow(0 0 10px rgba(192,132,252,0.6))" }} />
-        <div className="flex-1">
-          <p className="text-lg font-extrabold" style={{ background: selectedAssistant === "atlas" ? "linear-gradient(90deg, #c084fc, #f59e0b)" : "linear-gradient(90deg, #ec4899, #a855f7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            {currentName} — Your AI Guide
-          </p>
-          <p className="text-sm font-medium" style={{ color: statusColor }}>{statusText}</p>
-        </div>
-      </div>
-
+    <>
       {/* Tabs */}
       <div className="flex border-b border-violet-500/20">
-        {["text", "voice"].map((tab) => (
+        {["text", "voice"].map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)} className="flex-1 py-3 text-base font-bold transition-colors"
             style={{ color: activeTab === tab ? "#c084fc" : "#64748b", borderBottom: activeTab === tab ? "3px solid #c084fc" : "3px solid transparent", userSelect: "none" }}>
             {tab === "text" ? "💬 Type" : "🎤 Voice"}
@@ -306,7 +217,7 @@ export default function VoiceAtlas({ onClose } = {}) {
       {/* Quick Actions */}
       <div className="grid grid-cols-2 gap-2 px-2 pt-2">
         {quickActions.map((action, idx) => (
-          <button key={idx} onClick={() => { setTranscript(action.command); sendToAtlas(action.command); }}
+          <button key={idx} onClick={() => { setTranscript(action.command); sendMessage(action.command); }}
             disabled={blocked}
             className="p-3 rounded-xl text-sm font-bold transition-all active:scale-95 disabled:opacity-50"
             style={{ background: "linear-gradient(135deg, rgba(124,58,237,0.2), rgba(245,158,11,0.15))", border: "1px solid rgba(167,139,250,0.3)", color: "#e2e8f0", userSelect: "none" }}>
@@ -327,24 +238,24 @@ export default function VoiceAtlas({ onClose } = {}) {
         {isInitializing && (
           <div className="flex items-center gap-3 text-amber-400">
             <Loader2 className="w-5 h-5 animate-spin" />
-            <span className="text-base font-medium">Starting {currentName}'s session…</span>
+            <span className="text-base font-medium">Starting {name}'s session…</span>
           </div>
         )}
 
         {loading && !isInitializing && (
           <div className="flex items-center gap-3 text-violet-400">
             <Loader2 className="w-5 h-5 animate-spin" />
-            <span className="text-base font-medium">{currentName} is thinking…</span>
+            <span className="text-base font-medium">{name} is thinking…</span>
           </div>
         )}
 
         {reply && !loading && (
           <div className="w-full rounded-xl px-4 py-4" style={{ background: "linear-gradient(135deg, rgba(124,58,237,0.18), rgba(245,158,11,0.1))", border: "1px solid rgba(167,139,250,0.3)" }}>
             <div className="flex items-center gap-3 mb-2">
-              <img src={currentAvatar} alt={currentName} className="w-8 h-8 object-contain" />
-              <p className="text-sm font-bold" style={{ color: selectedAssistant === "atlas" ? "#c084fc" : "#ec4899" }}>{currentName} says:</p>
+              <img src={avatar} alt={name} className="w-8 h-8 object-contain" />
+              <p className="text-sm font-bold" style={{ color: accentColor }}>{name} says:</p>
               {speaking && (
-                <button onClick={stopSpeaking} className="ml-auto" style={{ userSelect: "none" }}>
+                <button onClick={() => { synthRef.current.cancel(); setSpeaking(false); }} className="ml-auto" style={{ userSelect: "none" }}>
                   <Volume2 className="w-5 h-5 text-amber-400 animate-pulse" />
                 </button>
               )}
@@ -356,12 +267,10 @@ export default function VoiceAtlas({ onClose } = {}) {
         {/* Text input */}
         {activeTab === "text" && (
           <div className="flex gap-3">
-            <input
-              type="text"
-              value={textInput}
-              onChange={(e) => setTextInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleTextSend()}
-              placeholder={blocked ? `Starting ${currentName}…` : `Ask ${currentName} anything…`}
+            <input type="text" value={textInput}
+              onChange={e => setTextInput(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleTextSend()}
+              placeholder={blocked ? `Starting ${name}…` : `Ask ${name} anything…`}
               disabled={blocked}
               className="flex-1 rounded-xl px-4 py-3 text-base text-white placeholder:text-slate-500 outline-none disabled:opacity-50"
               style={{ background: "rgba(255,255,255,0.09)", border: "1px solid rgba(167,139,250,0.35)", fontSize: 16 }}
@@ -395,11 +304,75 @@ export default function VoiceAtlas({ onClose } = {}) {
               </button>
             </div>
             <p className="text-base font-semibold text-center" style={{ color: "#94a3b8" }}>
-              {!supported ? "Voice not supported" : isInitializing ? "⚡ Starting session…" : listening ? "🎤 Listening... speak now!" : "Starting mic..."}
+              {!supported ? "Voice not supported" : isInitializing ? "⚡ Starting session…" : listening ? "🎤 Listening... speak now!" : "Tap mic to speak"}
             </p>
           </div>
         )}
       </div>
+
+      {/* Status bar */}
+      <div className="px-5 pb-4">
+        <p className="text-sm font-medium text-center" style={{ color: statusColor }}>{statusText}</p>
+      </div>
+    </>
+  );
+}
+
+// Outer shell — just handles assistant selection and avatars
+export default function VoiceAtlas({ onClose } = {}) {
+  const [selectedAssistant, setSelectedAssistant] = useState("maya");
+
+  const { data: avatars = [] } = useQuery({
+    queryKey: ["assistant-avatars"],
+    queryFn: () => base44.entities.AssistantAvatar.list(),
+  });
+
+  const mayaAvatar = avatars.find(a => a.assistant === "maya")?.file_url || MAYA_DEFAULT;
+  const atlasAvatar = avatars.find(a => a.assistant === "atlas")?.file_url || ATLAS_DEFAULT;
+
+  const config = {
+    atlas: { avatar: atlasAvatar, accentColor: "#c084fc", name: "Atlas", gradient: "linear-gradient(90deg, #c084fc, #f59e0b)", border: "2px solid rgba(124,58,237,0.5)", bg: "linear-gradient(135deg, rgba(124,58,237,0.3), rgba(245,158,11,0.2))" },
+    maya:  { avatar: mayaAvatar,  accentColor: "#ec4899", name: "Maya",  gradient: "linear-gradient(90deg, #ec4899, #a855f7)", border: "2px solid rgba(236,72,153,0.5)",  bg: "linear-gradient(135deg, rgba(236,72,153,0.3), rgba(168,85,247,0.2))" },
+  };
+  const current = config[selectedAssistant];
+
+  return (
+    <div style={{ background: "linear-gradient(160deg, #0f0c29 0%, #1e1b4b 100%)", border: "none" }}>
+      {/* Assistant selector */}
+      <div className="flex items-center gap-2 px-5 py-3 border-b border-violet-500/20">
+        {["atlas", "maya"].map(agent => (
+          <button key={agent} onClick={() => setSelectedAssistant(agent)}
+            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${selectedAssistant === agent ? "scale-105" : "opacity-60 hover:opacity-80"}`}
+            style={{
+              background: selectedAssistant === agent ? config[agent].bg : "rgba(255,255,255,0.05)",
+              border: selectedAssistant === agent ? config[agent].border : "1px solid rgba(255,255,255,0.1)",
+              color: "#e2e8f0",
+            }}>
+            {agent === "atlas" ? "👨 Atlas" : "👩 Maya"}
+          </button>
+        ))}
+      </div>
+
+      {/* Avatar + name */}
+      <div className="flex items-center gap-4 px-5 py-4 border-b border-violet-500/20">
+        <img src={current.avatar} alt={current.name} className="w-14 h-14 object-contain flex-shrink-0"
+          style={{ filter: "drop-shadow(0 0 10px rgba(192,132,252,0.6))" }} />
+        <div className="flex-1">
+          <p className="text-lg font-extrabold"
+            style={{ background: current.gradient, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+            {current.name} — Your AI Guide
+          </p>
+        </div>
+      </div>
+
+      {/* Key forces full remount on assistant switch — completely isolated state */}
+      <AssistantChat
+        key={selectedAssistant}
+        agentName={selectedAssistant}
+        avatar={current.avatar}
+        accentColor={current.accentColor}
+        name={current.name}
+      />
     </div>
   );
 }
