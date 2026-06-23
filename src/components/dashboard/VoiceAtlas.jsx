@@ -48,24 +48,37 @@ export default function VoiceAtlas({ onClose } = {}) {
     if (!text) return;
     synthRef.current.cancel();
     const utter = new SpeechSynthesisUtterance(text);
+    const voices = synthRef.current.getVoices();
+    
     // Use agent-specific voice settings
     if (selectedAssistant === "atlas") {
-      utter.rate = 0.9;
-      utter.pitch = 0.8;
-      // Try to find a male robot-like voice
-      const voices = synthRef.current.getVoices();
+      utter.rate = 0.85;
+      utter.pitch = 0.7;
+      utter.volume = 1.0;
+      // Try to find a male/deeper voice
       const maleVoice = voices.find(v => 
         v.name.includes('Male') || 
         v.name.includes('David') || 
         v.name.includes('Daniel') ||
-        v.name.includes('Google US English')
+        v.name.includes('Google US English') ||
+        v.name.includes('Microsoft David')
       );
       if (maleVoice) utter.voice = maleVoice;
     } else {
-      utter.rate = 0.85;
-      utter.pitch = 1.1;
+      // Maya - female voice
+      utter.rate = 0.9;
+      utter.pitch = 1.15;
+      utter.volume = 1.0;
+      // Try to find a female voice
+      const femaleVoice = voices.find(v => 
+        v.name.includes('Female') || 
+        v.name.includes('Zira') || 
+        v.name.includes('Google US English Female') ||
+        v.name.includes('Microsoft Zira') ||
+        v.name.includes('Samantha')
+      );
+      if (femaleVoice) utter.voice = femaleVoice;
     }
-    utter.volume = 1.0;
     utter.onstart = () => setSpeaking(true);
     utter.onend = () => setSpeaking(false);
     utter.onerror = () => setSpeaking(false);
