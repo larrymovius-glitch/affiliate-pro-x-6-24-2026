@@ -69,13 +69,14 @@ export default function TopBar({ onMenuClick }) {
         <div className="flex-1 flex items-center">
           <button
             onClick={() => setPhilOpen(true)}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full transition-all hover:scale-[1.03] active:scale-95"
-            style={{ background: "linear-gradient(90deg, rgba(124,58,237,0.45), rgba(245,158,11,0.3))", border: "1px solid rgba(245,158,11,0.6)", boxShadow: "0 0 16px rgba(245,158,11,0.25)", userSelect: "none" }}
+            className="inline-flex items-center gap-2 px-2 py-1 rounded-full transition-all hover:scale-[1.03] active:scale-95"
+            style={{ background: "none", border: "none", boxShadow: "none", userSelect: "none" }}
           >
             <img
               src="https://media.base44.com/images/public/6a2a72a46235784f879b968c/e653cac7b_generated_image.png"
               alt="Phil the assistant"
-              className="w-8 h-8 object-contain flex-shrink-0"
+              className="w-10 h-10 object-contain flex-shrink-0"
+              style={{ filter: "drop-shadow(0 0 8px rgba(192,132,252,0.7))" }}
             />
             <span className="text-xs font-bold" style={{ background: "linear-gradient(90deg, #c084fc, #f59e0b)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
               Ask Phil

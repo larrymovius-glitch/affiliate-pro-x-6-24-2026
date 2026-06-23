@@ -54,7 +54,7 @@ export default function VoicePhilModal({ open, onClose }) {
         left: pos.x,
         top: pos.y,
         zIndex: 9999,
-        width: "min(92vw, 440px)",
+        width: "min(92vw, 572px)",
         cursor: dragging ? "grabbing" : "auto",
         borderRadius: 20,
         overflow: "hidden",
