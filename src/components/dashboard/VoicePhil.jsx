@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Mic, MicOff, Loader2, Volume2, Send } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 
-const PHIL_AVATAR = "https://media.base44.com/images/public/6a2a72a46235784f879b968c/e653cac7b_generated_image.png";
+const PHIL_AVATAR = "https://media.base44.com/images/public/6a2a72a46235784f879b968c/a6cbd43e5_generated_image.png";
 const MAYA_AVATAR = "https://media.base44.com/images/public/6a2a72a46235784f879b968c/c0640056e_generated_image.png";
 
 export default function VoicePhil({ onClose } = {}) {
