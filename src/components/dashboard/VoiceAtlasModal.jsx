@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import VoicePhil from "./VoicePhil";
+import VoiceAtlas from "./VoiceAtlas";
 
-export default function VoicePhilModal({ open, onClose }) {
+export default function VoiceAtlasModal({ open, onClose }) {
   const [pos, setPos] = useState({ x: null, y: null }); // null = default position
   const [dragging, setDragging] = useState(false);
   const dragOffset = useRef({ x: 0, y: 0 });
@@ -78,7 +78,7 @@ export default function VoicePhilModal({ open, onClose }) {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 18 }}>☰</span>
           <span style={{ color: "#fff", fontWeight: 700, fontSize: 15, letterSpacing: 0.3 }}>
-            Phil — AI Assistant
+            Atlas — AI Assistant
           </span>
         </div>
         <button
@@ -102,8 +102,8 @@ export default function VoicePhilModal({ open, onClose }) {
         </button>
       </div>
 
-      {/* Phil chat body */}
-      <VoicePhil onClose={onClose} />
+      {/* Atlas chat body */}
+      <VoiceAtlas onClose={onClose} />
     </div>
   );
 }

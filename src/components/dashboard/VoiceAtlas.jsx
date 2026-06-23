@@ -5,7 +5,7 @@ import { base44 } from "@/api/base44Client";
 const ATLAS_AVATAR = "https://media.base44.com/images/public/6a2a72a46235784f879b968c/a6cbd43e5_generated_image.png";
 const MAYA_AVATAR = "https://media.base44.com/images/public/6a2a72a46235784f879b968c/c0640056e_generated_image.png";
 
-export default function VoicePhil({ onClose } = {}) {
+export default function VoiceAtlas({ onClose } = {}) {
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [reply, setReply] = useState("");
@@ -38,7 +38,7 @@ export default function VoicePhil({ onClose } = {}) {
     if (!text) return;
     synthRef.current.cancel();
     const utter = new SpeechSynthesisUtterance(text);
-    utter.rate = 0.9;
+    utter.rate = 1.0;
     utter.pitch = 1.0;
     utter.volume = 1.0;
     utter.onstart = () => setSpeaking(true);
@@ -47,7 +47,7 @@ export default function VoicePhil({ onClose } = {}) {
     synthRef.current.speak(utter);
   }, []);
 
-  const sendToPhil = useCallback(async (text) => {
+  const sendToAtlas = useCallback(async (text) => {
     if (!text.trim()) return;
     setLoading(true);
     setReply("");
@@ -93,10 +93,10 @@ export default function VoicePhil({ onClose } = {}) {
     recognition.onresult = (e) => {
       const text = e.results[0][0].transcript;
       setTranscript(text);
-      sendToPhil(text);
+      sendToAtlas(text);
     };
     recognition.start();
-  }, [supported, sendToPhil]);
+  }, [supported, sendToAtlas]);
 
   const stopListening = useCallback(() => {
     recognitionRef.current?.stop();
@@ -120,7 +120,7 @@ export default function VoicePhil({ onClose } = {}) {
     const msg = textInput.trim();
     setTextInput("");
     setTranscript(msg);
-    sendToPhil(msg);
+    sendToAtlas(msg);
   };
 
   // Always render the full chat — no collapsed state needed (modal handles open/close)
@@ -175,7 +175,7 @@ export default function VoicePhil({ onClose } = {}) {
       <div className="flex items-center gap-4 px-5 py-4 border-b border-violet-500/20">
         <img src={currentAvatar} alt={currentName} className="w-14 h-14 object-contain flex-shrink-0" style={{ filter: "drop-shadow(0 0 10px rgba(192,132,252,0.6))" }} />
         <div className="flex-1">
-          <p className="text-lg font-extrabold" style={{ background: selectedAssistant === "phil" ? "linear-gradient(90deg, #c084fc, #f59e0b)" : "linear-gradient(90deg, #ec4899, #a855f7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+          <p className="text-lg font-extrabold" style={{ background: selectedAssistant === "atlas" ? "linear-gradient(90deg, #c084fc, #f59e0b)" : "linear-gradient(90deg, #ec4899, #a855f7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
             {currentName} — Your AI Guide
           </p>
           <p className="text-sm font-medium" style={{ color: listening ? "#34d399" : speaking ? "#f59e0b" : loading ? "#a78bfa" : "#94a3b8" }}>
@@ -209,7 +209,7 @@ export default function VoicePhil({ onClose } = {}) {
             key={idx}
             onClick={() => {
               setTranscript(action.command);
-              sendToPhil(action.command);
+              sendToAtlas(action.command);
             }}
             disabled={loading}
             className="p-3 rounded-xl text-sm font-bold transition-all active:scale-95 disabled:opacity-50"
@@ -246,7 +246,7 @@ export default function VoicePhil({ onClose } = {}) {
           <div className="w-full rounded-xl px-4 py-4" style={{ background: "linear-gradient(135deg, rgba(124,58,237,0.18), rgba(245,158,11,0.1))", border: "1px solid rgba(167,139,250,0.3)" }}>
             <div className="flex items-center gap-3 mb-2">
               <img src={currentAvatar} alt={currentName} className="w-8 h-8 object-contain" />
-              <p className="text-sm font-bold" style={{ color: selectedAssistant === "phil" ? "#c084fc" : "#ec4899" }}>{currentName} says:</p>
+              <p className="text-sm font-bold" style={{ color: selectedAssistant === "atlas" ? "#c084fc" : "#ec4899" }}>{currentName} says:</p>
               {speaking && (
                 <button onClick={stopSpeaking} className="ml-auto" style={{ userSelect: "none" }}>
                   <Volume2 className="w-5 h-5 text-amber-400 animate-pulse" />

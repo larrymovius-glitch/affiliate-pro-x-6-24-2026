@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Menu, Bell, LogOut, Trash2, ChevronLeft, MessageCircle } from "lucide-react";
-import VoicePhilModal from "@/components/dashboard/VoicePhilModal";
+import VoiceAtlasModal from "@/components/dashboard/VoiceAtlasModal";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
@@ -29,7 +29,7 @@ export default function TopBar({ onMenuClick }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [philOpen, setPhilOpen] = useState(false);
+  const [atlasOpen, setAtlasOpen] = useState(false);
   const isRoot = location.pathname === "/";
   const initials = user?.full_name 
     ? user.full_name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) 
@@ -68,19 +68,19 @@ export default function TopBar({ onMenuClick }) {
 
         <div className="flex-1 flex items-center">
           <button
-            onClick={() => setPhilOpen(true)}
+            onClick={() => setAtlasOpen(true)}
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full transition-all hover:scale-[1.03] active:scale-95"
             style={{ background: "linear-gradient(90deg, rgba(124,58,237,0.5), rgba(168,85,247,0.4))", border: "1px solid rgba(167,139,250,0.4)", boxShadow: "0 0 14px rgba(124,58,237,0.4)", userSelect: "none" }}
           >
             <div style={{ width: 32, height: 32, borderRadius: "50%", overflow: "hidden", background: "transparent", flexShrink: 0 }}>
               <img
                 src="https://media.base44.com/images/public/6a2a72a46235784f879b968c/e653cac7b_generated_image.png"
-                alt="Phil the assistant"
+                alt="Atlas the assistant"
                 style={{ width: "100%", height: "100%", objectFit: "cover", mixBlendMode: "screen" }}
               />
             </div>
             <span className="text-xs font-bold" style={{ background: "linear-gradient(90deg, #c084fc, #f59e0b)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              Ask Phil
+              Ask Atlas
             </span>
           </button>
         </div>
@@ -120,7 +120,7 @@ export default function TopBar({ onMenuClick }) {
         </div>
       </header>
 
-      <VoicePhilModal open={philOpen} onClose={() => setPhilOpen(false)} />
+      <VoiceAtlasModal open={atlasOpen} onClose={() => setAtlasOpen(false)} />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
