@@ -16,7 +16,7 @@ export default function VoiceAtlas({ onClose } = {}) {
   const [pulse, setPulse] = useState(false);
   const [textInput, setTextInput] = useState("");
   const [activeTab, setActiveTab] = useState("text");
-  const [selectedAssistant, setSelectedAssistant] = useState("atlas"); // "atlas" | "maya"
+  const [selectedAssistant, setSelectedAssistant] = useState("maya"); // "atlas" | "maya"
   const currentAvatar = selectedAssistant === "atlas" ? ATLAS_AVATAR : MAYA_AVATAR;
   const currentName = selectedAssistant === "atlas" ? "Atlas" : "Maya";
   const currentAgentName = selectedAssistant === "atlas" ? "atlas" : "maya";
