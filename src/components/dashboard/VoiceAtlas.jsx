@@ -64,9 +64,9 @@ export default function VoiceAtlas({ onClose } = {}) {
     synthRef.current.speak(utter);
   }, [selectedAssistant]);
 
-  // Creates a fresh conversation and gates all actions until it resolves
-  const createFreshConversation = useCallback(async (agentName) => {
-    setIsInitializing(true);
+  // Creates a fresh conversation; set gating=true only for the top-level mount/switch call
+  const createFreshConversation = useCallback(async (agentName, { gate = false } = {}) => {
+    if (gate) setIsInitializing(true);
     conversationRef.current = null;
     setConversationId(null);
     try {
@@ -78,7 +78,7 @@ export default function VoiceAtlas({ onClose } = {}) {
       setConversationId(newConvo.id);
       return newConvo;
     } finally {
-      setIsInitializing(false);
+      if (gate) setIsInitializing(false);
     }
   }, []);
 
@@ -88,7 +88,7 @@ export default function VoiceAtlas({ onClose } = {}) {
     setReply("");
     setSpeaking(false);
     synthRef.current.cancel();
-    createFreshConversation(currentAgentName);
+    createFreshConversation(currentAgentName, { gate: true });
   }, [currentAgentName]);
 
   const sendToAtlas = useCallback(async (text) => {
@@ -102,7 +102,7 @@ export default function VoiceAtlas({ onClose } = {}) {
         await createFreshConversation(currentAgentName);
       }
 
-      // Add user message — retry up to 3x with a fresh conversation on error
+      // Add user message — retry up to 3x with a fresh conversation on error (no gating)
       let updated;
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
@@ -111,7 +111,7 @@ export default function VoiceAtlas({ onClose } = {}) {
         } catch (e) {
           if (attempt >= 2) throw e;
           conversationRef.current = null;
-          await createFreshConversation(currentAgentName);
+          await createFreshConversation(currentAgentName, { gate: false });
         }
       }
       conversationRef.current = updated;
