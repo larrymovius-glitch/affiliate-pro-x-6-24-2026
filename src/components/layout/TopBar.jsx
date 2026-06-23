@@ -75,8 +75,8 @@ export default function TopBar({ onMenuClick }) {
             <img
               src="https://media.base44.com/images/public/6a2a72a46235784f879b968c/e653cac7b_generated_image.png"
               alt="Phil the assistant"
-              className="w-10 h-10 object-contain flex-shrink-0"
-              style={{ filter: "drop-shadow(0 0 8px rgba(192,132,252,0.7))" }}
+              className="w-8 h-8 object-contain flex-shrink-0"
+              style={{ mixBlendMode: "lighten", filter: "drop-shadow(0 0 8px rgba(192,132,252,0.7))" }}
             />
             <span className="text-xs font-bold" style={{ background: "linear-gradient(90deg, #c084fc, #f59e0b)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
               Ask Phil
