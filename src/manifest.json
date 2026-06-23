@@ -1,0 +1,24 @@
+{
+  "name": "Affiliate Pro X",
+  "short_name": "AffProX",
+  "description": "Your Affiliate Marketing Command Center",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0c29",
+  "theme_color": "#7c3aed",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://media.base44.com/images/public/6a2a72a46235784f879b968c/c927b1fb4_generated_image.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://media.base44.com/images/public/6a2a72a46235784f879b968c/c927b1fb4_generated_image.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
