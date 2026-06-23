@@ -77,17 +77,14 @@
     "speed": 1,
     "pitch": 1
   },
-  "context_files": [],
-  "app_user_connector_configs": [],
   "selected_skill_names": [],
   "selected_workspace_skill_ids": [
-    "6a3a07c065bdc0135ac226a2"
+    "6a3a07c065bdc0135ac226a2",
+    "6a2caf028a381238a0c39108"
   ],
-  "line_greeting": "",
   "memory_config": {
     "enabled": true,
     "scope": "both",
-    "include_other_conversation_context": false,
     "instructions": null
   },
   "name": "atlas"
