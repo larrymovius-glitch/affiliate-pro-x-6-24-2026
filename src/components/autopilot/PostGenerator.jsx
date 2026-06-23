@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Zap, Copy, CheckCheck, TrendingUp, RefreshCw } from "lucide-react";
 
-const platforms = ["facebook", "instagram", "tiktok", "twitter", "email", "general"];
+const platforms = ["facebook", "instagram", "linkedin", "tiktok", "twitter", "email", "general"];
 const tones = ["inspiring", "urgent", "casual", "professional", "storytelling"];
 
 export default function PostGenerator() {

@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Instagram, Link2, CheckCircle, AlertCircle, Loader2, Settings } from "lucide-react";
+import { Instagram, Linkedin, Link2, CheckCircle, AlertCircle, Loader2, Settings } from "lucide-react";
 
 export default function SocialConnect() {
   const { user } = useAuth();
-  const [connected, setConnected] = useState(false);
+  const [instagramConnected, setInstagramConnected] = useState(false);
+  const [linkedinConnected, setLinkedinConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [savingPayment, setSavingPayment] = useState(false);
   const [stripeAccount, setStripeAccount] = useState("");
@@ -23,30 +24,56 @@ export default function SocialConnect() {
     }
   }, [user]);
 
-  const checkConnection = async () => {
+  const checkInstagram = async () => {
     try {
-      // Try to invoke Instagram function to check connection
       await base44.functions.invoke("postToInstagram", { test: true });
-      setConnected(true);
+      setInstagramConnected(true);
     } catch {
-      setConnected(false);
-    } finally {
-      setLoading(false);
+      setInstagramConnected(false);
     }
   };
 
-  const handleConnect = async () => {
+  const checkLinkedin = async () => {
+    try {
+      await base44.functions.invoke("postToLinkedIn", { test: true });
+      setLinkedinConnected(true);
+    } catch {
+      setLinkedinConnected(false);
+    }
+  };
+
+  const checkConnection = async () => {
+    await Promise.all([checkInstagram(), checkLinkedin()]);
+    setLoading(false);
+  };
+
+  const handleConnectInstagram = async () => {
     try {
       const url = await base44.connectors.connectAppUser("instagram");
       const popup = window.open(url, "_blank");
       const timer = setInterval(() => {
         if (!popup || popup.closed) {
           clearInterval(timer);
-          checkConnection();
+          checkInstagram();
         }
       }, 500);
     } catch (error) {
-      console.error("Connection error:", error);
+      console.error("Instagram connection error:", error);
+    }
+  };
+
+  const handleConnectLinkedin = async () => {
+    try {
+      const url = await base44.connectors.connectAppUser("6a3a1c4e98737984ce1e0230");
+      const popup = window.open(url, "_blank");
+      const timer = setInterval(() => {
+        if (!popup || popup.closed) {
+          clearInterval(timer);
+          checkLinkedin();
+        }
+      }, 500);
+    } catch (error) {
+      console.error("LinkedIn connection error:", error);
     }
   };
 
@@ -91,26 +118,26 @@ export default function SocialConnect() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className={`flex items-center gap-3 rounded-xl p-4 ${
-            connected ? "bg-green-500/10 border border-green-500/20" : "bg-orange-500/10 border border-orange-500/20"
+            instagramConnected ? "bg-green-500/10 border border-green-500/20" : "bg-orange-500/10 border border-orange-500/20"
           }`}>
-            {connected
+            {instagramConnected
               ? <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
               : <AlertCircle className="w-5 h-5 text-orange-400 flex-shrink-0" />}
             <div className="min-w-0">
-              <p className={`text-sm font-semibold ${connected ? "text-green-300" : "text-orange-300"}`}>
-                {connected ? "Instagram Connected" : "Not Connected"}
+              <p className={`text-sm font-semibold ${instagramConnected ? "text-green-300" : "text-orange-300"}`}>
+                {instagramConnected ? "Instagram Connected" : "Not Connected"}
               </p>
               <p className="text-xs text-slate-400 mt-0.5">
-                {connected 
+                {instagramConnected 
                   ? "Auto-posting enabled for affiliate content"
                   : "Connect to auto-post AI-generated content"}
               </p>
             </div>
           </div>
 
-          {!connected && (
+          {!instagramConnected && (
             <Button 
-              onClick={handleConnect}
+              onClick={handleConnectInstagram}
               disabled={loading}
               className="w-full h-11 font-semibold gap-2"
               style={{ background: "linear-gradient(135deg, #E4405F, #FCAF45)" }}
@@ -120,9 +147,56 @@ export default function SocialConnect() {
             </Button>
           )}
 
-          {connected && (
+          {instagramConnected && (
             <p className="text-xs text-green-400 flex items-center gap-1">
               <CheckCircle className="w-3 h-3" /> Ready to auto-post to Instagram
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* LinkedIn Connection */}
+      <Card className="border-white/10 bg-white/5">
+        <CardHeader>
+          <CardTitle className="text-white text-base flex items-center gap-2">
+            <Linkedin className="w-5 h-5" style={{ color: "#0A66C2" }} />
+            LinkedIn Professional
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className={`flex items-center gap-3 rounded-xl p-4 ${
+            linkedinConnected ? "bg-green-500/10 border border-green-500/20" : "bg-orange-500/10 border border-orange-500/20"
+          }`}>
+            {linkedinConnected
+              ? <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
+              : <AlertCircle className="w-5 h-5 text-orange-400 flex-shrink-0" />}
+            <div className="min-w-0">
+              <p className={`text-sm font-semibold ${linkedinConnected ? "text-green-300" : "text-orange-300"}`}>
+                {linkedinConnected ? "LinkedIn Connected" : "Not Connected"}
+              </p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {linkedinConnected 
+                  ? "Auto-posting enabled for professional content"
+                  : "Connect to share affiliate content with your network"}
+              </p>
+            </div>
+          </div>
+
+          {!linkedinConnected && (
+            <Button 
+              onClick={handleConnectLinkedin}
+              disabled={loading}
+              className="w-full h-11 font-semibold gap-2"
+              style={{ background: "linear-gradient(135deg, #0A66C2, #0077B5)" }}
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
+              {loading ? "Connecting..." : "Connect LinkedIn Account"}
+            </Button>
+          )}
+
+          {linkedinConnected && (
+            <p className="text-xs text-green-400 flex items-center gap-1">
+              <CheckCircle className="w-3 h-3" /> Ready to auto-post to LinkedIn
             </p>
           )}
         </CardContent>
@@ -200,11 +274,15 @@ export default function SocialConnect() {
         <CardContent className="space-y-2">
           <Button variant="outline" className="w-full justify-start gap-2 text-slate-300">
             <Instagram className="w-4 h-4" />
-            Test Instagram Post (AutoPilot → Generate Posts)
+            Generate Instagram Posts (AutoPilot)
+          </Button>
+          <Button variant="outline" className="w-full justify-start gap-2 text-slate-300">
+            <Linkedin className="w-4 h-4" />
+            Generate LinkedIn Posts (AutoPilot)
           </Button>
           <Button variant="outline" className="w-full justify-start gap-2 text-slate-300">
             <Settings className="w-4 h-4" />
-            Tell Phil: "Set up my payments"
+            Tell Atlas: "Set up my payments"
           </Button>
         </CardContent>
       </Card>

@@ -15,6 +15,7 @@
       "enum": [
         "facebook",
         "instagram",
+        "linkedin",
         "tiktok",
         "twitter",
         "email",
