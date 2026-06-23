@@ -75,7 +75,18 @@
   "voice_settings": {
     "voice": "river",
     "speed": 0.9,
-    "pitch": 1.0
+    "pitch": 1
+  },
+  "context_files": [],
+  "app_user_connector_configs": [],
+  "selected_skill_names": [],
+  "selected_workspace_skill_ids": [],
+  "line_greeting": "",
+  "memory_config": {
+    "enabled": false,
+    "scope": "both",
+    "include_other_conversation_context": false,
+    "instructions": null
   },
   "name": "phil"
 }
