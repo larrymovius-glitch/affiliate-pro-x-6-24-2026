@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Mic, MicOff, Loader2, Volume2, Send } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 
-const PHIL_AVATAR = "https://media.base44.com/images/public/6a2a72a46235784f879b968c/a6cbd43e5_generated_image.png";
+const LUCA_AVATAR = "https://media.base44.com/images/public/6a2a72a46235784f879b968c/a6cbd43e5_generated_image.png";
 const MAYA_AVATAR = "https://media.base44.com/images/public/6a2a72a46235784f879b968c/c0640056e_generated_image.png";
 
 export default function VoicePhil({ onClose } = {}) {
@@ -16,10 +16,10 @@ export default function VoicePhil({ onClose } = {}) {
   const [pulse, setPulse] = useState(false);
   const [textInput, setTextInput] = useState("");
   const [activeTab, setActiveTab] = useState("text");
-  const [selectedAssistant, setSelectedAssistant] = useState("phil"); // "phil" | "maya"
-  const currentAvatar = selectedAssistant === "phil" ? PHIL_AVATAR : MAYA_AVATAR;
-  const currentName = selectedAssistant === "phil" ? "Phil" : "Maya";
-  const currentAgentName = selectedAssistant === "phil" ? "phil" : "maya";
+  const [selectedAssistant, setSelectedAssistant] = useState("luca"); // "luca" | "maya"
+  const currentAvatar = selectedAssistant === "luca" ? LUCA_AVATAR : MAYA_AVATAR;
+  const currentName = selectedAssistant === "luca" ? "Luca" : "Maya";
+  const currentAgentName = selectedAssistant === "luca" ? "luca" : "maya";
   const [quickActions, setQuickActions] = useState([
     { label: "💰 My Earnings", command: "Show my total earnings" },
     { label: "🔥 What's Trending", command: "What products are trending right now?" },
@@ -135,21 +135,21 @@ export default function VoicePhil({ onClose } = {}) {
       <div className="flex items-center gap-2 px-5 py-3 border-b border-violet-500/20">
         <button
           onClick={() => {
-            setSelectedAssistant("phil");
+            setSelectedAssistant("luca");
             conversationRef.current = null;
             setTranscript("");
             setReply("");
           }}
           className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
-            selectedAssistant === "phil" ? "scale-105" : "opacity-60 hover:opacity-80"
+            selectedAssistant === "luca" ? "scale-105" : "opacity-60 hover:opacity-80"
           }`}
           style={{
-            background: selectedAssistant === "phil" ? "linear-gradient(135deg, rgba(124,58,237,0.3), rgba(245,158,11,0.2))" : "rgba(255,255,255,0.05)",
-            border: selectedAssistant === "phil" ? "2px solid rgba(124,58,237,0.5)" : "1px solid rgba(255,255,255,0.1)",
+            background: selectedAssistant === "luca" ? "linear-gradient(135deg, rgba(124,58,237,0.3), rgba(245,158,11,0.2))" : "rgba(255,255,255,0.05)",
+            border: selectedAssistant === "luca" ? "2px solid rgba(124,58,237,0.5)" : "1px solid rgba(255,255,255,0.1)",
             color: "#e2e8f0",
           }}
         >
-          👨 Phil
+          👨 Luca
         </button>
         <button
           onClick={() => {
