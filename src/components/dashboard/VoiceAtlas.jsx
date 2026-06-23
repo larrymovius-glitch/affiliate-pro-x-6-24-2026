@@ -85,11 +85,29 @@ export default function VoiceAtlas({ onClose } = {}) {
       }
       
       // Add user message
-      const updated = await base44.agents.addMessage(conversationRef.current, {
-        role: "user",
-        content: text,
-      });
-      conversationRef.current = updated;
+      let updated;
+      try {
+        updated = await base44.agents.addMessage(conversationRef.current, {
+          role: "user",
+          content: text,
+        });
+        conversationRef.current = updated;
+      } catch (addErr) {
+        console.error("Failed to add message:", addErr);
+        // Conversation was deleted - create new one
+        conversationRef.current = null;
+        setConversationId(null);
+        const newConvo = await base44.agents.createConversation({
+          agent_name: currentAgentName,
+          metadata: { name: "Voice Session" },
+        });
+        conversationRef.current = newConvo;
+        setConversationId(newConvo.id);
+        updated = await base44.agents.addMessage(conversationRef.current, {
+          role: "user",
+          content: text,
+        });
+      }
       
       // Subscribe to get the streaming response
       const unsubscribe = base44.agents.subscribeToConversation(conversationRef.current.id, (data) => {
