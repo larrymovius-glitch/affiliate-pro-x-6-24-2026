@@ -21,9 +21,23 @@ Deno.serve(async (req) => {
     const generated = [];
 
     for (const product of ebayProducts.slice(0, 5)) { // Generate for top 5 products
-      // Generate social posts for each platform
+      // Generate social posts for each platform WITH SAFETY CONSTRAINTS
       const postResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
-        prompt: `You are an expert affiliate marketer creating HIGH-CONVERTING social media posts for eBay products.
+        prompt: `You are an expert affiliate marketer creating HIGH-CONVERTING but SAFE social media posts for eBay products.
+
+⚠️ CRITICAL: Follow ALL platform community standards. DO NOT create content that could get accounts banned:
+
+**STRICT RULES:**
+1. NO income claims ("Make $500/day", "Get rich quick") — focus on PRODUCT VALUE, not earnings
+2. NO medical claims ("Cures pain", "Miracle solution") — use "may help", "customers report"
+3. NO spammy language — limit emojis to 3-5, NO excessive caps or "CLICK NOW!!!"
+4. NO fake urgency — don't say "Last chance!" unless it's actually ending
+5. NO before/after claims without clear disclaimers
+6. NO MLM/pyramid language ("Join my team", "Recruit others")
+7. Be honest and transparent — FTC compliance required
+8. Include affiliate disclosure: "As an eBay partner I earn from qualifying purchases"
+
+Your posts must be PROFESSIONAL, HONEST, and PLATFORM-SAFE.
 
 PRODUCT: ${product.name}
 CATEGORY: ${product.category || "general"}
@@ -99,31 +113,55 @@ Return JSON in this exact format:
         }
       });
 
-      // Save posts to GeneratedPost entity
+      // Step 2: Moderate EACH post before saving
       const platforms = ['facebook', 'instagram', 'tiktok', 'twitter'];
       for (const platform of platforms) {
         const postData = postResult[platform];
         if (!postData) continue;
 
+        // Run content moderation
+        const moderation = await base44.asServiceRole.functions.invoke('moderateContent', {
+          content: postData.content,
+          platform: platform
+        });
+
+        const modData = moderation.data;
+
+        // Auto-reject HIGH/CRITICAL risk content
+        if (modData.overall_risk === 'high' || modData.overall_risk === 'critical') {
+          console.log(`❌ Rejected ${platform} post for ${product.name}: ${modData.violations?.length || 0} violations`);
+          continue; // Skip this post
+        }
+
+        // Use safe version if rewrite recommended
+        const finalContent = modData.recommendation === 'rewrite' && modData.safe_version 
+          ? modData.safe_version 
+          : postData.content;
+
         await base44.asServiceRole.entities.GeneratedPost.create({
           link_id: product.id,
           product_name: product.name,
           platform: platform,
-          content: postData.content,
+          content: finalContent,
           hashtags: postData.hashtags || "",
           tone: "inspiring",
           status: "draft",
           clicks: 0,
           conversions: 0,
-          ai_score: 8.5,
-          ai_feedback: "AI-generated high-converting post with strong hook and CTA",
-          trending_topics: product.category || "trending"
+          ai_score: modData.is_safe ? 8.5 : 6.0,
+          ai_feedback: modData.is_safe 
+            ? "AI-generated high-converting post with strong hook and CTA" 
+            : `Moderated: ${modData.violations?.length || 0} issues fixed`,
+          trending_topics: product.category || "trending",
+          moderation_status: modData.is_safe ? 'passed' : 'modified',
+          moderation_notes: JSON.stringify(modData)
         });
 
         generated.push({
           product: product.name,
           platform,
-          status: "draft"
+          status: "draft",
+          moderation: modData.recommendation
         });
       }
     }

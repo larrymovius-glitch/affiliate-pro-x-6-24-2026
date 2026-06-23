@@ -70,6 +70,20 @@
     "trending_topics": {
       "type": "string",
       "description": "Trending topics used in this post"
+    },
+    "moderation_status": {
+      "type": "string",
+      "enum": [
+        "passed",
+        "modified",
+        "flagged"
+      ],
+      "default": "passed",
+      "description": "Community standards moderation result"
+    },
+    "moderation_notes": {
+      "type": "string",
+      "description": "JSON string with moderation details"
     }
   },
   "required": [
