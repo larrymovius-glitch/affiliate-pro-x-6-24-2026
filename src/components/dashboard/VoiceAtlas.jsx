@@ -129,6 +129,7 @@ export default function VoiceAtlas({ onClose } = {}) {
     recognition.lang = "en-US";
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
+    recognition.continuous = false; // Stop after silence automatically
 
     recognition.onstart = () => { setListening(true); setPulse(true); setTranscript(""); setReply(""); };
     recognition.onend = () => { setListening(false); setPulse(false); };
