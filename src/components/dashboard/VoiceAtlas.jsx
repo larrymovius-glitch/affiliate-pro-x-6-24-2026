@@ -18,6 +18,7 @@ export default function VoiceAtlas({ onClose } = {}) {
   const [speaking, setSpeaking] = useState(false);
   const [conversationId, setConversationId] = useState(null);
   const conversationRef = useRef(null);
+  const activeAgentRef = useRef(currentAgentName);
   const [pulse, setPulse] = useState(false);
   const [textInput, setTextInput] = useState("");
   const [activeTab, setActiveTab] = useState("text");
@@ -84,6 +85,8 @@ export default function VoiceAtlas({ onClose } = {}) {
   }, [selectedAssistant]);
 
   const createFreshConversation = useCallback(async (agentName) => {
+    conversationRef.current = null;
+    setConversationId(null);
     const newConvo = await base44.agents.createConversation({
       agent_name: agentName,
       metadata: { name: "Voice Session" },
@@ -92,6 +95,15 @@ export default function VoiceAtlas({ onClose } = {}) {
     setConversationId(newConvo.id);
     return newConvo;
   }, []);
+
+  // Reset conversation whenever the selected assistant changes
+  useEffect(() => {
+    if (activeAgentRef.current !== currentAgentName) {
+      activeAgentRef.current = currentAgentName;
+      conversationRef.current = null;
+      setConversationId(null);
+    }
+  }, [currentAgentName]);
 
   const sendToAtlas = useCallback(async (text) => {
     if (!text.trim()) return;
@@ -108,8 +120,9 @@ export default function VoiceAtlas({ onClose } = {}) {
       let updated;
       try {
         updated = await base44.agents.addMessage(conversationRef.current, { role: "user", content: text });
-      } catch {
-        // Conversation gone (deleted/expired) — create a new one and retry once
+      } catch (e) {
+        // Conversation gone (deleted/expired) — force a brand new one and retry
+        conversationRef.current = null;
         await createFreshConversation(currentAgentName);
         updated = await base44.agents.addMessage(conversationRef.current, { role: "user", content: text });
       }
