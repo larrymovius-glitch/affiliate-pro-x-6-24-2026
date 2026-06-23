@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 
 const PHIL_AVATAR = "https://media.base44.com/images/public/6a2a72a46235784f879b968c/e653cac7b_generated_image.png";
 
-export default function VoicePhil() {
+export default function VoicePhil({ onClose } = {}) {
   const [open, setOpen] = useState(false);
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState("");
@@ -159,7 +159,7 @@ export default function VoicePhil() {
             {listening ? "Listening…" : speaking ? "Speaking…" : loading ? "Thinking…" : "Ready to help"}
           </p>
         </div>
-        <button onClick={() => { stopSpeaking(); setOpen(false); }} className="text-slate-500 hover:text-slate-300 transition-colors p-1" style={{ userSelect: "none" }}>
+        <button onClick={() => { stopSpeaking(); setOpen(false); onClose?.(); }} className="text-slate-500 hover:text-slate-300 transition-colors p-1" style={{ userSelect: "none" }}>
           <X className="w-4 h-4" />
         </button>
       </div>

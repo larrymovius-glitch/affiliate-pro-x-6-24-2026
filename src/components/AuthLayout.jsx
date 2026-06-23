@@ -49,10 +49,10 @@ export default function AuthLayout({ icon: Icon, title, subtitle, footer, childr
           }}
         >
           <img
-            src="https://media.base44.com/images/public/6a2a72a46235784f879b968c/f664aa924_Screenshot_20260612_052424_Photos.jpg"
-            alt="AmHere4UToday logo"
-            className="w-16 h-16 rounded-full object-cover shrink-0"
-            style={{ border: "2px solid rgba(167,139,250,0.7)", boxShadow: "0 0 16px rgba(124,58,237,0.5)" }}
+            src="https://media.base44.com/images/public/6a2a72a46235784f879b968c/e653cac7b_generated_image.png"
+            alt="Affiliate Pro X"
+            className="w-20 h-20 rounded-full object-contain shrink-0"
+            style={{ border: "2px solid rgba(167,139,250,0.7)", boxShadow: "0 0 20px rgba(124,58,237,0.6)", background: "rgba(15,12,41,0.8)" }}
           />
           <div
             className="rounded-xl px-4 py-3 flex items-start gap-2"

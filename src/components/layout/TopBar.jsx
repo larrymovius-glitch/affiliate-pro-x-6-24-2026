@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Menu, Bell, LogOut, Trash2, ChevronLeft, MessageCircle } from "lucide-react";
+import VoicePhilModal from "@/components/dashboard/VoicePhilModal";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
@@ -28,6 +29,7 @@ export default function TopBar({ onMenuClick }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [philOpen, setPhilOpen] = useState(false);
   const isRoot = location.pathname === "/";
   const initials = user?.full_name 
     ? user.full_name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) 
@@ -66,17 +68,17 @@ export default function TopBar({ onMenuClick }) {
 
         <div className="flex-1 flex items-center">
           <button
-            onClick={() => navigate("/")}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full transition-all hover:opacity-90"
-            style={{ background: "linear-gradient(90deg, rgba(124,58,237,0.3), rgba(245,158,11,0.2))", border: "1px solid rgba(245,158,11,0.4)", boxShadow: "0 0 12px rgba(245,158,11,0.15)", userSelect: "none" }}
+            onClick={() => setPhilOpen(true)}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full transition-all hover:scale-[1.03] active:scale-95"
+            style={{ background: "linear-gradient(90deg, rgba(124,58,237,0.45), rgba(245,158,11,0.3))", border: "1px solid rgba(245,158,11,0.6)", boxShadow: "0 0 16px rgba(245,158,11,0.25)", userSelect: "none" }}
           >
             <img
               src="https://media.base44.com/images/public/6a2a72a46235784f879b968c/e653cac7b_generated_image.png"
               alt="Phil the assistant"
               className="w-8 h-8 object-contain flex-shrink-0"
             />
-            <span className="text-xs font-bold hidden sm:inline" style={{ background: "linear-gradient(90deg, #c084fc, #f59e0b)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              Ask Phil — he'll do the work!
+            <span className="text-xs font-bold" style={{ background: "linear-gradient(90deg, #c084fc, #f59e0b)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+              Ask Phil
             </span>
           </button>
         </div>
@@ -115,6 +117,8 @@ export default function TopBar({ onMenuClick }) {
           </DropdownMenu>
         </div>
       </header>
+
+      <VoicePhilModal open={philOpen} onClose={() => setPhilOpen(false)} />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
