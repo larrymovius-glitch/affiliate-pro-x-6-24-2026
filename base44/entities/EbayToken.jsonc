@@ -1,0 +1,26 @@
+{
+  "name": "EbayToken",
+  "type": "object",
+  "properties": {
+    "token": {
+      "type": "string",
+      "description": "eBay Auth'n'Auth user token"
+    },
+    "expires_at": {
+      "type": "string",
+      "description": "Token hard expiration datetime"
+    },
+    "ru_name": {
+      "type": "string",
+      "description": "RuName used for this token"
+    },
+    "connected_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the eBay account was connected"
+    }
+  },
+  "required": [
+    "token"
+  ]
+}
