@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -76,10 +76,21 @@ export default function Products() {
   const ITEMS_PER_PAGE = 12;
   const queryClient = useQueryClient();
 
-  const { data: products = [], isLoading, refetch } = useQuery({
-    queryKey: ["products"],
-    queryFn: () => base44.entities.Product.list("-created_date"),
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ["products", currentPage, search, categoryFilter],
+    queryFn: async () => {
+      const response = await base44.functions.invoke('getProductsPaginated', {
+        page: currentPage,
+        limit: ITEMS_PER_PAGE,
+        search,
+        category: categoryFilter
+      });
+      return response.data;
+    },
   });
+
+  const products = data?.products || [];
+  const pagination = data?.pagination || { currentPage: 1, totalPages: 0, totalItems: 0, itemsPerPage: ITEMS_PER_PAGE };
 
   const { onTouchStart, onTouchMove, onTouchEnd, pullDistance, pulling } = usePullToRefresh(() => refetch());
 
@@ -134,51 +145,37 @@ export default function Products() {
     else createMutation.mutate(data);
   };
 
-  // Get unique categories
-  const categories = useMemo(() => {
-    const cats = new Set(products.map(p => p.category).filter(Boolean));
-    return ["all", ...Array.from(cats)];
-  }, [products]);
-
-  // Filter and search
-  const filtered = useMemo(() => {
-    return products.filter(p => {
-      const matchesSearch = !search || p.name?.toLowerCase().includes(search.toLowerCase()) || p.description?.toLowerCase().includes(search.toLowerCase());
-      const matchesCategory = categoryFilter === "all" || p.category === categoryFilter;
-      return matchesSearch && matchesCategory;
-    });
-  }, [products, search, categoryFilter]);
-
-  // Pagination
-  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
-  const paginatedProducts = filtered.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
-
-  // Reset page when filters change
-  React.useEffect(() => {
+  useEffect(() => {
     setCurrentPage(1);
   }, [search, categoryFilter]);
 
-  // Export functionality
-  const handleExport = () => {
-    const csv = filtered.map(p => 
-      `"${p.name}","${p.url}","${p.category || ""}",${p.commission_rate || ""}`
-    ).join("\n");
-    const blob = new Blob([`name,url,category,commission_rate\n${csv}`], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `products-export-${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success("Products exported");
+  const handleExport = async () => {
+    try {
+      const response = await base44.functions.invoke('getProductsPaginated', {
+        page: 1,
+        limit: 10000,
+        search,
+        category: categoryFilter
+      });
+      const allProducts = response.data.products;
+      const csv = allProducts.map(p => 
+        `"${p.name}","${p.url}","${p.category || ""}",${p.commission_rate || ""}`
+      ).join("\n");
+      const blob = new Blob([`name,url,category,commission_rate\n${csv}`], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `products-export-${new Date().toISOString().split("T")[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Products exported");
+    } catch (error) {
+      toast.error("Failed to export products");
+    }
   };
 
   return (
     <div className="space-y-6" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
-      {/* Pull-to-refresh indicator */}
       <div className="ptr-indicator" style={{ height: pullDistance }}>
         <RefreshCw className={`w-5 h-5 text-violet-400 transition-transform ${pulling ? "animate-spin" : ""}`} style={{ transform: `rotate(${pullDistance * 2}deg)` }} />
       </div>
@@ -188,7 +185,7 @@ export default function Products() {
           <p className="text-muted-foreground text-sm mt-1">Manage your affiliate products</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="gap-2" onClick={handleExport} disabled={filtered.length === 0}>
+          <Button variant="outline" className="gap-2" onClick={handleExport} disabled={!data?.pagination?.totalItems}>
             <Download className="w-4 h-4" />
             Export
           </Button>
@@ -225,7 +222,6 @@ export default function Products() {
         </div>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -236,23 +232,22 @@ export default function Products() {
             className="pl-9" 
           />
         </div>
-        {categories.length > 1 && (
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-full sm:w-[200px]">
-              <Filter className="w-4 h-4 mr-2" />
-              <SelectValue placeholder="All categories" />
-            </SelectTrigger>
-            <SelectContent>
-              {categories.map(cat => (
-                <SelectItem key={cat} value={cat}>
-                  {cat === "all" ? "All Categories" : cat}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger className="w-full sm:w-[200px]">
+            <Filter className="w-4 h-4 mr-2" />
+            <SelectValue placeholder="All categories" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
+            {data?.categories?.map(cat => (
+              <SelectItem key={cat} value={cat}>
+                {cat}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <div className="ml-auto text-sm text-muted-foreground">
-          Showing {paginatedProducts.length} of {filtered.length} products
+          Showing {pagination.totalItems} products
         </div>
       </div>
 
@@ -260,7 +255,7 @@ export default function Products() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-48 rounded-xl" />)}
         </div>
-      ) : filtered.length === 0 ? (
+      ) : products.length === 0 ? (
         <Card className="p-12 text-center">
           <Package className="w-12 h-12 mx-auto text-muted-foreground/40" />
           <p className="text-muted-foreground mt-4">No products yet — add your first affiliate product</p>
@@ -268,7 +263,7 @@ export default function Products() {
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {paginatedProducts.map((product) => (
+            {products.map((product) => (
               <Card key={product.id} className="overflow-hidden group hover:shadow-lg transition-shadow">
                 {product.image_url && (
                   <div className="h-36 bg-muted overflow-hidden">
@@ -304,8 +299,7 @@ export default function Products() {
             ))}
           </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
+          {pagination.totalPages > 1 && (
             <div className="flex items-center justify-center gap-2 mt-6">
               <Button
                 variant="outline"
@@ -316,7 +310,10 @@ export default function Products() {
                 Previous
               </Button>
               <div className="flex items-center gap-1">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                  const startPage = Math.max(1, Math.min(currentPage - 2, pagination.totalPages - 4));
+                  return startPage + i;
+                }).map(page => (
                   <Button
                     key={page}
                     variant={currentPage === page ? "default" : "outline"}
@@ -331,8 +328,8 @@ export default function Products() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(p => Math.min(pagination.totalPages, p + 1))}
+                disabled={currentPage === pagination.totalPages}
               >
                 Next
               </Button>
