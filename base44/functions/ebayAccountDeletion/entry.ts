@@ -1,7 +1,7 @@
 Deno.serve(async (req) => {
   try {
     const verificationToken = Deno.env.get("EBAY_VERIFICATION_TOKEN");
-    const endpointUrl = "https://apx.amhere4utoday.com";
+    const endpointUrl = "https://apx.amhere4utoday.com/api/functions/ebayAccountDeletion";
 
     // GET: eBay challenge handshake
     if (req.method === "GET") {
