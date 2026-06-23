@@ -152,7 +152,7 @@ export default function VoiceAtlas({ onClose } = {}) {
               if (content !== lastContent) {
                 lastContent = content;
                 if (stableTimer) clearTimeout(stableTimer);
-                stableTimer = setTimeout(() => { unsubscribe(); resolve(); }, 1500);
+                stableTimer = setTimeout(() => { unsubscribe(); resolve(); }, 800);
               }
             }
           });
