@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,10 +8,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Package, ExternalLink, Trash2, Pencil, Search, RefreshCw } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Package, ExternalLink, Trash2, Pencil, Search, RefreshCw, Download, Upload, Filter } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import BulkImporter from "@/components/products/BulkImporter";
 
 function ProductForm({ product, onSave, onCancel, saving }) {
   const [form, setForm] = useState({
@@ -66,13 +68,17 @@ function ProductForm({ product, onSave, onCancel, saving }) {
 
 export default function Products() {
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [editProduct, setEditProduct] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 12;
   const queryClient = useQueryClient();
 
   const { data: products = [], isLoading, refetch } = useQuery({
     queryKey: ["products"],
-    queryFn: () => base44.entities.Product.list("-created_date", 100),
+    queryFn: () => base44.entities.Product.list("-created_date", 500),
   });
 
   const { onTouchStart, onTouchMove, onTouchEnd, pullDistance, pulling } = usePullToRefresh(() => refetch());
@@ -128,7 +134,47 @@ export default function Products() {
     else createMutation.mutate(data);
   };
 
-  const filtered = products.filter(p => !search || p.name?.toLowerCase().includes(search.toLowerCase()));
+  // Get unique categories
+  const categories = useMemo(() => {
+    const cats = new Set(products.map(p => p.category).filter(Boolean));
+    return ["all", ...Array.from(cats)];
+  }, [products]);
+
+  // Filter and search
+  const filtered = useMemo(() => {
+    return products.filter(p => {
+      const matchesSearch = !search || p.name?.toLowerCase().includes(search.toLowerCase()) || p.description?.toLowerCase().includes(search.toLowerCase());
+      const matchesCategory = categoryFilter === "all" || p.category === categoryFilter;
+      return matchesSearch && matchesCategory;
+    });
+  }, [products, search, categoryFilter]);
+
+  // Pagination
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+  const paginatedProducts = filtered.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  // Reset page when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [search, categoryFilter]);
+
+  // Export functionality
+  const handleExport = () => {
+    const csv = filtered.map(p => 
+      `"${p.name}","${p.url}","${p.category || ""}",${p.commission_rate || ""}`
+    ).join("\n");
+    const blob = new Blob([`name,url,category,commission_rate\n${csv}`], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `products-export-${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Products exported");
+  };
 
   return (
     <div className="space-y-6" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
@@ -141,27 +187,73 @@ export default function Products() {
           <h1 className="text-2xl font-display font-bold tracking-tight">Products</h1>
           <p className="text-muted-foreground text-sm mt-1">Manage your affiliate products</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditProduct(null); }}>
-          <DialogTrigger asChild>
-            <Button className="gap-2 h-11" style={{ userSelect: "none" }}><Plus className="w-4 h-4" /> Add Product</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle className="font-display">{editProduct ? "Edit Product" : "New Product"}</DialogTitle>
-            </DialogHeader>
-            <ProductForm
-              product={editProduct}
-              onSave={handleSave}
-              onCancel={() => { setDialogOpen(false); setEditProduct(null); }}
-              saving={createMutation.isPending || updateMutation.isPending}
-            />
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2">
+          <Button variant="outline" className="gap-2" onClick={handleExport} disabled={filtered.length === 0}>
+            <Download className="w-4 h-4" />
+            Export
+          </Button>
+          <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <Upload className="w-4 h-4" />
+                Import
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="font-display">Bulk Import Products</DialogTitle>
+              </DialogHeader>
+              <BulkImporter onComplete={() => { setImportDialogOpen(false); refetch(); }} />
+            </DialogContent>
+          </Dialog>
+          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditProduct(null); }}>
+            <DialogTrigger asChild>
+              <Button className="gap-2 h-11" style={{ userSelect: "none" }}><Plus className="w-4 h-4" /> Add Product</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="font-display">{editProduct ? "Edit Product" : "New Product"}</DialogTitle>
+              </DialogHeader>
+              <ProductForm
+                product={editProduct}
+                onSave={handleSave}
+                onCancel={() => { setDialogOpen(false); setEditProduct(null); }}
+                saving={createMutation.isPending || updateMutation.isPending}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input 
+            placeholder="Search products..." 
+            value={search} 
+            onChange={(e) => setSearch(e.target.value)} 
+            className="pl-9" 
+          />
+        </div>
+        {categories.length > 1 && (
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-full sm:w-[200px]">
+              <Filter className="w-4 h-4 mr-2" />
+              <SelectValue placeholder="All categories" />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map(cat => (
+                <SelectItem key={cat} value={cat}>
+                  {cat === "all" ? "All Categories" : cat}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        <div className="ml-auto text-sm text-muted-foreground">
+          Showing {paginatedProducts.length} of {filtered.length} products
+        </div>
       </div>
 
       {isLoading ? (
@@ -174,42 +266,79 @@ export default function Products() {
           <p className="text-muted-foreground mt-4">No products yet — add your first affiliate product</p>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((product) => (
-            <Card key={product.id} className="overflow-hidden group hover:shadow-lg transition-shadow">
-              {product.image_url && (
-                <div className="h-36 bg-muted overflow-hidden">
-                  <img src={product.image_url} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                </div>
-              )}
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <h3 className="font-semibold font-display truncate">{product.name}</h3>
-                    {product.category && <Badge variant="secondary" className="mt-1 text-xs">{product.category}</Badge>}
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {paginatedProducts.map((product) => (
+              <Card key={product.id} className="overflow-hidden group hover:shadow-lg transition-shadow">
+                {product.image_url && (
+                  <div className="h-36 bg-muted overflow-hidden">
+                    <img src={product.image_url} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                   </div>
-                  {product.commission_rate && (
-                    <Badge className="bg-emerald-500/10 text-emerald-600 border-0 shrink-0">{product.commission_rate}%</Badge>
-                  )}
-                </div>
-                {product.description && <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{product.description}</p>}
-                <div className="flex items-center gap-1 mt-3 pt-3 border-t">
-                  {product.url && (
-                    <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                      <a href={product.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-3.5 h-3.5" /></a>
+                )}
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h3 className="font-semibold font-display truncate">{product.name}</h3>
+                      {product.category && <Badge variant="secondary" className="mt-1 text-xs">{product.category}</Badge>}
+                    </div>
+                    {product.commission_rate && (
+                      <Badge className="bg-emerald-500/10 text-emerald-600 border-0 shrink-0">{product.commission_rate}%</Badge>
+                    )}
+                  </div>
+                  {product.description && <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{product.description}</p>}
+                  <div className="flex items-center gap-1 mt-3 pt-3 border-t">
+                    {product.url && (
+                      <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                        <a href={product.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-3.5 h-3.5" /></a>
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditProduct(product); setDialogOpen(true); }}>
+                      <Pencil className="w-3.5 h-3.5" />
                     </Button>
-                  )}
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditProduct(product); setDialogOpen(true); }}>
-                    <Pencil className="w-3.5 h-3.5" />
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(product.id)}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-6">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentPage(page)}
+                    className="w-10"
+                  >
+                    {page}
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(product.id)}>
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                ))}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
