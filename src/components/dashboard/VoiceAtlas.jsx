@@ -69,12 +69,19 @@ export default function VoiceAtlas({ onClose } = {}) {
     setReply("");
     try {
       if (!conversationRef.current) {
-        const newConvo = await base44.agents.createConversation({
-          agent_name: currentAgentName,
-          metadata: { name: "Voice Session" },
-        });
-        conversationRef.current = newConvo;
-        setConversationId(newConvo.id);
+        try {
+          const newConvo = await base44.agents.createConversation({
+            agent_name: currentAgentName,
+            metadata: { name: "Voice Session" },
+          });
+          conversationRef.current = newConvo;
+          setConversationId(newConvo.id);
+        } catch (createErr) {
+          console.error("Failed to create conversation:", createErr);
+          setReply("Having trouble connecting. Please try again!");
+          setLoading(false);
+          return;
+        }
       }
       
       // Add user message
@@ -98,12 +105,21 @@ export default function VoiceAtlas({ onClose } = {}) {
       unsubscribe();
       
       // Get final response
-      const finalConvo = await base44.agents.getConversation(conversationRef.current.id);
-      const messages = finalConvo?.messages || [];
-      const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
-      const replyText = lastAssistant?.content || "Sorry, I didn't catch that!";
-      setReply(replyText);
-      speakReply(replyText);
+      try {
+        const finalConvo = await base44.agents.getConversation(conversationRef.current.id);
+        const messages = finalConvo?.messages || [];
+        const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+        const replyText = lastAssistant?.content || "Sorry, I didn't catch that!";
+        setReply(replyText);
+        speakReply(replyText);
+      } catch (convErr) {
+        console.error("Failed to get conversation:", convErr);
+        // If conversation is invalid, create a new one
+        conversationRef.current = null;
+        setConversationId(null);
+        setReply("Let's start fresh! What can I help you with?");
+        speakReply("Let's start fresh! What can I help you with?");
+      }
     } catch (err) {
       console.error("Atlas error:", err);
       setReply("Oops! Something went wrong. Try again.");
@@ -180,8 +196,10 @@ export default function VoiceAtlas({ onClose } = {}) {
           onClick={() => {
             setSelectedAssistant("atlas");
             conversationRef.current = null;
+            setConversationId(null);
             setTranscript("");
             setReply("");
+            setSpeaking(false);
           }}
           className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
             selectedAssistant === "atlas" ? "scale-105" : "opacity-60 hover:opacity-80"
@@ -198,8 +216,10 @@ export default function VoiceAtlas({ onClose } = {}) {
           onClick={() => {
             setSelectedAssistant("maya");
             conversationRef.current = null;
+            setConversationId(null);
             setTranscript("");
             setReply("");
+            setSpeaking(false);
           }}
           className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
             selectedAssistant === "maya" ? "scale-105" : "opacity-60 hover:opacity-80"
