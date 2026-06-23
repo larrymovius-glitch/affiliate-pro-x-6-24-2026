@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Upload, Star, CheckCircle2, AlertTriangle, XCircle, Sparkles } from "lucide-react";
+import AffiliateDisclosure from "@/components/AffiliateDisclosure";
 
 const ScoreBar = ({ label, score }) => {
   const color = score >= 8 ? "bg-green-500" : score >= 6 ? "bg-yellow-500" : "bg-red-500";
@@ -109,9 +110,12 @@ Be honest. Don't sugarcoat. The goal is helping this person make money.`;
   };
 
   return (
-    <div className="grid lg:grid-cols-2 gap-6">
-      {/* Input */}
-      <Card className="bg-card border-border">
+    <div className="space-y-6">
+      <AffiliateDisclosure />
+      
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Input */}
+        <Card className="bg-card border-border">
         <CardHeader>
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <Star className="w-4 h-4 text-primary" /> Submit Your Ad for Review
@@ -208,6 +212,7 @@ Be honest. Don't sugarcoat. The goal is helping this person make money.`;
           <p className="text-muted-foreground text-sm text-center px-8">Your AI review results will appear here — scores, what's working, what to fix, and a rewritten version.</p>
         </div>
       )}
+      </div>
     </div>
   );
 }

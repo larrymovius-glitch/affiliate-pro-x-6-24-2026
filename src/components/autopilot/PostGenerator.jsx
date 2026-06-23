@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Zap, Copy, CheckCheck, TrendingUp, RefreshCw } from "lucide-react";
+import AffiliateDisclosure from "@/components/AffiliateDisclosure";
 
 const platforms = ["facebook", "instagram", "linkedin", "tiktok", "twitter", "email", "general"];
 const tones = ["inspiring", "urgent", "casual", "professional", "storytelling"];
@@ -130,6 +131,8 @@ Return a JSON object with:
 
   return (
     <div className="space-y-6">
+      <AffiliateDisclosure />
+      
       {/* Controls */}
       <Card className="bg-card border-border">
         <CardHeader>

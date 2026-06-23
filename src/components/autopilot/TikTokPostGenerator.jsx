@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Copy, CheckCheck, Video, TrendingUp, Music } from "lucide-react";
+import AffiliateDisclosure from "@/components/AffiliateDisclosure";
 
 const tones = ["energetic", "storytelling", "educational", "trending", "humorous"];
 
@@ -139,6 +140,8 @@ ${script.hashtags}`;
 
   return (
     <div className="space-y-6">
+      <AffiliateDisclosure />
+      
       {/* Controls */}
       <Card className="bg-card border-border">
         <CardHeader>
