@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Users, UserPlus, Trash2, Shield, ShieldOff, Mail,
-  Star, RefreshCw, Settings, Crown, AlertCircle, CheckCircle, Search, Edit2
+  Star, RefreshCw, Settings, Crown, AlertCircle, CheckCircle, Search, Edit2, ShoppingBag, Link2
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
@@ -49,6 +49,20 @@ export default function Admin() {
     queryKey: ["admin-reviewers"],
     queryFn: () => base44.entities.GoogleReviewer.list(),
   });
+
+  const { data: ebayTokens = [], refetch: refetchEbay } = useQuery({
+    queryKey: ["admin-ebay-token"],
+    queryFn: () => base44.entities.EbayToken.list(),
+  });
+  const ebayConnected = ebayTokens.length > 0;
+  const ebayToken = ebayTokens[0];
+
+  const disconnectEbayMutation = useMutation({
+    mutationFn: () => base44.entities.EbayToken.deleteMany({}),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-ebay-token"] }),
+  });
+
+  const EBAY_SIGNIN_URL = "https://signin.ebay.com/ws/eBayISAPI.dll?SignIn&runame=Lawerence_Moviu-Lawerenc-Affili-zgqyaq";
 
   const handleInvite = async () => {
     if (!inviteEmail.trim()) return;
@@ -159,8 +173,11 @@ export default function Admin() {
           <TabsTrigger value="invite" className="flex-1 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
             <UserPlus className="w-4 h-4 mr-1.5" /> Invite
           </TabsTrigger>
-          <TabsTrigger value="reviewers" className="flex-1 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+            <TabsTrigger value="reviewers" className="flex-1 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
             <Star className="w-4 h-4 mr-1.5" /> Reviewers
+          </TabsTrigger>
+          <TabsTrigger value="ebay" className="flex-1 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+            <ShoppingBag className="w-4 h-4 mr-1.5" /> eBay
           </TabsTrigger>
         </TabsList>
 
@@ -367,6 +384,68 @@ export default function Admin() {
               ))}
             </div>
           )}
+        </TabsContent>
+        {/* ── EBAY TAB ── */}
+        <TabsContent value="ebay" className="mt-4 space-y-4">
+          <Card className="border-white/10 bg-white/5">
+            <CardHeader>
+              <CardTitle className="text-white text-base flex items-center gap-2">
+                <ShoppingBag className="w-5 h-5 text-yellow-400" /> eBay Account Connection
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Status */}
+              <div className={`flex items-center gap-3 rounded-xl p-4 ${ebayConnected ? "bg-green-500/10 border border-green-500/20" : "bg-orange-500/10 border border-orange-500/20"}`}>
+                {ebayConnected
+                  ? <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
+                  : <AlertCircle className="w-5 h-5 text-orange-400 flex-shrink-0" />}
+                <div className="min-w-0">
+                  <p className={`text-sm font-semibold ${ebayConnected ? "text-green-300" : "text-orange-300"}`}>
+                    {ebayConnected ? "eBay Account Connected" : "Not Connected"}
+                  </p>
+                  {ebayConnected && ebayToken?.connected_at && (
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Connected on {new Date(ebayToken.connected_at).toLocaleDateString()}
+                      {ebayToken.expires_at && ` · Expires ${new Date(ebayToken.expires_at).toLocaleDateString()}`}
+                    </p>
+                  )}
+                  {!ebayConnected && (
+                    <p className="text-xs text-slate-400 mt-0.5">Connect your eBay account to enable affiliate tracking</p>
+                  )}
+                </div>
+                <Button size="sm" variant="ghost" onClick={() => refetchEbay()} className="ml-auto text-slate-400 hover:text-white flex-shrink-0">
+                  <RefreshCw className="w-4 h-4" />
+                </Button>
+              </div>
+
+              {/* RuName info */}
+              <div className="rounded-xl p-4 bg-white/5 border border-white/10 space-y-1">
+                <p className="text-xs text-slate-500 uppercase tracking-wide font-semibold">RuName</p>
+                <p className="text-sm text-slate-300 font-mono break-all">Lawerence_Moviu-Lawerenc-Affili-zgqyaq</p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-col gap-2">
+                <a href={EBAY_SIGNIN_URL} target="_blank" rel="noopener noreferrer">
+                  <Button className="w-full h-11 font-semibold gap-2" style={{ background: "linear-gradient(90deg, #0064d2, #0099d4)" }}>
+                    <Link2 className="w-4 h-4" />
+                    {ebayConnected ? "Reconnect eBay Account" : "Connect eBay Account"}
+                  </Button>
+                </a>
+                {ebayConnected && (
+                  <Button
+                    variant="ghost"
+                    className="w-full h-10 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                    disabled={disconnectEbayMutation.isPending}
+                    onClick={() => disconnectEbayMutation.mutate()}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    {disconnectEbayMutation.isPending ? "Disconnecting…" : "Disconnect eBay Account"}
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
