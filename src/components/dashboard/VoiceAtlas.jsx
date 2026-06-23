@@ -50,8 +50,17 @@ export default function VoiceAtlas({ onClose } = {}) {
     const utter = new SpeechSynthesisUtterance(text);
     // Use agent-specific voice settings
     if (selectedAssistant === "atlas") {
-      utter.rate = 1.0;
-      utter.pitch = 1.0;
+      utter.rate = 0.9;
+      utter.pitch = 0.8;
+      // Try to find a male robot-like voice
+      const voices = synthRef.current.getVoices();
+      const maleVoice = voices.find(v => 
+        v.name.includes('Male') || 
+        v.name.includes('David') || 
+        v.name.includes('Daniel') ||
+        v.name.includes('Google US English')
+      );
+      if (maleVoice) utter.voice = maleVoice;
     } else {
       utter.rate = 0.85;
       utter.pitch = 1.1;
