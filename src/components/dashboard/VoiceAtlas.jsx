@@ -25,6 +25,7 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
   const recognitionRef = useRef(null);
   const synthRef = useRef(window.speechSynthesis);
   const mountedRef = useRef(true);
+  const activeUnsubscribeRef = useRef(null); // holds the current stream unsubscribe fn
 
   const quickActions = [
     { label: "💰 My Earnings", command: "Show my total earnings" },
@@ -51,6 +52,11 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
 
     return () => {
       mountedRef.current = false;
+      // Forcefully kill any active stream subscription immediately
+      if (activeUnsubscribeRef.current) {
+        activeUnsubscribeRef.current();
+        activeUnsubscribeRef.current = null;
+      }
       recognitionRef.current?.abort();
       synthRef.current.cancel();
     };
@@ -105,12 +111,22 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
       await new Promise((resolve) => {
         let lastContent = "";
         let stableTimer = null;
-        let unsubscribe = () => {};
+        let unsubscribeFn = null;
+
+        const cleanup = () => {
+          if (unsubscribeFn) { unsubscribeFn(); unsubscribeFn = null; }
+          activeUnsubscribeRef.current = null;
+          if (stableTimer) clearTimeout(stableTimer);
+          resolve();
+        };
+
+        // Register cleanup so unmount can abort it immediately
+        activeUnsubscribeRef.current = cleanup;
 
         try {
-          unsubscribe = base44.agents.subscribeToConversation(convoId, (data) => {
-            if (!mountedRef.current) { unsubscribe(); resolve(); return; }
-            if (data?.error || data?.status === 404) { unsubscribe(); resolve(); return; }
+          unsubscribeFn = base44.agents.subscribeToConversation(convoId, (data) => {
+            if (!mountedRef.current) { cleanup(); return; }
+            if (data?.error || data?.status === 404) { cleanup(); return; }
             const messages = data.messages || [];
             const lastAssistant = [...messages].reverse().find(m => m.role === "assistant");
             const content = lastAssistant?.content || "";
@@ -118,13 +134,13 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
               lastContent = content;
               if (mountedRef.current) setReply(content);
               if (stableTimer) clearTimeout(stableTimer);
-              stableTimer = setTimeout(() => { unsubscribe(); resolve(); }, 800);
+              stableTimer = setTimeout(cleanup, 800);
             }
           });
         } catch {
-          resolve();
+          cleanup();
         }
-        setTimeout(() => { unsubscribe(); resolve(); }, 30000);
+        setTimeout(cleanup, 30000);
       });
 
       if (!mountedRef.current) return;
