@@ -16,6 +16,7 @@ export default function VoiceAtlas({ onClose } = {}) {
   const [loading, setLoading] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
+  const isInitializingRef = useRef(true);
   const [conversationId, setConversationId] = useState(null);
   const conversationRef = useRef(null);
   const [pulse, setPulse] = useState(false);
@@ -66,7 +67,7 @@ export default function VoiceAtlas({ onClose } = {}) {
 
   // Creates a fresh conversation; set gating=true only for the top-level mount/switch call
   const createFreshConversation = useCallback(async (agentName, { gate = false } = {}) => {
-    if (gate) setIsInitializing(true);
+    if (gate) { setIsInitializing(true); isInitializingRef.current = true; }
     conversationRef.current = null;
     setConversationId(null);
     try {
@@ -78,7 +79,7 @@ export default function VoiceAtlas({ onClose } = {}) {
       setConversationId(newConvo.id);
       return newConvo;
     } finally {
-      if (gate) setIsInitializing(false);
+      if (gate) { setIsInitializing(false); isInitializingRef.current = false; }
     }
   }, []);
 
@@ -92,7 +93,7 @@ export default function VoiceAtlas({ onClose } = {}) {
   }, [currentAgentName]);
 
   const sendToAtlas = useCallback(async (text) => {
-    if (!text.trim() || isInitializing) return;
+    if (!text.trim() || isInitializingRef.current) return;
     setLoading(true);
     setReply("");
 
@@ -160,7 +161,7 @@ export default function VoiceAtlas({ onClose } = {}) {
   }, [speakReply, currentAgentName, createFreshConversation, isInitializing]);
 
   const startListening = useCallback(() => {
-    if (!supported || isInitializing) return;
+    if (!supported || isInitializingRef.current) return;
     if (recognitionRef.current) recognitionRef.current.abort();
 
     const recognition = new SpeechRecognition();
@@ -218,7 +219,7 @@ export default function VoiceAtlas({ onClose } = {}) {
   }, []);
 
   const handleTextSend = () => {
-    if (!textInput.trim() || loading || isInitializing) return;
+    if (!textInput.trim() || loading || isInitializingRef.current) return;
     const msg = textInput.trim();
     setTextInput("");
     setTranscript(msg);
