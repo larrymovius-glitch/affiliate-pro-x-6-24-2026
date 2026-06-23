@@ -133,21 +133,34 @@ export default function VoiceAtlas({ onClose } = {}) {
       await new Promise((resolve) => {
         let lastContent = "";
         let stableTimer = null;
+        let unsubscribe = () => {};
 
-        const unsubscribe = base44.agents.subscribeToConversation(convoId, (data) => {
-          const messages = data.messages || [];
-          const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
-          const content = lastAssistant?.content || "";
-          if (content) {
-            setReply(content);
-            // If content stopped changing for 1.5s, consider it done
-            if (content !== lastContent) {
-              lastContent = content;
-              if (stableTimer) clearTimeout(stableTimer);
-              stableTimer = setTimeout(() => { unsubscribe(); resolve(); }, 1500);
+        try {
+          unsubscribe = base44.agents.subscribeToConversation(convoId, (data) => {
+            // If the subscription returns an error object, reset and bail
+            if (data?.error || data?.status === 404) {
+              conversationRef.current = null;
+              unsubscribe();
+              resolve();
+              return;
             }
-          }
-        });
+            const messages = data.messages || [];
+            const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+            const content = lastAssistant?.content || "";
+            if (content) {
+              setReply(content);
+              if (content !== lastContent) {
+                lastContent = content;
+                if (stableTimer) clearTimeout(stableTimer);
+                stableTimer = setTimeout(() => { unsubscribe(); resolve(); }, 1500);
+              }
+            }
+          });
+        } catch (subErr) {
+          // Subscription itself threw (stale ID) — reset so next call gets a fresh session
+          conversationRef.current = null;
+          resolve();
+        }
 
         // Hard timeout at 30s
         setTimeout(() => { unsubscribe(); resolve(); }, 30000);
