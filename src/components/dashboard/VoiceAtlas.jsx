@@ -19,6 +19,8 @@ export default function VoiceAtlas({ onClose } = {}) {
   const isInitializingRef = useRef(true);
   const [conversationId, setConversationId] = useState(null);
   const conversationRef = useRef(null);
+  // Incremented every time the assistant switches — in-flight sendToAtlas checks this and bails if it changed
+  const sessionTokenRef = useRef(0);
   const [pulse, setPulse] = useState(false);
   const [textInput, setTextInput] = useState("");
   const [activeTab, setActiveTab] = useState("text");
@@ -85,39 +87,49 @@ export default function VoiceAtlas({ onClose } = {}) {
 
   // Create a fresh conversation on mount and on every agent switch
   useEffect(() => {
+    // Invalidate any in-flight sendToAtlas calls from the previous assistant
+    sessionTokenRef.current += 1;
+    setLoading(false);
     setTranscript("");
     setReply("");
     setSpeaking(false);
     synthRef.current.cancel();
+    recognitionRef.current?.abort();
+    setListening(false);
+    setPulse(false);
     createFreshConversation(currentAgentName, { gate: true });
   }, [currentAgentName]);
 
   const sendToAtlas = useCallback(async (text) => {
     if (!text.trim() || isInitializingRef.current) return;
+    // Capture the session token at call time — if it changes mid-flight, we were switched away
+    const myToken = sessionTokenRef.current;
+    const isStale = () => sessionTokenRef.current !== myToken;
+
     setLoading(true);
     setReply("");
 
     try {
-      // Ensure we have a valid conversation — create one if missing
       if (!conversationRef.current) {
         await createFreshConversation(currentAgentName);
       }
+      if (isStale()) return;
 
-      // Add user message — retry up to 3x with a fresh conversation on error (no gating)
       let updated;
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
           updated = await base44.agents.addMessage(conversationRef.current, { role: "user", content: text });
           break;
         } catch (e) {
+          if (isStale()) return;
           if (attempt >= 2) throw e;
           conversationRef.current = null;
           await createFreshConversation(currentAgentName, { gate: false });
         }
       }
+      if (isStale()) return;
       conversationRef.current = updated;
 
-      // Wait for streaming response via subscription (up to 30s)
       const convoId = conversationRef.current.id;
       await new Promise((resolve) => {
         let lastContent = "";
@@ -126,6 +138,7 @@ export default function VoiceAtlas({ onClose } = {}) {
 
         try {
           unsubscribe = base44.agents.subscribeToConversation(convoId, (data) => {
+            if (isStale()) { unsubscribe(); resolve(); return; }
             if (data?.error || data?.status === 404 || data?.message?.includes?.("not found") || data?.message?.includes?.("Invalid id")) {
               conversationRef.current = null;
               unsubscribe();
@@ -150,15 +163,17 @@ export default function VoiceAtlas({ onClose } = {}) {
         setTimeout(() => { unsubscribe(); resolve(); }, 30000);
       });
 
+      if (isStale()) return;
       setReply(prev => { speakReply(prev); return prev; });
 
     } catch (err) {
+      if (isStale()) return;
       console.error("Assistant error:", err);
       setReply("Oops! Something went wrong. Try again.");
     } finally {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
-  }, [speakReply, currentAgentName, createFreshConversation, isInitializing]);
+  }, [speakReply, currentAgentName, createFreshConversation]);
 
   const startListening = useCallback(() => {
     if (!supported || isInitializingRef.current) return;
