@@ -81,17 +81,21 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
     setReply("");
 
     try {
-      // Add user message with one retry
+      // Add user message with one retry on stale conversation
       let updated;
-      try {
-        updated = await base44.agents.addMessage(conversationRef.current, { role: "user", content: text });
-      } catch {
-        if (!mountedRef.current) return;
-        // Recreate conversation and retry once
-        const convo = await base44.agents.createConversation({ agent_name: agentName, metadata: { name: "Voice Session" } });
-        if (!mountedRef.current) return;
-        conversationRef.current = convo;
-        updated = await base44.agents.addMessage(conversationRef.current, { role: "user", content: text });
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          updated = await base44.agents.addMessage(conversationRef.current, { role: "user", content: text });
+          break;
+        } catch (e) {
+          if (!mountedRef.current) return;
+          if (attempt === 1) throw e;
+          // Conversation expired — create a fresh one and retry
+          conversationRef.current = null;
+          const convo = await base44.agents.createConversation({ agent_name: agentName, metadata: { name: "Voice Session" } });
+          if (!mountedRef.current) return;
+          conversationRef.current = convo;
+        }
       }
       if (!mountedRef.current) return;
       conversationRef.current = updated;
