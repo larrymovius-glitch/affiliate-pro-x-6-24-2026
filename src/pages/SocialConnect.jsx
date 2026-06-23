@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Instagram, Linkedin, Link2, CheckCircle, AlertCircle, Loader2, Settings } from "lucide-react";
+import { Instagram, Linkedin, Facebook, Link2, CheckCircle, AlertCircle, Loader2, Settings } from "lucide-react";
+import FacebookPinterestConnector from "@/components/social/FacebookPinterestConnector";
 
 export default function SocialConnect() {
   const { user } = useAuth();
@@ -266,19 +267,28 @@ export default function SocialConnect() {
         </CardContent>
       </Card>
 
+      {/* Facebook & Pinterest */}
+      <FacebookPinterestConnector onGeneratePosts={(platform) => {
+        window.location.href = "/autopilot";
+      }} />
+
       {/* Quick Actions */}
       <Card className="border-white/10 bg-white/5">
         <CardHeader>
           <CardTitle className="text-white text-base">Quick Actions</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          <Button variant="outline" className="w-full justify-start gap-2 text-slate-300">
+          <Button variant="outline" className="w-full justify-start gap-2 text-slate-300" onClick={() => window.location.href = "/autopilot"}>
             <Instagram className="w-4 h-4" />
             Generate Instagram Posts (AutoPilot)
           </Button>
-          <Button variant="outline" className="w-full justify-start gap-2 text-slate-300">
+          <Button variant="outline" className="w-full justify-start gap-2 text-slate-300" onClick={() => window.location.href = "/autopilot"}>
             <Linkedin className="w-4 h-4" />
             Generate LinkedIn Posts (AutoPilot)
+          </Button>
+          <Button variant="outline" className="w-full justify-start gap-2 text-slate-300" onClick={() => window.location.href = "/autopilot"}>
+            <Facebook className="w-4 h-4" />
+            Generate Facebook Posts (AutoPilot)
           </Button>
           <Button variant="outline" className="w-full justify-start gap-2 text-slate-300">
             <Settings className="w-4 h-4" />

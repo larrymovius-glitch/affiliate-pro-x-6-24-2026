@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Zap, Star, FileSearch, Upload } from "lucide-react";
+import { Zap, Star, FileSearch, Upload, Video } from "lucide-react";
 import PostGenerator from "@/components/autopilot/PostGenerator";
 import PostLibrary from "@/components/autopilot/PostLibrary";
 import AdReviewer from "@/components/autopilot/AdReviewer";
 import AdAssetUploader from "@/components/autopilot/AdAssetUploader";
+import TikTokPostGenerator from "@/components/autopilot/TikTokPostGenerator";
 import AffiliateDisclosure from "@/components/AffiliateDisclosure";
 
 export default function AutoPilot() {
@@ -27,6 +28,9 @@ export default function AutoPilot() {
           <TabsTrigger value="generate" className="gap-2">
             <Zap className="w-4 h-4" /> Generate Posts
           </TabsTrigger>
+          <TabsTrigger value="tiktok" className="gap-2">
+            <Video className="w-4 h-4" /> TikTok Scripts
+          </TabsTrigger>
           <TabsTrigger value="library" className="gap-2">
             <Star className="w-4 h-4" /> Post Library
           </TabsTrigger>
@@ -40,6 +44,9 @@ export default function AutoPilot() {
 
         <TabsContent value="generate" className="mt-6">
           <PostGenerator />
+        </TabsContent>
+        <TabsContent value="tiktok" className="mt-6">
+          <TikTokPostGenerator />
         </TabsContent>
         <TabsContent value="library" className="mt-6">
           <PostLibrary />

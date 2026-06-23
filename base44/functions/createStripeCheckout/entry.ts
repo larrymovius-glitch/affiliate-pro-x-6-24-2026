@@ -19,11 +19,11 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Invalid plan type' }, { status: 400 });
     }
 
-    // Map plan types to price IDs (you'll configure these in Stripe Dashboard)
+    // Map plan types to Stripe price IDs
     const priceIds = {
-      monthly: 'price_monthly_plan',
-      yearly: 'price_yearly_plan',
-      lifetime: 'price_lifetime_plan'
+      monthly: 'price_1TlONtLiK3PoXkX5WStUc9On',
+      yearly: 'price_1TlONuLiK3PoXkX5lI4jLfip',
+      lifetime: null // Lifetime is one-time, handle separately
     };
 
     // Veterans get free access - skip checkout
@@ -37,7 +37,14 @@ Deno.serve(async (req) => {
     // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      line_items: [{
+      line_items: planType === 'lifetime' ? [{
+        price_data: {
+          currency: 'usd',
+          product_data: { name: 'Affiliate Pro X - Lifetime Access' },
+          unit_amount: 99700
+        },
+        quantity: 1
+      }] : [{
         price: priceIds[planType],
         quantity: 1,
       }],
