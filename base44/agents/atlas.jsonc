@@ -74,8 +74,17 @@
   "model": "gemini_3_flash",
   "voice_settings": {
     "voice": "storm",
-    "speed": 1.0,
-    "pitch": 1.0
+    "speed": 1,
+    "pitch": 1
+  },
+  "selected_skill_names": [],
+  "selected_workspace_skill_ids": [
+    "6a3a07c065bdc0135ac226a2"
+  ],
+  "memory_config": {
+    "enabled": true,
+    "scope": "both",
+    "instructions": null
   },
   "name": "atlas"
 }
