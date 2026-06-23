@@ -2,7 +2,7 @@ import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, Link2, Package, Megaphone, 
-  BarChart3, Wallet, X, Zap, Crown
+  BarChart3, Wallet, X, Zap, Crown, Shield, FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
@@ -105,6 +105,27 @@ export default function Sidebar({ open, onClose }) {
             </Link>
           </div>
         )}
+
+        {/* Legal links */}
+        <div className="px-3 pb-4 pt-2 border-t border-sidebar-border mt-2">
+          <p className="text-xs text-sidebar-foreground/50 mb-2">Legal</p>
+          <Link
+            to="/privacy-policy"
+            onClick={onClose}
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors"
+          >
+            <Shield className="w-4 h-4" />
+            Privacy Policy
+          </Link>
+          <Link
+            to="/terms-of-service"
+            onClick={onClose}
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors"
+          >
+            <FileText className="w-4 h-4" />
+            Terms of Service
+          </Link>
+        </div>
 
         {/* Footer */}
         <div className="p-4 border-t border-sidebar-border">

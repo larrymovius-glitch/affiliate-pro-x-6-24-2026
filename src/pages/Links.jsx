@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import AffiliateDisclosure from "@/components/AffiliateDisclosure";
 
 function generateShortCode() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -24,9 +25,11 @@ export default function Links() {
   const [cbDialogOpen, setCbDialogOpen] = useState(false);
   const [cbVendor, setCbVendor] = useState("");
   const [cbNickname] = useState("amxalaska");
-  const [jvDialogOpen, setJvDialogOpen] = useState(false);
-  const [jvProductUrl, setJvProductUrl] = useState("");
+  const [dsDialogOpen, setDsDialogOpen] = useState(false);
+  const [dsProductId, setDsProductId] = useState("");
+  const [dsProductName, setDsProductName] = useState("");
   const [jvProductName, setJvProductName] = useState("");
+  const [jvProductUrl, setJvProductUrl] = useState("");
   const [search, setSearch] = useState("");
   const [selectedProductId, setSelectedProductId] = useState("");
   const queryClient = useQueryClient();
@@ -142,39 +145,77 @@ export default function Links() {
     onError: () => toast.error("Failed to add HopLink"),
   });
 
-  const addJvZooMutation = useMutation({
+  const addDigistoreMutation = useMutation({
     mutationFn: async () => {
-      const name = jvProductName.trim();
-      const existing = await base44.entities.Product.filter({ name });
-      let productId;
+      const productId = dsProductId.trim();
+      const name = dsProductName.trim() || `DS24 Product ${productId}`;
+      const url = `https://www.digistore24.com/redir/${productId}/Here_4you/`;
+      const existing = await base44.entities.Product.filter({ url });
+      let productEntityId;
       if (existing.length > 0) {
-        productId = existing[0].id;
+        productEntityId = existing[0].id;
       } else {
         const product = await base44.entities.Product.create({
           name,
-          url: jvProductUrl.trim(),
-          description: `JVZoo product`,
-          category: "jvzoo",
+          url,
+          description: `Digistore24 product — ID: ${productId}`,
+          category: "digistore24",
         });
-        productId = product.id;
+        productEntityId = product.id;
       }
       return base44.entities.AffiliateLink.create({
-        product_id: productId,
+        product_id: productEntityId,
         product_name: name,
-        destination_url: jvProductUrl.trim(),
-        short_code: `jv_${name.replace(/\s+/g, "_").toLowerCase().substring(0, 12)}`,
+        destination_url: url,
+        short_code: `ds_${productId}`,
         clicks: 0, conversions: 0, earnings: 0,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["links"] });
       queryClient.invalidateQueries({ queryKey: ["products"] });
-      setJvDialogOpen(false);
+      setDsDialogOpen(false);
+      setDsProductId("");
+      setDsProductName("");
+      toast.success("Digistore24 link added!");
+    },
+    onError: () => toast.error("Failed to add Digistore24 link"),
+  });
+
+  const addAnyLinkMutation = useMutation({
+    mutationFn: async () => {
+      const name = jvProductName.trim();
+      const url = jvProductUrl.trim();
+      const existing = await base44.entities.Product.filter({ name });
+      let productEntityId;
+      if (existing.length > 0) {
+        productEntityId = existing[0].id;
+      } else {
+        const product = await base44.entities.Product.create({
+          name,
+          url,
+          description: `Affiliate product`,
+          category: "general",
+        });
+        productEntityId = product.id;
+      }
+      return base44.entities.AffiliateLink.create({
+        product_id: productEntityId,
+        product_name: name,
+        destination_url: url,
+        short_code: `link_${name.replace(/\s+/g, "_").toLowerCase().substring(0, 12)}`,
+        clicks: 0, conversions: 0, earnings: 0,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["links"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      setDialogOpen(false);
       setJvProductUrl("");
       setJvProductName("");
-      toast.success("JVZoo link added!");
+      toast.success("Link added!");
     },
-    onError: () => toast.error("Failed to add JVZoo link"),
+    onError: () => toast.error("Failed to add link"),
   });
 
   const copyLink = (link) => {
@@ -198,84 +239,135 @@ export default function Links() {
           <h1 className="text-2xl font-display font-bold tracking-tight">Links</h1>
           <p className="text-muted-foreground text-sm mt-1">Create and manage your affiliate tracking links</p>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          {/* ClickBank HopLink Dialog */}
-          <Dialog open={cbDialogOpen} onOpenChange={setCbDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="gap-2 h-11" style={{ userSelect: "none" }}>
-                <ShoppingBag className="w-4 h-4 text-orange-400" /> ClickBank
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle className="font-display">Add ClickBank HopLink</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">Enter the <strong>vendor nickname</strong> found in the ClickBank Marketplace product URL.</p>
-                <div className="space-y-2">
-                  <Label>Vendor Nickname</Label>
-                  <Input
-                    placeholder="e.g. vendorname"
-                    value={cbVendor}
-                    onChange={e => setCbVendor(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && cbVendor.trim() && addClickBankMutation.mutate()}
-                  />
-                </div>
-                {cbVendor.trim() && (
-                  <div className="p-3 rounded-lg bg-muted text-xs">
-                    <p className="text-muted-foreground">Your HopLink will be:</p>
-                    <p className="font-mono text-foreground break-all mt-1">{cbHopLink}</p>
-                  </div>
-                )}
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="outline" onClick={() => setCbDialogOpen(false)}>Cancel</Button>
-                  <Button onClick={() => addClickBankMutation.mutate()} disabled={addClickBankMutation.isPending || !cbVendor.trim()}>
-                    {addClickBankMutation.isPending ? "Adding..." : "Add HopLink"}
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+      </div>
 
-          {/* Any Link Dialog */}
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2 h-11" style={{ userSelect: "none" }}><Plus className="w-4 h-4" /> Add Any Link</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle className="font-display">Add Affiliate Link</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">Works with Warrior Plus, Digistore24, or any affiliate network — just paste the URL.</p>
-                <div className="space-y-2">
-                  <Label>Product / Link Name <span className="text-muted-foreground">(required)</span></Label>
-                  <Input
-                    placeholder="e.g. Warrior Plus Offer"
-                    value={jvProductName}
-                    onChange={e => setJvProductName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Affiliate URL <span className="text-muted-foreground">(required)</span></Label>
-                  <Input
-                    placeholder="https://..."
-                    value={jvProductUrl}
-                    onChange={e => setJvProductUrl(e.target.value)}
-                  />
-                </div>
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="outline" onClick={() => { setDialogOpen(false); setJvProductName(""); setJvProductUrl(""); }}>Cancel</Button>
-                  <Button
-                    onClick={() => addJvZooMutation.mutate()}
-                    disabled={addJvZooMutation.isPending || !jvProductUrl.trim() || !jvProductName.trim()}
-                  >
-                    {addJvZooMutation.isPending ? "Adding..." : "Add Link"}
-                  </Button>
-                </div>
+      <AffiliateDisclosure />
+
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex gap-2 flex-wrap">
+        {/* ClickBank HopLink Dialog */}
+        <Dialog open={cbDialogOpen} onOpenChange={setCbDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" className="gap-2 h-11" style={{ userSelect: "none" }}>
+              <ShoppingBag className="w-4 h-4 text-orange-400" /> ClickBank
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="font-display">Add ClickBank HopLink</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">Enter the <strong>vendor nickname</strong> found in the ClickBank Marketplace product URL.</p>
+              <div className="space-y-2">
+                <Label>Vendor Nickname</Label>
+                <Input
+                  placeholder="e.g. vendorname"
+                  value={cbVendor}
+                  onChange={e => setCbVendor(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && cbVendor.trim() && addClickBankMutation.mutate()}
+                />
               </div>
-            </DialogContent>
-          </Dialog>
+              {cbVendor.trim() && (
+                <div className="p-3 rounded-lg bg-muted text-xs">
+                  <p className="text-muted-foreground">Your HopLink will be:</p>
+                  <p className="font-mono text-foreground break-all mt-1">{cbHopLink}</p>
+                </div>
+              )}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setCbDialogOpen(false)}>Cancel</Button>
+                <Button onClick={() => addClickBankMutation.mutate()} disabled={addClickBankMutation.isPending || !cbVendor.trim()}>
+                  {addClickBankMutation.isPending ? "Adding..." : "Add HopLink"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Digistore24 Dialog */}
+        <Dialog open={dsDialogOpen} onOpenChange={setDsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" className="gap-2 h-11" style={{ userSelect: "none" }}>
+              <ShoppingBag className="w-4 h-4 text-blue-400" /> Digistore24
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="font-display">Add Digistore24 Link</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">Enter the <strong>product ID</strong> from the Digistore24 product page URL.</p>
+              <div className="space-y-2">
+                <Label>Product Name</Label>
+                <Input
+                  placeholder="e.g. Weight Loss Program"
+                  value={dsProductName}
+                  onChange={e => setDsProductName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Product ID</Label>
+                <Input
+                  placeholder="e.g. 123456"
+                  value={dsProductId}
+                  onChange={e => setDsProductId(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && dsProductId.trim() && addDigistoreMutation.mutate()}
+                />
+              </div>
+              {dsProductId.trim() && (
+                <div className="p-3 rounded-lg bg-muted text-xs">
+                  <p className="text-muted-foreground">Your affiliate link will be:</p>
+                  <p className="font-mono text-foreground break-all mt-1">https://www.digistore24.com/redir/{dsProductId}/Here_4you/</p>
+                </div>
+              )}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setDsDialogOpen(false)}>Cancel</Button>
+                <Button onClick={() => addDigistoreMutation.mutate()} disabled={addDigistoreMutation.isPending || !dsProductId.trim()}>
+                  {addDigistoreMutation.isPending ? "Adding..." : "Add Link"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Any Link Dialog */}
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2 h-11" style={{ userSelect: "none" }}><Plus className="w-4 h-4" /> Add Any Link</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="font-display">Add Affiliate Link</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">Works with Warrior Plus, eBay, or any affiliate network — just paste the URL.</p>
+              <div className="space-y-2">
+                <Label>Product / Link Name <span className="text-muted-foreground">(required)</span></Label>
+                <Input
+                  placeholder="e.g. eBay Product"
+                  value={jvProductName}
+                  onChange={e => setJvProductName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Affiliate URL <span className="text-muted-foreground">(required)</span></Label>
+                <Input
+                  placeholder="https://..."
+                  value={jvProductUrl}
+                  onChange={e => setJvProductUrl(e.target.value)}
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => { setDialogOpen(false); setJvProductName(""); setJvProductUrl(""); }}>Cancel</Button>
+                <Button
+                  onClick={() => addAnyLinkMutation.mutate()}
+                  disabled={addAnyLinkMutation.isPending || !jvProductUrl.trim() || !jvProductName.trim()}
+                >
+                  {addAnyLinkMutation.isPending ? "Adding..." : "Add Link"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
         </div>
       </div>
 

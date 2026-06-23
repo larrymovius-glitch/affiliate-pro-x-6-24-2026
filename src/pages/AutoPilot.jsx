@@ -5,6 +5,7 @@ import PostGenerator from "@/components/autopilot/PostGenerator";
 import PostLibrary from "@/components/autopilot/PostLibrary";
 import AdReviewer from "@/components/autopilot/AdReviewer";
 import AdAssetUploader from "@/components/autopilot/AdAssetUploader";
+import AffiliateDisclosure from "@/components/AffiliateDisclosure";
 
 export default function AutoPilot() {
   return (
@@ -18,6 +19,8 @@ export default function AutoPilot() {
           <p className="text-sm text-muted-foreground">AI writes, scores, and improves your ads — automatically</p>
         </div>
       </div>
+
+      <AffiliateDisclosure />
 
       <Tabs defaultValue="generate">
         <TabsList className="bg-card border border-border">

@@ -34,12 +34,33 @@ export default function Payouts() {
   const { onTouchStart, onTouchMove, onTouchEnd, pullDistance, pulling } = usePullToRefresh(() => refetch());
 
   const requestMutation = useMutation({
-    mutationFn: (data) => base44.entities.Payout.create(data),
+    mutationFn: async (data) => {
+      // Validate payout amount against actual earnings
+      const allLinks = await base44.entities.AffiliateLink.list();
+      const totalEarned = allLinks.reduce((sum, l) => sum + (l.earnings || 0), 0);
+      const totalRequested = payouts.filter(p => p.status === "pending" || p.status === "approved").reduce((sum, p) => sum + (p.amount || 0), 0);
+      const availableBalance = totalEarned - totalRequested;
+      
+      if (data.amount > availableBalance) {
+        throw new Error(`Insufficient balance. Available: $${availableBalance.toFixed(2)}`);
+      }
+      
+      return base44.entities.Payout.create(data);
+    },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["payouts"] }); setDialogOpen(false); setAmount(""); toast.success("Payout requested!"); },
+    onError: (err) => toast.error(err.message || "Failed to request payout"),
   });
 
   const totalPaid = payouts.filter(p => p.status === "paid").reduce((sum, p) => sum + (p.amount || 0), 0);
   const totalPending = payouts.filter(p => p.status === "pending" || p.status === "approved").reduce((sum, p) => sum + (p.amount || 0), 0);
+  
+  // Calculate available balance
+  const { data: allLinks = [] } = useQuery({
+    queryKey: ["all-links-balance"],
+    queryFn: () => base44.entities.AffiliateLink.list(),
+  });
+  const totalEarned = allLinks.reduce((sum, l) => sum + (l.earnings || 0), 0);
+  const availableBalance = totalEarned - totalPending;
 
   return (
     <div className="space-y-6" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
@@ -97,6 +118,17 @@ export default function Payouts() {
             <div>
               <p className="text-sm text-muted-foreground">Pending</p>
               <p className="text-xl font-bold font-display">${totalPending.toFixed(2)}</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-5 border-primary/30">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <DollarSign className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Available Balance</p>
+              <p className="text-xl font-bold font-display text-primary">${availableBalance.toFixed(2)}</p>
             </div>
           </div>
         </Card>
