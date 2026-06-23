@@ -135,23 +135,61 @@ export default function VoiceAtlas({ onClose } = {}) {
     const recognition = new SpeechRecognition();
     recognitionRef.current = recognition;
     recognition.lang = "en-US";
-    recognition.interimResults = false;
+    recognition.interimResults = true; // Show interim results for better UX
     recognition.maxAlternatives = 1;
-    recognition.continuous = false; // Stop after silence automatically
+    recognition.continuous = true; // Keep listening until we manually stop
 
-    recognition.onstart = () => { setListening(true); setPulse(true); setTranscript(""); setReply(""); };
-    recognition.onend = () => { setListening(false); setPulse(false); };
-    recognition.onerror = () => { setListening(false); setPulse(false); };
+    let silenceTimer = null;
+    let lastSpeechTime = Date.now();
+
+    // Reset silence timer on any speech detection
+    const resetSilenceTimer = () => {
+      lastSpeechTime = Date.now();
+      if (silenceTimer) clearTimeout(silenceTimer);
+      silenceTimer = setTimeout(() => {
+        // Stop after 2 seconds of silence
+        if (listening && recognitionRef.current) {
+          recognition.stop();
+        }
+      }, 2000);
+    };
+
+    recognition.onstart = () => { 
+      setListening(true); 
+      setPulse(true); 
+      setTranscript(""); 
+      setReply("");
+      resetSilenceTimer();
+    };
+    recognition.onend = () => { 
+      setListening(false); 
+      setPulse(false);
+      if (silenceTimer) clearTimeout(silenceTimer);
+    };
+    recognition.onerror = () => { 
+      setListening(false); 
+      setPulse(false);
+      if (silenceTimer) clearTimeout(silenceTimer);
+    };
     recognition.onresult = (e) => {
-      const text = e.results[0][0].transcript;
-      setTranscript(text);
-      sendToAtlas(text);
+      const result = e.results[e.results.length - 1];
+      const text = result[0].transcript;
+      if (text.trim()) {
+        resetSilenceTimer();
+      }
+      // Only process when final result is available
+      if (result.isFinal) {
+        setTranscript(text);
+        sendToAtlas(text);
+      }
     };
     recognition.start();
-  }, [supported, sendToAtlas]);
+  }, [supported, sendToAtlas, listening]);
 
   const stopListening = useCallback(() => {
-    recognitionRef.current?.stop();
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
     setListening(false);
     setPulse(false);
   }, []);
@@ -368,7 +406,7 @@ export default function VoiceAtlas({ onClose } = {}) {
               </button>
             </div>
             <p className="text-base font-semibold text-center" style={{ color: "#94a3b8" }}>
-              {!supported ? "Voice not supported in this browser" : listening ? "Tap to stop recording" : "Tap the mic to speak"}
+              {!supported ? "Voice not supported" : listening ? "Listening... speak now" : "Tap mic & speak (auto-stops)"}
             </p>
           </div>
         )}
