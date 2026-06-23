@@ -83,12 +83,12 @@ export default function TopBar({ onMenuClick }) {
             <div style={{ width: 32, height: 32, borderRadius: "50%", overflow: "hidden", background: "transparent", flexShrink: 0 }}>
               <img
                 src={displayAvatar}
-                alt="Maya the assistant"
+                alt="AI Assistant"
                 style={{ width: "100%", height: "100%", objectFit: "cover", mixBlendMode: "screen" }}
               />
             </div>
             <span className="text-xs font-bold" style={{ background: "linear-gradient(90deg, #c084fc, #f59e0b)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              Ask Atlas
+              Ask Maya
             </span>
           </button>
         </div>
