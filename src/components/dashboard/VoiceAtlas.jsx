@@ -17,15 +17,15 @@ export default function VoiceAtlas({ onClose } = {}) {
   const [pulse, setPulse] = useState(false);
   const [textInput, setTextInput] = useState("");
   const [activeTab, setActiveTab] = useState("text");
+  const prevTabRef = useRef("text");
 
   // Auto-start voice when switching to voice tab
   useEffect(() => {
-    if (activeTab === "voice" && supported && !listening && !loading) {
+    if (activeTab === "voice" && prevTabRef.current !== "voice" && supported && !loading) {
       startListening();
-    } else if (activeTab !== "voice" && listening) {
-      stopListening();
     }
-  }, [activeTab, supported, listening, loading, startListening, stopListening]);
+    prevTabRef.current = activeTab;
+  }, [activeTab, supported, loading]);
   const [selectedAssistant, setSelectedAssistant] = useState("maya"); // "atlas" | "maya"
   const currentName = selectedAssistant === "atlas" ? "Atlas" : "Maya";
   const currentAgentName = selectedAssistant === "atlas" ? "atlas" : "maya";
@@ -151,6 +151,13 @@ export default function VoiceAtlas({ onClose } = {}) {
     synthRef.current.cancel();
     setSpeaking(false);
   };
+
+  // Stop voice when switching away from voice tab
+  useEffect(() => {
+    if (activeTab !== "voice" && listening) {
+      stopListening();
+    }
+  }, [activeTab, listening]);
 
   // Cleanup on unmount
   useEffect(() => () => {
