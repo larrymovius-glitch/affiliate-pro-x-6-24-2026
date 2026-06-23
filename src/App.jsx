@@ -29,6 +29,7 @@ import AutoPilot from '@/pages/AutoPilot';
 import PrivacyPolicy from '@/pages/PrivacyPolicy';
 import TermsOfService from '@/pages/TermsOfService';
 import Admin from '@/pages/Admin';
+import Pricing from '@/pages/Pricing';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -74,6 +75,7 @@ const AuthenticatedApp = () => {
           <Route path="/payouts" element={<Payouts />} />
           <Route path="/autopilot" element={<AutoPilot />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/pricing" element={<Pricing />} />
         </Route>
       </Route>
 

@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Users, UserPlus, Trash2, Shield, ShieldOff, Mail,
-  Star, RefreshCw, Settings, Crown, AlertCircle, CheckCircle, Search, Edit2, ShoppingBag, Link2
+  Star, RefreshCw, Settings, Crown, AlertCircle, CheckCircle, Search, Edit2, ShoppingBag, Link2, Medal
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
@@ -39,6 +39,7 @@ export default function Admin() {
   const [editReviewer, setEditReviewer] = useState(null);
 
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [editVeteranStatus, setEditVeteranStatus] = useState(null);
 
   const { data: users = [], isLoading: loadingUsers, refetch: refetchUsers } = useQuery({
     queryKey: ["admin-users"],
@@ -84,6 +85,15 @@ export default function Admin() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-users"] }),
   });
 
+  const updateVeteranStatusMutation = useMutation({
+    mutationFn: ({ id, veteranStatus, veteranNotes }) => 
+      base44.entities.User.update(id, { veteranStatus, veteranNotes }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      setEditVeteranStatus(null);
+    },
+  });
+
   const deleteUserMutation = useMutation({
     mutationFn: (id) => base44.entities.User.delete(id),
     onSuccess: () => {
@@ -122,6 +132,15 @@ export default function Admin() {
     setShowReviewerDialog(true);
   };
 
+  const openVeteranDialog = (u) => {
+    setEditVeteranStatus({
+      id: u.id,
+      veteranStatus: u.veteran_status || "regular",
+      veteranNotes: u.veteran_notes || "",
+      email: u.email
+    });
+  };
+
   if (user && user.role !== "admin") return <Navigate to="/" replace />;
 
   const adminCount = users.filter(u => u.role === "admin").length;
@@ -144,10 +163,11 @@ export default function Admin() {
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-3">
         {[
           { label: "Total Users", value: users.length, icon: Users, color: "#7c3aed" },
           { label: "Admins", value: adminCount, icon: Crown, color: "#f59e0b" },
+          { label: "Veterans", value: users.filter(u => u.veteran_status && u.veteran_status !== "regular").length, icon: Medal, color: "#10b981" },
           { label: "Reviewers", value: reviewers.length, icon: Star, color: "#10b981" },
         ].map(({ label, value, icon: Icon, color }) => (
           <Card key={label} className="border-white/10 bg-white/5">
@@ -225,17 +245,32 @@ export default function Admin() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <Badge className={`text-xs border ${ROLE_COLORS[u.role] || ROLE_COLORS.user}`}>
-                        {u.role || "user"}
-                      </Badge>
+                      <div className="flex items-center gap-1">
+                       <Badge className={`text-xs border ${ROLE_COLORS[u.role] || ROLE_COLORS.user}`}>
+                         {u.role || "user"}
+                       </Badge>
+                       {u.veteran_status && u.veteran_status !== "regular" && (
+                         <Badge className="text-xs border bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
+                           <Medal className="w-3 h-3 mr-1" />
+                           {u.veteran_status.replace("_", " ")}
+                         </Badge>
+                       )}
+                      </div>
                       {u.id !== user?.id ? (
                         <>
                           <Button size="sm" variant="ghost"
-                            className="h-8 w-8 p-0 text-slate-400 hover:text-yellow-400"
-                            title={u.role === "admin" ? "Remove Admin" : "Make Admin"}
-                            onClick={() => toggleRoleMutation.mutate({ id: u.id, role: u.role === "admin" ? "user" : "admin" })}
+                           className="h-8 w-8 p-0 text-slate-400 hover:text-emerald-400"
+                           title="Set Veteran Status"
+                           onClick={() => setEditVeteranStatus(u)}
                           >
-                            {u.role === "admin" ? <ShieldOff className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
+                           <Medal className="w-4 h-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost"
+                           className="h-8 w-8 p-0 text-slate-400 hover:text-yellow-400"
+                           title={u.role === "admin" ? "Remove Admin" : "Make Admin"}
+                           onClick={() => toggleRoleMutation.mutate({ id: u.id, role: u.role === "admin" ? "user" : "admin" })}
+                          >
+                           {u.role === "admin" ? <ShieldOff className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
                           </Button>
                           <Button size="sm" variant="ghost"
                             className="h-8 w-8 p-0 text-slate-400 hover:text-red-400"
@@ -472,9 +507,62 @@ export default function Admin() {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+        </Dialog>
 
-      {/* Add/Edit Reviewer Dialog */}
+        {/* Veteran Status Dialog */}
+        <Dialog open={!!editVeteranStatus} onOpenChange={() => setEditVeteranStatus(null)}>
+        <DialogContent className="border-white/10 bg-slate-900 text-white">
+          <DialogHeader>
+            <DialogTitle className="font-display flex items-center gap-2">
+              <Medal className="w-5 h-5 text-emerald-500" />
+              Set Veteran Status
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              {editVeteranStatus?.email}
+            </div>
+            <div className="space-y-2">
+              <Label className="text-slate-300">Veteran Status</Label>
+              <select
+                value={editVeteranStatus?.veteranStatus || "regular"}
+                onChange={(e) => setEditVeteranStatus(prev => ({ ...prev, veteranStatus: e.target.value }))}
+                className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
+              >
+                <option value="regular">Regular User</option>
+                <option value="verified_veteran">Verified Veteran</option>
+                <option value="disabled_vet">Disabled Veteran</option>
+                <option value="homeless_vet">Homeless Veteran</option>
+                <option value="pending_verification">Pending Verification</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-slate-300">Admin Notes</Label>
+              <textarea
+                value={editVeteranStatus?.veteranNotes || ""}
+                onChange={(e) => setEditVeteranStatus(prev => ({ ...prev, veteranNotes: e.target.value }))}
+                placeholder="Documentation notes..."
+                className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white min-h-[100px]"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setEditVeteranStatus(null)}>Cancel</Button>
+              <Button 
+                onClick={() => updateVeteranStatusMutation.mutate({
+                  id: editVeteranStatus.id,
+                  veteranStatus: editVeteranStatus.veteranStatus,
+                  veteranNotes: editVeteranStatus.veteranNotes
+                })}
+                disabled={updateVeteranStatusMutation.isPending}
+              >
+                {updateVeteranStatusMutation.isPending ? "Saving..." : "Save Status"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+        </Dialog>
+
+        {/* Add/Edit Reviewer Dialog */}
       <Dialog open={showReviewerDialog} onOpenChange={setShowReviewerDialog}>
         <DialogContent className="border-white/10 bg-slate-900 text-white">
           <DialogHeader>

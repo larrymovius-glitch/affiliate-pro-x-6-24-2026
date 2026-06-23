@@ -1,0 +1,70 @@
+{
+  "name": "Payment",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "description": "User who made the payment"
+    },
+    "amount": {
+      "type": "number",
+      "description": "Payment amount in dollars"
+    },
+    "currency": {
+      "type": "string",
+      "default": "usd",
+      "description": "Currency code"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "completed",
+        "failed",
+        "refunded"
+      ],
+      "default": "pending"
+    },
+    "payment_method": {
+      "type": "string",
+      "enum": [
+        "stripe",
+        "paypal",
+        "bank_transfer"
+      ],
+      "default": "stripe"
+    },
+    "transaction_id": {
+      "type": "string",
+      "description": "Stripe/PayPal transaction ID"
+    },
+    "plan_type": {
+      "type": "string",
+      "enum": [
+        "monthly",
+        "yearly",
+        "lifetime",
+        "veteran_free"
+      ],
+      "description": "Subscription plan type"
+    },
+    "veteran_status": {
+      "type": "string",
+      "enum": [
+        "regular",
+        "verified_veteran",
+        "disabled_vet",
+        "homeless_vet"
+      ],
+      "default": "regular"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Admin notes"
+    }
+  },
+  "required": [
+    "amount",
+    "status"
+  ]
+}

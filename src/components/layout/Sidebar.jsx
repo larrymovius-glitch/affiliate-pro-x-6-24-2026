@@ -15,6 +15,7 @@ const navItems = [
   { label: "Analytics", icon: BarChart3, path: "/analytics" },
   { label: "Payouts", icon: Wallet, path: "/payouts" },
   { label: "AutoPilot Studio", icon: Zap, path: "/autopilot" },
+  { label: "Pricing", icon: Crown, path: "/pricing" },
 ];
 
 export default function Sidebar({ open, onClose }) {

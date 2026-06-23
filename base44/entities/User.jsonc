@@ -1,4 +1,6 @@
 {
+  "name": "User",
+  "type": "object",
   "properties": {
     "role": {
       "type": "string",
@@ -7,11 +9,25 @@
         "admin",
         "user"
       ]
+    },
+    "veteran_status": {
+      "type": "string",
+      "description": "Veteran verification status for free access",
+      "enum": [
+        "regular",
+        "verified_veteran",
+        "disabled_vet",
+        "homeless_vet",
+        "pending_verification"
+      ],
+      "default": "regular"
+    },
+    "veteran_notes": {
+      "type": "string",
+      "description": "Admin notes about veteran status"
     }
   },
   "required": [
     "role"
-  ],
-  "name": "User",
-  "type": "object"
+  ]
 }
