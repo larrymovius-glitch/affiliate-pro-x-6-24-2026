@@ -7,6 +7,10 @@ const ATLAS_DEFAULT = "https://media.base44.com/images/public/6a2a72a46235784f87
 const MAYA_DEFAULT = "https://media.base44.com/images/public/6a2a72a46235784f879b968c/c0640056e_generated_image.png";
 
 export default function VoiceAtlas({ onClose } = {}) {
+  // Set up SpeechRecognition first (before any hooks that use it)
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const supported = !!SpeechRecognition;
+
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [reply, setReply] = useState("");
@@ -18,14 +22,6 @@ export default function VoiceAtlas({ onClose } = {}) {
   const [textInput, setTextInput] = useState("");
   const [activeTab, setActiveTab] = useState("text");
   const prevTabRef = useRef("text");
-
-  // Auto-start voice when switching to voice tab
-  useEffect(() => {
-    if (activeTab === "voice" && prevTabRef.current !== "voice" && supported && !loading) {
-      startListening();
-    }
-    prevTabRef.current = activeTab;
-  }, [activeTab, supported, loading]);
   const [selectedAssistant, setSelectedAssistant] = useState("maya"); // "atlas" | "maya"
   const currentName = selectedAssistant === "atlas" ? "Atlas" : "Maya";
   const currentAgentName = selectedAssistant === "atlas" ? "atlas" : "maya";
@@ -47,10 +43,6 @@ export default function VoiceAtlas({ onClose } = {}) {
 
   const recognitionRef = useRef(null);
   const synthRef = useRef(window.speechSynthesis);
-
-  // Set up SpeechRecognition
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const supported = !!SpeechRecognition;
 
   const speakReply = useCallback((text) => {
     if (!text) return;
