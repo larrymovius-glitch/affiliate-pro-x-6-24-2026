@@ -10,8 +10,24 @@ Deno.serve(async (req) => {
     const sessId = url.searchParams.get("sessid");
     const ruName = "Lawerence_Moviu-Lawerenc-Affili-zgqyaq";
 
+    // eBay Auth'n'Auth can also send the token directly as ebaytkn + tknexp
+    const ebayTkn = url.searchParams.get("ebaytkn");
+    const tknExp = url.searchParams.get("tknexp");
+
+    if (ebayTkn) {
+      // Direct token delivery — store it immediately
+      await base44.asServiceRole.entities.EbayToken.deleteMany({});
+      await base44.asServiceRole.entities.EbayToken.create({
+        token: ebayTkn,
+        expires_at: tknExp ? decodeURIComponent(tknExp) : null,
+        ru_name: ruName,
+        connected_at: new Date().toISOString(),
+      });
+      return Response.redirect("https://apx.amhere4utoday.com/", 302);
+    }
+
     if (isAuth === "false" || !sessId) {
-      return Response.redirect("https://apx.amhere4utoday.com/error", 302);
+      return Response.redirect("https://apx.amhere4utoday.com/", 302);
     }
 
     // Exchange the session ID for a user token via eBay's FetchToken API
@@ -61,10 +77,10 @@ Deno.serve(async (req) => {
       connected_at: new Date().toISOString(),
     });
 
-    return Response.redirect("https://apx.amhere4utoday.com/dashboard", 302);
+    return Response.redirect("https://apx.amhere4utoday.com/", 302);
 
   } catch (error) {
     console.error("eBay OAuth callback error:", error.message);
-    return Response.redirect("https://apx.amhere4utoday.com/error", 302);
+    return Response.redirect("https://apx.amhere4utoday.com/", 302);
   }
 });
