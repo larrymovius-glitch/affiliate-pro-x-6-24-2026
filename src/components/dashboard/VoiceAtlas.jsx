@@ -99,27 +99,34 @@ export default function VoiceAtlas({ onClose } = {}) {
         setConversationId(newConvo.id);
       }
 
-      // Add user message — recreate convo if it was deleted
-      try {
-        const updated = await base44.agents.addMessage(conversationRef.current, { role: "user", content: text });
-        conversationRef.current = updated;
-      } catch {
-        const newConvo = await base44.agents.createConversation({
-          agent_name: currentAgentName,
-          metadata: { name: "Voice Session" },
-        });
-        conversationRef.current = newConvo;
-        setConversationId(newConvo.id);
-        const updated = await base44.agents.addMessage(conversationRef.current, { role: "user", content: text });
-        conversationRef.current = updated;
-      }
+      // Add user message — recreate convo if it was deleted/not found
+      const addMessageSafe = async () => {
+        try {
+          const updated = await base44.agents.addMessage(conversationRef.current, { role: "user", content: text });
+          conversationRef.current = updated;
+        } catch {
+          // Conversation gone — start fresh
+          conversationRef.current = null;
+          setConversationId(null);
+          const newConvo = await base44.agents.createConversation({
+            agent_name: currentAgentName,
+            metadata: { name: "Voice Session" },
+          });
+          conversationRef.current = newConvo;
+          setConversationId(newConvo.id);
+          const updated = await base44.agents.addMessage(conversationRef.current, { role: "user", content: text });
+          conversationRef.current = updated;
+        }
+      };
+      await addMessageSafe();
 
       // Wait for streaming response via subscription (up to 30s)
+      const convoId = conversationRef.current.id;
       await new Promise((resolve) => {
         let lastContent = "";
         let stableTimer = null;
 
-        const unsubscribe = base44.agents.subscribeToConversation(conversationRef.current.id, (data) => {
+        const unsubscribe = base44.agents.subscribeToConversation(convoId, (data) => {
           const messages = data.messages || [];
           const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
           const content = lastAssistant?.content || "";
