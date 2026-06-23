@@ -21,8 +21,11 @@ export default function PostGenerator() {
 
   const { data: links = [] } = useQuery({
     queryKey: ["links"],
-    queryFn: () => base44.integrations.custom.call("affiliate-pro-api", "get:/api/links")
-      .then(r => r.data?.links || r.data || [])
+    queryFn: async () => {
+      const res = await base44.integrations.custom.call("affiliate-pro-api", "get:/api/links");
+      const result = res.data?.links || res.data;
+      return Array.isArray(result) ? result : [];
+    }
   });
 
   // Get top performing posts to learn from
