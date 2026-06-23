@@ -199,6 +199,14 @@ export default function VoiceAtlas({ onClose } = {}) {
     setSpeaking(false);
   };
 
+  // Auto-start listening when switching to voice tab
+  useEffect(() => {
+    if (activeTab === "voice" && supported && !listening && !loading) {
+      const timer = setTimeout(() => startListening(), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab, supported, listening, loading, startListening]);
+
   // Stop voice when switching away from voice tab
   useEffect(() => {
     if (activeTab !== "voice" && listening) {
@@ -406,7 +414,7 @@ export default function VoiceAtlas({ onClose } = {}) {
               </button>
             </div>
             <p className="text-base font-semibold text-center" style={{ color: "#94a3b8" }}>
-              {!supported ? "Voice not supported" : listening ? "Listening... speak now" : "Tap mic & speak (auto-stops)"}
+              {!supported ? "Voice not supported" : listening ? "🎤 Listening... speak now!" : "Starting mic..."}
             </p>
           </div>
         )}
