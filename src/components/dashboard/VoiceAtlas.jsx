@@ -50,32 +50,30 @@ export default function VoiceAtlas({ onClose } = {}) {
     const utter = new SpeechSynthesisUtterance(text);
     const voices = synthRef.current.getVoices();
     
-    // Use agent-specific voice settings
+    // Use agent-specific voice settings - natural human-like speech
     if (selectedAssistant === "atlas") {
-      utter.rate = 0.85;
-      utter.pitch = 0.7;
+      utter.rate = 1.0;
+      utter.pitch = 1.0;
       utter.volume = 1.0;
-      // Try to find a male/deeper voice
+      // Try to find a natural male voice
       const maleVoice = voices.find(v => 
-        v.name.includes('Male') || 
-        v.name.includes('David') || 
-        v.name.includes('Daniel') ||
         v.name.includes('Google US English') ||
-        v.name.includes('Microsoft David')
+        v.name.includes('Microsoft David') ||
+        v.name.includes('Daniel') ||
+        v.name.includes('Male')
       );
       if (maleVoice) utter.voice = maleVoice;
     } else {
-      // Maya - female voice
-      utter.rate = 0.9;
-      utter.pitch = 1.15;
+      // Maya - natural female voice
+      utter.rate = 1.0;
+      utter.pitch = 1.0;
       utter.volume = 1.0;
-      // Try to find a female voice
+      // Try to find a natural female voice
       const femaleVoice = voices.find(v => 
-        v.name.includes('Female') || 
-        v.name.includes('Zira') || 
-        v.name.includes('Google US English Female') ||
         v.name.includes('Microsoft Zira') ||
-        v.name.includes('Samantha')
+        v.name.includes('Samantha') ||
+        v.name.includes('Female') ||
+        v.name.includes('Google US English')
       );
       if (femaleVoice) utter.voice = femaleVoice;
     }
