@@ -20,6 +20,7 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
   const [activeTab, setActiveTab] = useState("text");
   const [textInput, setTextInput] = useState("");
   const [pulse, setPulse] = useState(false);
+  const [debugMessages, setDebugMessages] = useState([]);
 
   const conversationRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -144,7 +145,7 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
       if (!mountedRef.current) { setLoading(false); return; }
 
       const messages = convo.messages || [];
-      console.log("[VoiceAtlas] messages:", JSON.stringify(messages.slice(-3)));
+      setDebugMessages(messages.slice(-3));
 
       // Extract text from the last assistant message — handles nested content structures
       const lastMsg = [...messages].reverse().find(m => m.role === "assistant");
@@ -293,6 +294,13 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
             <span className="text-base font-medium">{name} is thinking…</span>
           </div>
         )}
+
+        {/* DEBUG: raw message dump */}
+        <div className="w-full rounded-xl px-4 py-3 text-xs break-all" style={{ background: "rgba(255,0,0,0.15)", border: "1px solid red", color: "#fff", maxHeight: 200, overflowY: "auto" }}>
+          <p className="font-bold mb-1">DEBUG — last 3 msgs:</p>
+          <pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(debugMessages, null, 2)}</pre>
+          <p className="font-bold mt-2">reply state: "{reply}"</p>
+        </div>
 
         {reply && (
           <div className="w-full rounded-xl px-4 py-4" style={{ background: "linear-gradient(135deg, rgba(124,58,237,0.18), rgba(245,158,11,0.1))", border: "1px solid rgba(167,139,250,0.3)" }}>
