@@ -188,7 +188,8 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
     recognition.onerror = () => { setListening(false); setPulse(false); if (silenceTimer) clearTimeout(silenceTimer); };
     recognition.onresult = (e) => {
       const result = e.results[e.results.length - 1];
-      const text = result[0].transcript;
+      const raw = result[0].transcript;
+      const text = raw.replace(/tick[\s-]?tock/gi, "TikTok");
       if (text.trim()) resetSilence();
       if (result.isFinal) { setTranscript(text); sendMessage(text); }
     };
