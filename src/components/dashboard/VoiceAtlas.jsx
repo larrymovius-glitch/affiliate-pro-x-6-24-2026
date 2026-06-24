@@ -144,10 +144,22 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
     };
 
     const handleStreamError = (err) => {
-      // Stale/expired conversation id — swallow the "Object not found" rejection
-      // and finalize gracefully instead of letting it bubble up uncaught.
-      console.warn("VoiceAtlas: stream error, finalizing:", err?.message || err);
-      finish();
+      // Stale/expired conversation id — swallow the "Object not found" rejection.
+      console.warn("VoiceAtlas: stream error, recovering session:", err?.message || err);
+      // 1) Unfreeze the UI immediately so it never sticks on "thinking…".
+      if (settleTimer) { clearTimeout(settleTimer); settleTimer = null; }
+      if (activeUnsubscribeRef.current) { activeUnsubscribeRef.current(); activeUnsubscribeRef.current = null; }
+      if (mountedRef.current) setLoading(false);
+      // 2) Recreate a fresh conversation in the background so the next message
+      //    automatically uses a valid session id.
+      (async () => {
+        try {
+          const fresh = await base44.agents.createConversation({ agent_name: agentName, metadata: { name: "Voice Session" } });
+          if (mountedRef.current) conversationRef.current = fresh;
+        } catch (e) {
+          console.warn("VoiceAtlas: failed to recreate conversation:", e?.message || e);
+        }
+      })();
     };
 
     try {
