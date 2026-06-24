@@ -83,73 +83,78 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
 
   const sendMessage = useCallback(async (text) => {
     if (!text.trim() || !conversationRef.current || !mountedRef.current) return;
+
     setLoading(true);
-    setReply("");
 
+    // ── Step 1: send the user message ──────────────────────────────────────
+    let convoId;
     try {
-      // Add user message with one retry on stale conversation
       let updated;
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          updated = await base44.agents.addMessage(conversationRef.current, { role: "user", content: text });
-          break;
-        } catch (e) {
-          if (!mountedRef.current) return;
-          if (attempt === 1) throw e;
-          // Conversation expired — create a fresh one and retry
-          conversationRef.current = null;
-          const convo = await base44.agents.createConversation({ agent_name: agentName, metadata: { name: "Voice Session" } });
-          if (!mountedRef.current) return;
-          conversationRef.current = convo;
-        }
+      try {
+        updated = await base44.agents.addMessage(conversationRef.current, { role: "user", content: text });
+      } catch {
+        // Stale conversation — recreate once and retry
+        if (!mountedRef.current) { setLoading(false); return; }
+        const fresh = await base44.agents.createConversation({ agent_name: agentName, metadata: { name: "Voice Session" } });
+        if (!mountedRef.current) { setLoading(false); return; }
+        conversationRef.current = fresh;
+        updated = await base44.agents.addMessage(conversationRef.current, { role: "user", content: text });
       }
-      if (!mountedRef.current) return;
+      if (!mountedRef.current) { setLoading(false); return; }
       conversationRef.current = updated;
+      convoId = updated.id;
+    } catch (err) {
+      console.error("sendMessage: failed to send:", err);
+      if (mountedRef.current) { setReply("Couldn't send message. Please try again."); setLoading(false); }
+      return;
+    }
 
-      // Poll for the assistant's response (1s interval, 25s max)
-      const convoId = conversationRef.current.id;
-      let lastContent = "";
-      let stableCount = 0;
-      let totalPolls = 0;
+    // ── Step 2: poll for the assistant reply ───────────────────────────────
+    let lastContent = "";
+    let stableCount = 0;
+    let totalPolls = 0;
 
-      while (true) {
-        await new Promise(r => setTimeout(r, 1000));
-        if (!mountedRef.current) break;
+    while (true) {
+      await new Promise(r => setTimeout(r, 1000));
 
-        totalPolls++;
-        if (totalPolls >= 25) break;
+      if (!mountedRef.current) { setLoading(false); return; }
 
-        try {
-          const convo = await base44.agents.getConversation(convoId);
-          if (!mountedRef.current) break;
-
-          const messages = convo.messages || [];
-          const lastAssistant = [...messages].reverse().find(m => m.role === "assistant");
-          const currentContent = lastAssistant?.content || "";
-
-          if (currentContent.length > 0) {
-            setReply(currentContent);
-            if (currentContent === lastContent) {
-              stableCount++;
-              if (stableCount >= 2) break;
-            } else {
-              stableCount = 0;
-              lastContent = currentContent;
-            }
-          }
-        } catch { /* ignore poll errors */ }
+      totalPolls++;
+      if (totalPolls >= 25) {
+        setLoading(false);
+        break;
       }
 
-      if (!mountedRef.current) return;
-      // Speak whatever the final reply is (read from ref to avoid stale closure)
-      speakText(lastContent);
+      try {
+        const convo = await base44.agents.getConversation(convoId);
+        if (!mountedRef.current) { setLoading(false); return; }
 
-    } catch (err) {
-      if (!mountedRef.current) return;
-      console.error("Assistant error:", err);
-      setReply("Oops! Something went wrong. Try again.");
-    } finally {
-      if (mountedRef.current) setLoading(false);
+        const messages = convo.messages || [];
+        const lastMsg = [...messages].reverse().find(m => m.role === "assistant");
+        const currentContent = lastMsg?.content || "";
+
+        if (currentContent.length > 0) {
+          setReply(currentContent);
+
+          if (currentContent === lastContent) {
+            stableCount++;
+            if (stableCount >= 2) {
+              setLoading(false);
+              break;
+            }
+          } else {
+            stableCount = 0;
+            lastContent = currentContent;
+          }
+        }
+      } catch {
+        // swallow poll errors and keep looping
+      }
+    }
+
+    // ── Step 3: speak the final reply (no mic logic here) ─────────────────
+    if (mountedRef.current && lastContent) {
+      speakText(lastContent);
     }
   }, [agentName, speakText]);
 
