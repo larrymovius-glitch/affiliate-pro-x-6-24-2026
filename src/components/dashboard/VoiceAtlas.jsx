@@ -25,7 +25,6 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
   const recognitionRef = useRef(null);
   const synthRef = useRef(window.speechSynthesis);
   const mountedRef = useRef(true);
-  const activeUnsubscribeRef = useRef(null); // holds the current stream unsubscribe fn
 
   const quickActions = [
     { label: "💰 My Earnings", command: "Show my total earnings" },
@@ -51,12 +50,8 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
     })();
 
     return () => {
+      // mountedRef flips false — the polling loop checks this and exits cleanly.
       mountedRef.current = false;
-      // Forcefully kill any active stream subscription immediately
-      if (activeUnsubscribeRef.current) {
-        activeUnsubscribeRef.current();
-        activeUnsubscribeRef.current = null;
-      }
       recognitionRef.current?.abort();
       synthRef.current.cancel();
     };
@@ -82,19 +77,19 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
   }, [agentName]);
 
   const sendMessage = useCallback(async (text) => {
-    if (!text.trim() || !conversationRef.current || !mountedRef.current) return;
+    // 1) Guard: never run while the session is still spinning up.
+    if (!text.trim() || isInitializing || !conversationRef.current || !mountedRef.current) return;
 
     setLoading(true);
     setReply("");
 
-    // ── Step 1: send the user message ──────────────────────────────────────
+    // ── Step 1: send the user message (recreate session once if stale) ──
     let convoId;
     try {
       let updated;
       try {
         updated = await base44.agents.addMessage(conversationRef.current, { role: "user", content: text });
       } catch {
-        // Stale conversation — recreate once and retry
         if (!mountedRef.current) { setLoading(false); return; }
         const fresh = await base44.agents.createConversation({ agent_name: agentName, metadata: { name: "Voice Session" } });
         if (!mountedRef.current) { setLoading(false); return; }
@@ -110,9 +105,7 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
       return;
     }
 
-    // ── Step 2: subscribe to the conversation stream for the assistant reply ──
-    // getConversation returns an empty/stale snapshot during streaming; the
-    // subscription is the supported path that delivers populated messages live.
+    // ── Step 2: linear polling loop for the assistant reply ──
     const extractContent = (msg) => {
       if (!msg) return "";
       if (typeof msg.content === "string") return msg.content.trim();
@@ -123,73 +116,67 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
       return "";
     };
 
-    // Clean up any previous stream before opening a new one
-    if (activeUnsubscribeRef.current) {
-      activeUnsubscribeRef.current();
-      activeUnsubscribeRef.current = null;
-    }
-
     let lastContent = "";
-    let settleTimer = null;
+    let stableCount = 0;
+    let totalPolls = 0;
+    const MAX_POLLS = 45; // ~45s cap, generous for tool-heavy requests
 
-    const finish = () => {
-      if (settleTimer) { clearTimeout(settleTimer); settleTimer = null; }
-      if (activeUnsubscribeRef.current) {
-        activeUnsubscribeRef.current();
-        activeUnsubscribeRef.current = null;
-      }
+    while (true) {
+      // Exit if unmounted or we've exceeded the timeout cap.
       if (!mountedRef.current) return;
-      setLoading(false);
-      if (lastContent) speakText(lastContent);
-    };
+      if (totalPolls >= MAX_POLLS) break;
 
-    const handleStreamError = (err) => {
-      // Stale/expired conversation id — swallow the "Object not found" rejection.
-      console.warn("VoiceAtlas: stream error, recovering session:", err?.message || err);
-      // 1) Unfreeze the UI immediately so it never sticks on "thinking…".
-      if (settleTimer) { clearTimeout(settleTimer); settleTimer = null; }
-      if (activeUnsubscribeRef.current) { activeUnsubscribeRef.current(); activeUnsubscribeRef.current = null; }
-      if (mountedRef.current) setLoading(false);
-      // 2) Recreate a fresh conversation in the background so the next message
-      //    automatically uses a valid session id.
-      (async () => {
+      await new Promise(r => setTimeout(r, 1000));
+      totalPolls++;
+      if (!mountedRef.current) return;
+
+      let data;
+      try {
+        data = await base44.agents.getConversation(convoId);
+      } catch (err) {
+        // Stale/expired id — stop polling and rebuild a fresh session for next time.
+        console.warn("VoiceAtlas: poll error, recovering session:", err?.message || err);
         try {
           const fresh = await base44.agents.createConversation({ agent_name: agentName, metadata: { name: "Voice Session" } });
           if (mountedRef.current) conversationRef.current = fresh;
         } catch (e) {
           console.warn("VoiceAtlas: failed to recreate conversation:", e?.message || e);
         }
-      })();
-    };
-
-    try {
-      const unsubscribe = base44.agents.subscribeToConversation(convoId, (data) => {
-        if (!mountedRef.current) return;
-        const messages = data?.messages || [];
-        const lastMsg = [...messages].reverse().find(m => m.role === "assistant");
-        const content = extractContent(lastMsg);
-        if (content.length > 0) {
-          lastContent = content;
-          setReply(content);
-          // Settle: when no new tokens arrive for 1.2s, finalize the reply
-          if (settleTimer) clearTimeout(settleTimer);
-          settleTimer = setTimeout(finish, 1200);
-        }
-      });
-      // subscribeToConversation may return either an unsubscribe fn or a promise
-      if (unsubscribe && typeof unsubscribe.then === "function") {
-        unsubscribe.then((fn) => { activeUnsubscribeRef.current = fn; }).catch(handleStreamError);
-      } else {
-        activeUnsubscribeRef.current = unsubscribe;
+        break;
       }
-    } catch (err) {
-      handleStreamError(err);
-      return;
+
+      // 2) Grab the absolute last assistant message.
+      const messages = data?.messages || [];
+      const assistantMsgs = messages.filter(m => m.role === "assistant");
+      const lastMsg = assistantMsgs[assistantMsgs.length - 1];
+
+      // 3) Safely parse plain string OR nested text-block array.
+      const currentContent = extractContent(lastMsg);
+
+      // 4) Empty content means a tool is running — keep polling, never settle early.
+      if (currentContent.length === 0) {
+        stableCount = 0;
+        continue;
+      }
+
+      if (currentContent === lastContent) {
+        stableCount++;
+      } else {
+        lastContent = currentContent;
+        stableCount = 0;
+        setReply(currentContent);
+      }
+
+      // Settle once the reply has been stable across 3 consecutive polls.
+      if (stableCount >= 3) break;
     }
 
-    // Hard safety timeout so the UI never hangs if the stream stalls
-    setTimeout(() => { if (activeUnsubscribeRef.current) finish(); }, 30000);
-  }, [agentName, speakText]);
+    // Always unfreeze the UI, however the loop exits.
+    if (mountedRef.current) {
+      setLoading(false);
+      if (lastContent) speakText(lastContent);
+    }
+  }, [agentName, isInitializing, speakText]);
 
   const startListening = useCallback(() => {
     if (!supported || isInitializing || !conversationRef.current) return;
