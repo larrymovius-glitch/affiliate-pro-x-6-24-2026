@@ -108,54 +108,37 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
 
       // Poll for the assistant's response (1s interval, 25s max)
       const convoId = conversationRef.current.id;
-      await new Promise((resolve) => {
-        let done = false;
-        let lastContent = "";
-        let stableCount = 0;
-        let totalPolls = 0;
-        const MAX_POLLS = 25;
+      let lastContent = "";
+      let stableCount = 0;
+      let totalPolls = 0;
 
-        const finish = () => {
-          if (done) return;
-          done = true;
-          activeUnsubscribeRef.current = null;
-          resolve();
-        };
+      while (true) {
+        await new Promise(r => setTimeout(r, 1000));
+        if (!mountedRef.current) break;
 
-        activeUnsubscribeRef.current = finish;
+        totalPolls++;
+        if (totalPolls >= 25) break;
 
-        const poll = async () => {
-          if (done || !mountedRef.current) { finish(); return; }
+        try {
+          const convo = await base44.agents.getConversation(convoId);
+          if (!mountedRef.current) break;
 
-          totalPolls++;
-          if (totalPolls > MAX_POLLS) { finish(); return; }
+          const messages = convo.messages || [];
+          const lastAssistant = [...messages].reverse().find(m => m.role === "assistant");
+          const currentContent = lastAssistant?.content || "";
 
-          try {
-            const convo = await base44.agents.getConversation(convoId);
-            if (done || !mountedRef.current) { finish(); return; }
-            const messages = convo.messages || [];
-            const lastAssistant = [...messages].reverse().find(m => m.role === "assistant");
-            const currentContent = lastAssistant?.content || "";
-
-            if (currentContent.length > 0) {
-              if (mountedRef.current) setReply(currentContent);
-              if (currentContent === lastContent) {
-                stableCount++;
-                if (stableCount >= 2) { finish(); return; }
-              } else {
-                stableCount = 0;
-                lastContent = currentContent;
-              }
+          if (currentContent.length > 0) {
+            setReply(currentContent);
+            if (currentContent === lastContent) {
+              stableCount++;
+              if (stableCount >= 2) break;
+            } else {
+              stableCount = 0;
+              lastContent = currentContent;
             }
-            // only schedule next poll if not done
-            if (!done) setTimeout(poll, 1000);
-          } catch {
-            if (!done) setTimeout(poll, 1000);
           }
-        };
-
-        poll();
-      });
+        } catch { /* ignore poll errors */ }
+      }
 
       if (!mountedRef.current) return;
       setReply(prev => { speakText(prev); return prev; });
@@ -283,7 +266,7 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
           </div>
         )}
 
-        {reply && !loading && (
+        {reply && (
           <div className="w-full rounded-xl px-4 py-4" style={{ background: "linear-gradient(135deg, rgba(124,58,237,0.18), rgba(245,158,11,0.1))", border: "1px solid rgba(167,139,250,0.3)" }}>
             <div className="flex items-center gap-3 mb-2">
               <img src={avatar} alt={name} className="w-8 h-8 object-contain" />
