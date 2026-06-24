@@ -135,8 +135,8 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
 
       let convo;
       try {
-        // getConversation capped at 8s — cannot hang the loop
-        convo = await withTimeout(base44.agents.getConversation(convoId), 8000);
+        // getConversation capped at 15s
+        convo = await withTimeout(base44.agents.getConversation(convoId), 15000);
       } catch {
         continue;
       }
@@ -144,8 +144,20 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
       if (!mountedRef.current) { setLoading(false); return; }
 
       const messages = convo.messages || [];
-      const lastMsg = [...messages].reverse().find(m => m.role === "assistant" && m.content && m.content.trim().length > 0);
-      const currentContent = lastMsg?.content?.trim() || "";
+      console.log("[VoiceAtlas] messages:", JSON.stringify(messages.slice(-3)));
+
+      // Extract text from the last assistant message — handles nested content structures
+      const lastMsg = [...messages].reverse().find(m => m.role === "assistant");
+      let currentContent = "";
+      if (lastMsg) {
+        if (typeof lastMsg.content === "string" && lastMsg.content.trim().length > 0) {
+          currentContent = lastMsg.content.trim();
+        } else if (Array.isArray(lastMsg.content)) {
+          // Some APIs return content as an array of blocks
+          const textBlock = lastMsg.content.find(b => b.type === "text" && b.text);
+          if (textBlock) currentContent = textBlock.text.trim();
+        }
+      }
 
       if (currentContent.length > 0) {
         setReply(currentContent);
