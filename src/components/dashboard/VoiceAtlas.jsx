@@ -141,7 +141,8 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
       }
 
       if (!mountedRef.current) return;
-      setReply(prev => { speakText(prev); return prev; });
+      // Speak whatever the final reply is (read from ref to avoid stale closure)
+      speakText(lastContent);
 
     } catch (err) {
       if (!mountedRef.current) return;
@@ -168,7 +169,7 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
       silenceTimer = setTimeout(() => recognition.stop(), 2000);
     };
 
-    recognition.onstart = () => { setListening(true); setPulse(true); setTranscript(""); setReply(""); resetSilence(); };
+    recognition.onstart = () => { setListening(true); setPulse(true); setTranscript(""); resetSilence(); };
     recognition.onspeechstart = resetSilence;
     recognition.onspeechend = resetSilence;
     recognition.onend = () => { setListening(false); setPulse(false); if (silenceTimer) clearTimeout(silenceTimer); };
