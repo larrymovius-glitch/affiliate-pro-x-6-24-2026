@@ -20,7 +20,6 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
   const [activeTab, setActiveTab] = useState("text");
   const [textInput, setTextInput] = useState("");
   const [pulse, setPulse] = useState(false);
-  const [debugMessages, setDebugMessages] = useState([]);
 
   const conversationRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -111,73 +110,56 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
       return;
     }
 
-    // ── Step 2: poll for the assistant reply ───────────────────────────────
+    // ── Step 2: subscribe to the conversation stream for the assistant reply ──
+    // getConversation returns an empty/stale snapshot during streaming; the
+    // subscription is the supported path that delivers populated messages live.
+    const extractContent = (msg) => {
+      if (!msg) return "";
+      if (typeof msg.content === "string") return msg.content.trim();
+      if (Array.isArray(msg.content)) {
+        const textBlock = msg.content.find(b => b.type === "text" && b.text);
+        return textBlock ? textBlock.text.trim() : "";
+      }
+      return "";
+    };
+
+    // Clean up any previous stream before opening a new one
+    if (activeUnsubscribeRef.current) {
+      activeUnsubscribeRef.current();
+      activeUnsubscribeRef.current = null;
+    }
+
     let lastContent = "";
-    let stableCount = 0;
-    let totalPolls = 0;
+    let settleTimer = null;
 
-    // Wraps any promise with a hard ms timeout — prevents hung awaits
-    const withTimeout = (promise, ms) => Promise.race([
-      promise,
-      new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), ms))
-    ]);
-
-    while (true) {
-      // totalPolls++ is the FIRST statement — nothing can bypass it
-      totalPolls++;
-      if (totalPolls > 25) { setLoading(false); break; }
-
-      if (!mountedRef.current) { setLoading(false); return; }
-
-      // Sleep with a hard 2s timeout (should always resolve, but guarded)
-      await withTimeout(new Promise(r => setTimeout(r, 1000)), 2000).catch(() => {});
-
-      if (!mountedRef.current) { setLoading(false); return; }
-
-      let convo;
-      try {
-        // getConversation capped at 15s
-        convo = await withTimeout(base44.agents.getConversation(convoId), 15000);
-      } catch {
-        continue;
+    const finish = () => {
+      if (settleTimer) { clearTimeout(settleTimer); settleTimer = null; }
+      if (activeUnsubscribeRef.current) {
+        activeUnsubscribeRef.current();
+        activeUnsubscribeRef.current = null;
       }
+      if (!mountedRef.current) return;
+      setLoading(false);
+      if (lastContent) speakText(lastContent);
+    };
 
-      if (!mountedRef.current) { setLoading(false); return; }
-
-      const messages = convo.messages || [];
-      setDebugMessages(messages.slice(-3));
-
-      // Extract text from the last assistant message — handles nested content structures
+    const unsubscribe = base44.agents.subscribeToConversation(convoId, (data) => {
+      if (!mountedRef.current) return;
+      const messages = data?.messages || [];
       const lastMsg = [...messages].reverse().find(m => m.role === "assistant");
-      let currentContent = "";
-      if (lastMsg) {
-        if (typeof lastMsg.content === "string" && lastMsg.content.trim().length > 0) {
-          currentContent = lastMsg.content.trim();
-        } else if (Array.isArray(lastMsg.content)) {
-          // Some APIs return content as an array of blocks
-          const textBlock = lastMsg.content.find(b => b.type === "text" && b.text);
-          if (textBlock) currentContent = textBlock.text.trim();
-        }
+      const content = extractContent(lastMsg);
+      if (content.length > 0) {
+        lastContent = content;
+        setReply(content);
+        // Settle: when no new tokens arrive for 1.2s, finalize the reply
+        if (settleTimer) clearTimeout(settleTimer);
+        settleTimer = setTimeout(finish, 1200);
       }
+    });
+    activeUnsubscribeRef.current = unsubscribe;
 
-      if (currentContent.length > 0) {
-        setReply(currentContent);
-        if (currentContent === lastContent) {
-          stableCount++;
-        } else {
-          stableCount = 1;
-          lastContent = currentContent;
-        }
-        if (stableCount >= 3) { setLoading(false); break; }
-      } else {
-        stableCount = 0;
-      }
-    }
-
-    // ── Step 3: speak the final reply (no mic logic here) ─────────────────
-    if (mountedRef.current && lastContent) {
-      speakText(lastContent);
-    }
+    // Hard safety timeout so the UI never hangs if the stream stalls
+    setTimeout(() => { if (activeUnsubscribeRef.current) finish(); }, 30000);
   }, [agentName, speakText]);
 
   const startListening = useCallback(() => {
@@ -294,13 +276,6 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
             <span className="text-base font-medium">{name} is thinking…</span>
           </div>
         )}
-
-        {/* DEBUG: raw message dump */}
-        <div className="w-full rounded-xl px-4 py-3 text-xs break-all" style={{ background: "rgba(255,0,0,0.15)", border: "1px solid red", color: "#fff", maxHeight: 200, overflowY: "auto" }}>
-          <p className="font-bold mb-1">DEBUG — last 3 msgs:</p>
-          <pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(debugMessages, null, 2)}</pre>
-          <p className="font-bold mt-2">reply state: "{reply}"</p>
-        </div>
 
         {reply && (
           <div className="w-full rounded-xl px-4 py-4" style={{ background: "linear-gradient(135deg, rgba(124,58,237,0.18), rgba(245,158,11,0.1))", border: "1px solid rgba(167,139,250,0.3)" }}>
