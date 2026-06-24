@@ -143,20 +143,37 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
       if (lastContent) speakText(lastContent);
     };
 
-    const unsubscribe = base44.agents.subscribeToConversation(convoId, (data) => {
-      if (!mountedRef.current) return;
-      const messages = data?.messages || [];
-      const lastMsg = [...messages].reverse().find(m => m.role === "assistant");
-      const content = extractContent(lastMsg);
-      if (content.length > 0) {
-        lastContent = content;
-        setReply(content);
-        // Settle: when no new tokens arrive for 1.2s, finalize the reply
-        if (settleTimer) clearTimeout(settleTimer);
-        settleTimer = setTimeout(finish, 1200);
+    const handleStreamError = (err) => {
+      // Stale/expired conversation id — swallow the "Object not found" rejection
+      // and finalize gracefully instead of letting it bubble up uncaught.
+      console.warn("VoiceAtlas: stream error, finalizing:", err?.message || err);
+      finish();
+    };
+
+    try {
+      const unsubscribe = base44.agents.subscribeToConversation(convoId, (data) => {
+        if (!mountedRef.current) return;
+        const messages = data?.messages || [];
+        const lastMsg = [...messages].reverse().find(m => m.role === "assistant");
+        const content = extractContent(lastMsg);
+        if (content.length > 0) {
+          lastContent = content;
+          setReply(content);
+          // Settle: when no new tokens arrive for 1.2s, finalize the reply
+          if (settleTimer) clearTimeout(settleTimer);
+          settleTimer = setTimeout(finish, 1200);
+        }
+      });
+      // subscribeToConversation may return either an unsubscribe fn or a promise
+      if (unsubscribe && typeof unsubscribe.then === "function") {
+        unsubscribe.then((fn) => { activeUnsubscribeRef.current = fn; }).catch(handleStreamError);
+      } else {
+        activeUnsubscribeRef.current = unsubscribe;
       }
-    });
-    activeUnsubscribeRef.current = unsubscribe;
+    } catch (err) {
+      handleStreamError(err);
+      return;
+    }
 
     // Hard safety timeout so the UI never hangs if the stream stalls
     setTimeout(() => { if (activeUnsubscribeRef.current) finish(); }, 30000);
