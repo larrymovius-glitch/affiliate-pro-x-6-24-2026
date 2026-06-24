@@ -85,6 +85,7 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
     if (!text.trim() || !conversationRef.current || !mountedRef.current) return;
 
     setLoading(true);
+    setReply("");
 
     // ── Step 1: send the user message ──────────────────────────────────────
     let convoId;
@@ -120,7 +121,8 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
       if (!mountedRef.current) { setLoading(false); return; }
 
       totalPolls++;
-      if (totalPolls >= 25) {
+      if (totalPolls >= 60) {
+        // Hard timeout after 60s — show whatever we have
         setLoading(false);
         break;
       }
@@ -130,22 +132,27 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
         if (!mountedRef.current) { setLoading(false); return; }
 
         const messages = convo.messages || [];
-        const lastMsg = [...messages].reverse().find(m => m.role === "assistant");
-        const currentContent = lastMsg?.content || "";
+        // Find the last assistant message that has actual text content
+        const lastMsg = [...messages].reverse().find(m => m.role === "assistant" && m.content && m.content.trim().length > 0);
+        const currentContent = lastMsg?.content?.trim() || "";
 
         if (currentContent.length > 0) {
           setReply(currentContent);
 
           if (currentContent === lastContent) {
             stableCount++;
-            if (stableCount >= 2) {
-              setLoading(false);
-              break;
-            }
           } else {
-            stableCount = 0;
+            stableCount = 1;
             lastContent = currentContent;
           }
+
+          if (stableCount >= 3) {
+            setLoading(false);
+            break;
+          }
+        } else {
+          // Content not yet available — reset stable counter
+          stableCount = 0;
         }
       } catch {
         // swallow poll errors and keep looping
