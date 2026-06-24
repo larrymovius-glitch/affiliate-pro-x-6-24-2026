@@ -115,23 +115,29 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
     let stableCount = 0;
     let totalPolls = 0;
 
-    while (true) {
-      await new Promise(r => setTimeout(r, 1000));
+    // Wraps any promise with a hard ms timeout — prevents hung awaits
+    const withTimeout = (promise, ms) => Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), ms))
+    ]);
 
-      // Hard timeout — always checked first, unconditionally, before anything else
+    while (true) {
+      // totalPolls++ is the FIRST statement — nothing can bypass it
       totalPolls++;
-      if (totalPolls >= 25) {
-        setLoading(false);
-        break;
-      }
+      if (totalPolls > 25) { setLoading(false); break; }
+
+      if (!mountedRef.current) { setLoading(false); return; }
+
+      // Sleep with a hard 2s timeout (should always resolve, but guarded)
+      await withTimeout(new Promise(r => setTimeout(r, 1000)), 2000).catch(() => {});
 
       if (!mountedRef.current) { setLoading(false); return; }
 
       let convo;
       try {
-        convo = await base44.agents.getConversation(convoId);
+        // getConversation capped at 8s — cannot hang the loop
+        convo = await withTimeout(base44.agents.getConversation(convoId), 8000);
       } catch {
-        // poll error — keep looping until timeout
         continue;
       }
 
@@ -143,18 +149,13 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
 
       if (currentContent.length > 0) {
         setReply(currentContent);
-
         if (currentContent === lastContent) {
           stableCount++;
         } else {
           stableCount = 1;
           lastContent = currentContent;
         }
-
-        if (stableCount >= 3) {
-          setLoading(false);
-          break;
-        }
+        if (stableCount >= 3) { setLoading(false); break; }
       } else {
         stableCount = 0;
       }
