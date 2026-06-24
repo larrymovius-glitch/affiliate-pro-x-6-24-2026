@@ -106,21 +106,19 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
       if (!mountedRef.current) return;
       conversationRef.current = updated;
 
-      // Poll for the assistant's response
+      // Poll for the assistant's response (1s interval, 25s max)
       const convoId = conversationRef.current.id;
       await new Promise((resolve) => {
         let done = false;
         let lastContent = "";
         let stableCount = 0;
-        let intervalId = null;
-        let timeoutId = null;
+        let totalPolls = 0;
+        const MAX_POLLS = 25;
 
         const finish = () => {
           if (done) return;
           done = true;
           activeUnsubscribeRef.current = null;
-          if (intervalId) clearInterval(intervalId);
-          if (timeoutId) clearTimeout(timeoutId);
           resolve();
         };
 
@@ -128,27 +126,35 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
 
         const poll = async () => {
           if (done || !mountedRef.current) { finish(); return; }
+
+          totalPolls++;
+          if (totalPolls > MAX_POLLS) { finish(); return; }
+
           try {
             const convo = await base44.agents.getConversation(convoId);
             if (done || !mountedRef.current) { finish(); return; }
             const messages = convo.messages || [];
             const lastAssistant = [...messages].reverse().find(m => m.role === "assistant");
-            const content = lastAssistant?.content || "";
-            if (content) {
-              if (mountedRef.current) setReply(content);
-              if (content === lastContent) {
+            const currentContent = lastAssistant?.content || "";
+
+            if (currentContent.length > 0) {
+              if (mountedRef.current) setReply(currentContent);
+              if (currentContent === lastContent) {
                 stableCount++;
-                if (stableCount >= 2) { finish(); return; } // stable for 2 polls = done
+                if (stableCount >= 2) { finish(); return; }
               } else {
                 stableCount = 0;
-                lastContent = content;
+                lastContent = currentContent;
               }
             }
-          } catch { /* ignore poll errors */ }
+            // only schedule next poll if not done
+            if (!done) setTimeout(poll, 1000);
+          } catch {
+            if (!done) setTimeout(poll, 1000);
+          }
         };
 
-        intervalId = setInterval(poll, 1000);
-        timeoutId = setTimeout(finish, 30000);
+        poll();
       });
 
       if (!mountedRef.current) return;
