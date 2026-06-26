@@ -95,14 +95,18 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
       const fresh = await base44.agents.createConversation({ agent_name: agentName, metadata: { name: "Voice Session" } });
       if (!mountedRef.current) return null;
       conversationRef.current = fresh;
-      return base44.agents.addMessage(fresh, { role: "user", content: text });
+      await base44.agents.addMessage(fresh, { role: "user", content: text });
+      return fresh;
     };
 
-    let updated;
+    let activeConversation;
     try {
-      updated = conversationRef.current
-        ? await base44.agents.addMessage(conversationRef.current, { role: "user", content: text })
-        : await sendToFreshConversation();
+      if (conversationRef.current) {
+        activeConversation = conversationRef.current;
+        await base44.agents.addMessage(activeConversation, { role: "user", content: text });
+      } else {
+        activeConversation = await sendToFreshConversation();
+      }
     } catch (err) {
       const message = err?.message || String(err);
       if (!message.includes("Object not found") && !message.includes("Invalid id value")) {
@@ -111,7 +115,7 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
         return;
       }
       try {
-        updated = await sendToFreshConversation();
+        activeConversation = await sendToFreshConversation();
       } catch (retryErr) {
         console.error("sendMessage: retry failed:", retryErr);
         if (mountedRef.current) { setReply("Couldn't start Maya's session. Please try again."); setLoading(false); }
@@ -119,8 +123,8 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
       }
     }
 
-    if (!mountedRef.current || !updated?.id) { setLoading(false); return; }
-    conversationRef.current = updated;
+    if (!mountedRef.current || !activeConversation?.id) { setLoading(false); return; }
+    conversationRef.current = activeConversation;
 
     let unsubscribeFn = null;
     let lastContent = "";
@@ -130,7 +134,7 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
     let totalSeconds = 0;
 
     try {
-      unsubscribeFn = base44.agents.subscribeToConversation(updated.id, (data) => {
+      unsubscribeFn = base44.agents.subscribeToConversation(activeConversation.id, (data) => {
         if (!mountedRef.current || isFinished || !data || !data.messages) return;
         const assistantMsgs = data.messages.filter(m => m.role === "assistant");
         const textVal = readAssistantText(assistantMsgs[assistantMsgs.length - 1]);
