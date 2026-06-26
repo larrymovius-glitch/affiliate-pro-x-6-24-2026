@@ -42,6 +42,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
   const [activeTab, setActiveTab] = useState("text");
   const [textInput, setTextInput] = useState("");
   const [pulse, setPulse] = useState(false);
+  const [workingStatus, setWorkingStatus] = useState("");
 
   const conversationRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -124,12 +125,40 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
 
     setLoading(true);
     setReply("");
+    setWorkingStatus(`${name} is thinking…`);
     stopSpeaking();
 
     responseUnsubscribeRef.current?.();
     responseUnsubscribeRef.current = null;
     if (responseTimeoutRef.current) clearTimeout(responseTimeoutRef.current);
     if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
+
+    const isTrendingPostRequest = /generate\s+(social\s+media\s+)?posts?.*trending\s+products/i.test(cleanText);
+
+    if (agentName === "maya" && isTrendingPostRequest) {
+      try {
+        setWorkingStatus("Maya is creating draft posts…");
+        const response = await base44.functions.invoke("generateEbayPosts", {});
+        const data = response?.data || {};
+        const finalText = data.success
+          ? `Done — I created ${data.generated?.length || 0} safe draft posts and saved them in AutoPilot.`
+          : data.message || "I couldn't generate posts yet. Please sync trending products first.";
+        if (mountedRef.current) {
+          setReply(finalText);
+          setLoading(false);
+          setWorkingStatus("");
+          speakText(finalText);
+        }
+      } catch (err) {
+        console.error("Direct post generation failed:", err);
+        if (mountedRef.current) {
+          setReply("I couldn't generate those posts yet. Please try again from AutoPilot.");
+          setLoading(false);
+          setWorkingStatus("");
+        }
+      }
+      return;
+    }
 
     const assistantText = `[User experience level: ${experienceLevel}. Tailor the depth, language, and strategy to this level. Do not mention this bracketed note unless asked.]\n\n${cleanText}`;
 
@@ -162,6 +191,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       if (responseTimeoutRef.current) clearTimeout(responseTimeoutRef.current);
       if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
       setLoading(false);
+      setWorkingStatus("");
       if (finalText) speakText(finalText);
     };
 
@@ -188,6 +218,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
           responseUnsubscribeRef.current?.();
           responseUnsubscribeRef.current = null;
           setLoading(false);
+          setWorkingStatus("");
           setReply(`${name} is still working on that. Please try a smaller request or send it again.`);
         }
       }, 90000);
@@ -225,6 +256,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       if (mountedRef.current) {
         setReply(`I couldn't send that to ${name}. Please try again.`);
         setLoading(false);
+        setWorkingStatus("");
       }
     }
   }, [agentName, experienceLevel, isInitializing, name, speakText, stopSpeaking]);
@@ -289,7 +321,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
   const statusText = isInitializing ? "⚡ Starting session…"
     : listening ? "🎙 Listening…"
     : speaking ? "🔊 Speaking…"
-    : loading ? "⏳ Thinking…"
+    : loading ? "⏳ Working…"
     : "✅ Ready to help";
   const statusColor = isInitializing ? "#fbbf24" : listening ? "#34d399" : speaking ? "#fbbf24" : loading ? "#c4b5fd" : "#cbd5e1";
 
@@ -336,7 +368,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
         {loading && !isInitializing && (
           <div className="flex items-center gap-3 text-violet-200">
             <Loader2 className="w-5 h-5 animate-spin" />
-            <span className="text-base font-medium">{name} is thinking…</span>
+            <span className="text-base font-medium">{workingStatus || `${name} is thinking…`}</span>
           </div>
         )}
 
@@ -360,7 +392,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
             <input type="text" value={textInput}
               onChange={e => setTextInput(e.target.value)}
               onKeyDown={e => e.key === "Enter" && handleTextSend()}
-              placeholder={blocked ? `Starting ${name}…` : `Ask ${name} anything…`}
+              placeholder={isInitializing ? `Starting ${name}…` : loading ? "Please wait…" : `Ask ${name} anything…`}
               disabled={blocked}
               className="flex-1 rounded-xl px-4 py-3 text-base text-[color:var(--voice-text)] placeholder:text-slate-300 outline-none disabled:opacity-50"
               style={{ background: "var(--voice-card-strong)", border: "1px solid rgba(216,180,254,0.45)", fontSize: 16 }}

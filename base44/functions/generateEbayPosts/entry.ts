@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
 
     const generated = [];
 
-    for (const product of ebayProducts.slice(0, 5)) { // Generate for top 5 products
+    for (const product of ebayProducts.slice(0, 2)) { // Keep assistant-triggered generation fast on mobile
       // Generate social posts for each platform WITH SAFETY CONSTRAINTS
       const postResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
         prompt: `You are an expert affiliate marketer creating HIGH-CONVERTING but SAFE social media posts for eBay products.
@@ -77,7 +77,7 @@ Return JSON in this exact format:
     "hashtags": "#ebay #deals"
   }
 }`,
-        model: "gemini_3_1_pro",
+        model: "gemini_3_flash",
         response_json_schema: {
           type: "object",
           properties: {
