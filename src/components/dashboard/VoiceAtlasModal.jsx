@@ -60,7 +60,7 @@ export default function VoiceAtlasModal({ open, onClose }) {
         borderRadius: 20,
         overflowY: "auto",
         overflowX: "hidden",
-        background: "#080617",
+        background: "transparent",
         boxShadow: "0 8px 60px rgba(124,58,237,0.35), 0 2px 20px rgba(0,0,0,0.6)",
         border: "none",
       }}

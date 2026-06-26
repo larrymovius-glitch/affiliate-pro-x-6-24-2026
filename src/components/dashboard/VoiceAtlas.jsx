@@ -7,11 +7,22 @@ const ATLAS_DEFAULT = "https://media.base44.com/images/public/6a2a72a46235784f87
 const MAYA_DEFAULT = "https://media.base44.com/images/public/6a2a72a46235784f879b968c/c0640056e_generated_image.png";
 
 const VOICE_OPTIONS = [
-  { id: "honey", label: "Honey", note: "Warm and supportive" },
-  { id: "sunny", label: "Sunny", note: "Bright and upbeat" },
-  { id: "river", label: "River", note: "Calm and natural" },
-  { id: "spark", label: "Spark", note: "Energetic and quick" },
+  { id: "alloy", label: "Alloy", note: "Neutral and balanced" },
+  { id: "echo", label: "Echo", note: "Warm and grounded" },
+  { id: "nova", label: "Nova", note: "Bright and friendly" },
+  { id: "shimmer", label: "Shimmer", note: "Clear and executive" },
+  { id: "onyx", label: "Onyx", note: "Deep mentor tone" },
+  { id: "fable", label: "Fable", note: "Expressive storyteller" },
 ];
+
+const SPEECH_VOICE_MAP = {
+  alloy: "river",
+  echo: "storm",
+  nova: "sunny",
+  shimmer: "honey",
+  onyx: "storm",
+  fable: "spark",
+};
 
 const EXPERIENCE_OPTIONS = [
   { id: "new", label: "New to Affiliate Marketing", note: "Simple steps and patient guidance" },
@@ -19,7 +30,7 @@ const EXPERIENCE_OPTIONS = [
   { id: "pro", label: "Seasoned Professional", note: "Advanced strategy and performance optimization" },
 ];
 
-function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, experienceLevel }) {
+function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, experienceLevel, themeMode }) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const supported = !!SpeechRecognition;
 
@@ -85,7 +96,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
 
     try {
       const speechText = text.length > 4800 ? `${text.slice(0, 4800)}...` : text;
-      const res = await base44.integrations.Core.GenerateSpeech({ text: speechText, voice: voiceChoice });
+      const res = await base44.integrations.Core.GenerateSpeech({ text: speechText, voice: SPEECH_VOICE_MAP[voiceChoice] || "honey" });
       const audio = new Audio(res?.url || res?.data?.url);
       audioRef.current = audio;
       audio.onended = () => mountedRef.current && setSpeaking(false);
@@ -278,7 +289,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
           { id: "voice", label: "🎤 Voice" },
         ].map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="flex-1 py-3 text-base font-bold transition-colors"
-            style={{ color: activeTab === tab.id ? "#f0abfc" : "#cbd5e1", borderBottom: activeTab === tab.id ? "3px solid #f0abfc" : "3px solid transparent", userSelect: "none" }}>
+            style={{ color: activeTab === tab.id ? "#7c3aed" : "var(--voice-muted)", borderBottom: activeTab === tab.id ? "3px solid #7c3aed" : "3px solid transparent", userSelect: "none" }}>
             {tab.label}
           </button>
         ))}
@@ -289,7 +300,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
           <button key={idx} onClick={() => { setTranscript(action.command); sendMessage(action.command); }}
             disabled={blocked}
             className="p-3 rounded-xl text-sm font-bold transition-all active:scale-95 disabled:opacity-50"
-            style={{ background: "linear-gradient(135deg, rgba(124,58,237,0.26), rgba(245,158,11,0.18))", border: "1px solid rgba(216,180,254,0.38)", color: "#f8fafc", userSelect: "none" }}>
+            style={{ background: "linear-gradient(135deg, rgba(124,58,237,0.26), rgba(245,158,11,0.18))", border: "1px solid rgba(216,180,254,0.38)", color: "var(--voice-text)", userSelect: "none" }}>
             {action.label}
           </button>
         ))}
@@ -297,9 +308,9 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
 
       <div className="px-5 py-5 flex flex-col gap-4">
         {transcript && (
-          <div className="w-full rounded-xl px-4 py-3" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.16)" }}>
-            <p className="text-sm font-bold mb-1" style={{ color: "#d8b4fe" }}>You said:</p>
-            <p className="text-base text-white leading-relaxed">\"{transcript}\"</p>
+          <div className="w-full rounded-xl px-4 py-3" style={{ background: "var(--voice-card)", border: "1px solid var(--voice-border)" }}>
+            <p className="text-sm font-bold mb-1" style={{ color: "var(--voice-muted)" }}>You said:</p>
+            <p className="text-base text-[color:var(--voice-text)] leading-relaxed">\"{transcript}\"</p>
           </div>
         )}
 
@@ -328,7 +339,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
                 </button>
               )}
             </div>
-            <p className="text-base text-white leading-relaxed whitespace-pre-wrap">{reply}</p>
+            <p className="text-base text-[color:var(--voice-text)] leading-relaxed whitespace-pre-wrap">{reply}</p>
           </div>
         )}
 
@@ -339,8 +350,8 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
               onKeyDown={e => e.key === "Enter" && handleTextSend()}
               placeholder={blocked ? `Starting ${name}…` : `Ask ${name} anything…`}
               disabled={blocked}
-              className="flex-1 rounded-xl px-4 py-3 text-base text-white placeholder:text-slate-300 outline-none disabled:opacity-50"
-              style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(216,180,254,0.45)", fontSize: 16 }}
+              className="flex-1 rounded-xl px-4 py-3 text-base text-[color:var(--voice-text)] placeholder:text-slate-300 outline-none disabled:opacity-50"
+              style={{ background: "var(--voice-card-strong)", border: "1px solid rgba(216,180,254,0.45)", fontSize: 16 }}
             />
             <button onClick={handleTextSend} disabled={blocked || !textInput.trim()}
               className="flex items-center justify-center w-14 h-14 rounded-xl disabled:opacity-50 transition-all active:scale-95"
@@ -352,9 +363,9 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
 
         {activeTab === "voice" && (
           <div className="flex flex-col items-center gap-4 py-2">
-            <div className="rounded-xl px-4 py-3 w-full" style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(216,180,254,0.28)" }}>
-              <p className="text-sm font-bold text-white">Human voice selected</p>
-              <p className="text-sm" style={{ color: "#d8b4fe" }}>{VOICE_OPTIONS.find(v => v.id === voiceChoice)?.label || "Honey"}</p>
+            <div className="rounded-xl px-4 py-3 w-full" style={{ background: "var(--voice-card)", border: "1px solid rgba(216,180,254,0.28)" }}>
+              <p className="text-sm font-bold text-[color:var(--voice-text)]">Human voice selected</p>
+              <p className="text-sm" style={{ color: "var(--voice-muted)" }}>{VOICE_OPTIONS.find(v => v.id === voiceChoice)?.label || "Nova"}</p>
             </div>
             <div className="relative flex items-center justify-center">
               {pulse && (
@@ -373,7 +384,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
                 {listening ? <MicOff className="w-10 h-10 text-white" /> : <Mic className="w-10 h-10 text-white" />}
               </button>
             </div>
-            <p className="text-base font-semibold text-center" style={{ color: "#e2e8f0" }}>
+            <p className="text-base font-semibold text-center" style={{ color: "var(--voice-text)" }}>
               {!supported ? "Voice not supported" : isInitializing ? "⚡ Starting session…" : listening ? "🎤 Listening... speak now!" : "Tap mic to speak"}
             </p>
           </div>
@@ -390,8 +401,11 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
 export default function VoiceAtlas({ onClose } = {}) {
   const [selectedAssistant, setSelectedAssistant] = useState("maya");
   const [experienceLevel, setExperienceLevel] = useState(() => localStorage.getItem("affiliateProExperienceLevel") || "");
-  const [voiceChoice, setVoiceChoice] = useState(() => localStorage.getItem("affiliateProVoiceChoice") || "honey");
-  const [comfortDim, setComfortDim] = useState(() => localStorage.getItem("affiliateProComfortDim") !== "false");
+  const [voiceChoice, setVoiceChoice] = useState(() => {
+    const saved = localStorage.getItem("affiliateProVoiceChoice");
+    return VOICE_OPTIONS.some(v => v.id === saved) ? saved : "nova";
+  });
+  const [themeMode, setThemeMode] = useState(() => localStorage.getItem("affiliateProThemeMode") || "dark");
 
   const { data: avatars = [] } = useQuery({
     queryKey: ["assistant-avatars"],
@@ -406,6 +420,7 @@ export default function VoiceAtlas({ onClose } = {}) {
     maya:  { avatar: mayaAvatar,  accentColor: "#f0abfc", name: "Maya",  gradient: "linear-gradient(90deg, #f0abfc, #c084fc)", border: "2px solid rgba(240,171,252,0.55)",  bg: "linear-gradient(135deg, rgba(236,72,153,0.34), rgba(168,85,247,0.24))" },
   };
   const current = config[selectedAssistant];
+  const isLight = themeMode === "light";
 
   const chooseExperience = (level) => {
     localStorage.setItem("affiliateProExperienceLevel", level);
@@ -417,22 +432,36 @@ export default function VoiceAtlas({ onClose } = {}) {
     setVoiceChoice(voice);
   };
 
-  const toggleDim = () => {
-    const next = !comfortDim;
-    localStorage.setItem("affiliateProComfortDim", String(next));
-    setComfortDim(next);
+  const toggleThemeMode = () => {
+    const next = themeMode === "dark" ? "light" : "dark";
+    localStorage.setItem("affiliateProThemeMode", next);
+    setThemeMode(next);
+  };
+
+  const previewVoice = (voiceCode) => {
+    const audio = new Audio(`https://cdn.openai.com/API/docs/audio/${voiceCode}.wav`);
+    audio.volume = 0.8;
+    audio.play().catch(err => console.log("Audio play blocked by browser:", err));
   };
 
   return (
-    <div style={{ background: comfortDim ? "linear-gradient(160deg, #080617 0%, #17113d 100%)" : "linear-gradient(160deg, #0f0c29 0%, #1e1b4b 100%)", border: "none" }}>
+    <div style={{
+      background: isLight ? "linear-gradient(160deg, #f8fafc 0%, #eef2ff 100%)" : "linear-gradient(160deg, #080617 0%, #17113d 100%)",
+      border: "none",
+      "--voice-text": isLight ? "#0f172a" : "#f8fafc",
+      "--voice-muted": isLight ? "#475569" : "#e9d5ff",
+      "--voice-card": isLight ? "rgba(255,255,255,0.82)" : "rgba(255,255,255,0.08)",
+      "--voice-card-strong": isLight ? "rgba(255,255,255,0.94)" : "rgba(255,255,255,0.12)",
+      "--voice-border": isLight ? "rgba(124,58,237,0.22)" : "rgba(255,255,255,0.16)",
+    }}>
       <div className="flex items-center gap-2 px-5 py-3 border-b border-violet-400/30">
         {["atlas", "maya"].map(agent => (
           <button key={agent} onClick={() => setSelectedAssistant(agent)}
             className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${selectedAssistant === agent ? "scale-105" : "opacity-80 hover:opacity-100"}`}
             style={{
-              background: selectedAssistant === agent ? config[agent].bg : "rgba(255,255,255,0.07)",
-              border: selectedAssistant === agent ? config[agent].border : "1px solid rgba(255,255,255,0.16)",
-              color: "#f8fafc",
+              background: selectedAssistant === agent ? config[agent].bg : "var(--voice-card)",
+              border: selectedAssistant === agent ? config[agent].border : "1px solid var(--voice-border)",
+              color: "var(--voice-text)",
             }}>
             {agent === "atlas" ? "👨 Atlas" : "👩 Maya"}
           </button>
@@ -447,38 +476,46 @@ export default function VoiceAtlas({ onClose } = {}) {
             style={{ background: current.gradient, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
             {current.name} — Your AI Guide
           </p>
-          {experienceLevel && <p className="text-xs font-semibold" style={{ color: "#e9d5ff" }}>{EXPERIENCE_OPTIONS.find(e => e.id === experienceLevel)?.label}</p>}
+          {experienceLevel && <p className="text-xs font-semibold" style={{ color: "var(--voice-muted)" }}>{EXPERIENCE_OPTIONS.find(e => e.id === experienceLevel)?.label}</p>}
         </div>
-        <button onClick={toggleDim} className="px-3 py-2 rounded-lg text-xs font-bold" style={{ background: "rgba(255,255,255,0.1)", color: "#fff", border: "1px solid rgba(255,255,255,0.18)" }}>
-          {comfortDim ? "Dim" : "Bright"}
+        <button onClick={toggleThemeMode} className="px-3 py-2 rounded-lg text-xs font-bold" style={{ background: "var(--voice-card-strong)", color: "var(--voice-text)", border: "1px solid var(--voice-border)" }}>
+          {themeMode === "dark" ? "Dark mode" : "Light mode"}
         </button>
       </div>
 
       <div className="px-5 py-3 border-b border-violet-400/20">
-        <div className="flex items-center gap-2 mb-2 text-white text-sm font-bold">
-          <Settings2 className="w-4 h-4" /> Voice choice
+        <div className="flex items-center gap-2 mb-2 text-sm font-bold" style={{ color: "var(--voice-text)" }}>
+          <Settings2 className="w-4 h-4" /> Official voice choice
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 gap-2">
           {VOICE_OPTIONS.map(voice => (
-            <button key={voice.id} onClick={() => chooseVoice(voice.id)} className="rounded-xl px-3 py-2 text-left transition-all"
-              style={{ background: voiceChoice === voice.id ? "rgba(216,180,254,0.22)" : "rgba(255,255,255,0.07)", border: voiceChoice === voice.id ? "1px solid rgba(216,180,254,0.65)" : "1px solid rgba(255,255,255,0.14)", color: "#fff" }}>
-              <span className="block text-sm font-bold">{voice.label}</span>
-              <span className="block text-xs" style={{ color: "#d8b4fe" }}>{voice.note}</span>
-            </button>
+            <div key={voice.id} className="rounded-xl px-3 py-2 transition-all"
+              style={{ background: voiceChoice === voice.id ? "rgba(216,180,254,0.24)" : "var(--voice-card)", border: voiceChoice === voice.id ? "1px solid rgba(124,58,237,0.65)" : "1px solid var(--voice-border)", color: "var(--voice-text)" }}>
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <span className="block text-sm font-bold">{voice.label}</span>
+                  <span className="block text-xs" style={{ color: "var(--voice-muted)" }}>{voice.note}</span>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => previewVoice(voice.id)} className="px-3 py-1.5 rounded-lg text-xs font-bold" style={{ background: "rgba(124,58,237,0.14)", color: "var(--voice-text)", border: "1px solid var(--voice-border)" }}>Listen</button>
+                  <button onClick={() => chooseVoice(voice.id)} className="px-3 py-1.5 rounded-lg text-xs font-bold" style={{ background: voiceChoice === voice.id ? "#7c3aed" : "var(--voice-card-strong)", color: voiceChoice === voice.id ? "#fff" : "var(--voice-text)", border: "1px solid var(--voice-border)" }}>{voiceChoice === voice.id ? "Selected" : "Select"}</button>
+                </div>
+              </div>
+            </div>
           ))}
         </div>
       </div>
 
       {!experienceLevel ? (
         <div className="px-5 py-6">
-          <div className="rounded-2xl p-5" style={{ background: "rgba(255,255,255,0.09)", border: "1px solid rgba(216,180,254,0.35)" }}>
-            <h3 className="text-xl font-extrabold text-white mb-2">To help me customize your workspace, please select your experience level:</h3>
+          <div className="rounded-2xl p-5" style={{ background: "var(--voice-card)", border: "1px solid rgba(216,180,254,0.35)" }}>
+            <h3 className="text-xl font-extrabold text-[color:var(--voice-text)] mb-2">To help me customize your workspace, please select your experience level:</h3>
             <div className="grid gap-3 mt-4">
               {EXPERIENCE_OPTIONS.map(option => (
                 <button key={option.id} onClick={() => chooseExperience(option.id)} className="rounded-xl p-4 text-left active:scale-95 transition-all"
-                  style={{ background: "linear-gradient(135deg, rgba(124,58,237,0.28), rgba(236,72,153,0.16))", border: "1px solid rgba(216,180,254,0.42)", color: "#fff" }}>
+                  style={{ background: "linear-gradient(135deg, rgba(124,58,237,0.28), rgba(236,72,153,0.16))", border: "1px solid rgba(216,180,254,0.42)", color: "var(--voice-text)" }}>
                   <span className="block text-base font-extrabold">{option.label}</span>
-                  <span className="block text-sm mt-1" style={{ color: "#e9d5ff" }}>{option.note}</span>
+                  <span className="block text-sm mt-1" style={{ color: "var(--voice-muted)" }}>{option.note}</span>
                 </button>
               ))}
             </div>
@@ -487,7 +524,7 @@ export default function VoiceAtlas({ onClose } = {}) {
       ) : (
         <>
           <div className="px-5 pt-3">
-            <button onClick={() => { localStorage.removeItem("affiliateProExperienceLevel"); setExperienceLevel(""); }} className="text-xs font-semibold underline" style={{ color: "#d8b4fe" }}>
+            <button onClick={() => { localStorage.removeItem("affiliateProExperienceLevel"); setExperienceLevel(""); }} className="text-xs font-semibold underline" style={{ color: "var(--voice-muted)" }}>
               Change experience level
             </button>
           </div>
@@ -499,6 +536,7 @@ export default function VoiceAtlas({ onClose } = {}) {
             name={current.name}
             voiceChoice={voiceChoice}
             experienceLevel={EXPERIENCE_OPTIONS.find(e => e.id === experienceLevel)?.label || experienceLevel}
+            themeMode={themeMode}
           />
         </>
       )}
