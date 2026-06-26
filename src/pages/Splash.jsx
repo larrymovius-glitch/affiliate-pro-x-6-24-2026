@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sparkles, TrendingUp, ShieldCheck } from "lucide-react";
+import { TrendingUp, ShieldCheck } from "lucide-react";
+import BrandLogo from "@/components/BrandLogo";
 
 export default function Splash() {
   const navigate = useNavigate();
@@ -23,9 +24,7 @@ export default function Splash() {
         className="relative w-[min(92vw,680px)] rounded-[2rem] bg-card/85 backdrop-blur-2xl shadow-2xl shadow-primary/10 ring-1 ring-border px-7 py-10 sm:px-12 sm:py-12 transition-all duration-1000"
         style={{ opacity: visible ? 1 : 0, transform: visible ? "translateY(0)" : "translateY(24px)" }}
       >
-        <div className="mx-auto mb-7 w-20 h-20 rounded-3xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-xl shadow-primary/20">
-          <Sparkles className="w-10 h-10 text-primary-foreground" />
-        </div>
+        <BrandLogo className="mx-auto mb-7 w-28 h-20" />
 
         <div className="text-center">
           <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.35em] text-primary">Affiliate command center</p>

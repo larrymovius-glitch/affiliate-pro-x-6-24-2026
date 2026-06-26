@@ -66,7 +66,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       try {
         const convo = await base44.agents.createConversation({
           agent_name: agentName,
-          metadata: { name: "Voice Session", experience_level: experienceLevel },
+          metadata: { name: `${name} Voice Session`, assistant: agentName, experience_level: experienceLevel },
         });
         if (!mountedRef.current) return;
         conversationRef.current = convo;
@@ -84,7 +84,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       if (audioRef.current) audioRef.current.pause();
       synthRef.current.cancel();
     };
-  }, [agentName, experienceLevel]);
+  }, [agentName, experienceLevel, name]);
 
   const stopSpeaking = useCallback(() => {
     if (audioRef.current) {
@@ -160,7 +160,11 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       return;
     }
 
-    const assistantText = `[User experience level: ${experienceLevel}. Tailor the depth, language, and strategy to this level. Do not mention this bracketed note unless asked.]\n\n${cleanText}`;
+    const personaDirective = agentName === "maya"
+      ? "You are Maya only: warm, compassionate, calm, and supportive. Do not use Atlas or Phil's voice, name, or coaching style."
+      : "You are Atlas only: clear, strategic, structured, and action-oriented. Do not use Maya or Phil's voice, name, or coaching style.";
+
+    const assistantText = `[${personaDirective}]\n[User experience level: ${experienceLevel}. Tailor the depth, language, and strategy to this level. Do not mention these bracketed notes unless asked.]\n\n${cleanText}`;
 
     const readAssistantText = (messages = []) => {
       const assistantMsgs = messages.filter(m => m.role === "assistant");
@@ -177,7 +181,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       if (conversationRef.current?.id) return conversationRef.current;
       const fresh = await base44.agents.createConversation({
         agent_name: agentName,
-        metadata: { name: "Voice Session", experience_level: experienceLevel },
+        metadata: { name: `${name} Voice Session`, assistant: agentName, experience_level: experienceLevel },
       });
       if (!fresh?.id) throw new Error("Could not start assistant session");
       conversationRef.current = fresh;
