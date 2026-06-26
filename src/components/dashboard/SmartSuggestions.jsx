@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
@@ -12,21 +13,41 @@ const ICON_MAP = {
   tip: { icon: Lightbulb, color: "text-violet-400", bg: "rgba(124,58,237,0.15)", border: "rgba(124,58,237,0.3)" },
 };
 
-function SuggestionItem({ type = "tip", title, detail }) {
+function getInsightAction(title = "", detail = "") {
+  const text = `${title} ${detail}`.toLowerCase();
+
+  if (text.includes("post") || text.includes("content") || text.includes("social") || text.includes("tiktok")) {
+    return { label: "Create content", path: "/autopilot" };
+  }
+  if (text.includes("campaign")) return { label: "Open campaigns", path: "/campaigns" };
+  if (text.includes("product") || text.includes("trending")) return { label: "Open products", path: "/products" };
+  if (text.includes("link") || text.includes("click")) return { label: "Open links", path: "/links" };
+  if (text.includes("earning") || text.includes("payout") || text.includes("commission")) return { label: "Open payouts", path: "/payouts" };
+  return { label: "Review analytics", path: "/analytics" };
+}
+
+function SuggestionItem({ type = "tip", title, detail, onAction }) {
   const { icon: Icon, color, bg, border } = ICON_MAP[type] || ICON_MAP.tip;
+  const action = getInsightAction(title, detail);
+
   return (
-    <div
-      className="flex items-start gap-3 p-3 rounded-xl mb-2 last:mb-0 transition-all hover:scale-[1.01]"
+    <button
+      type="button"
+      onClick={() => onAction(action.path)}
+      className="w-full text-left flex items-start gap-3 p-3 rounded-xl mb-2 last:mb-0 transition-all hover:scale-[1.01] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       style={{ background: bg, border: `1px solid ${border}` }}
     >
       <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5" style={{ background: bg, border: `1px solid ${border}` }}>
         <Icon className={cn("w-4 h-4", color)} />
       </div>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold text-card-foreground leading-snug">{title}</p>
         {detail && <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{detail}</p>}
+        <span className="inline-flex mt-2 text-xs font-bold text-primary">
+          {action.label} →
+        </span>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -76,6 +97,7 @@ Types: "opportunity" (growth wins), "warning" (things to fix), "tip" (best pract
 }
 
 export default function SmartSuggestions({ links = [], posts = [] }) {
+  const navigate = useNavigate();
   const [refreshKey, setRefreshKey] = useState(0);
 
   const { data: suggestions, isLoading, isFetching } = useQuery({
@@ -129,7 +151,7 @@ export default function SmartSuggestions({ links = [], posts = [] }) {
       ) : (
         <div>
           {suggestions.map((s, i) => (
-            <SuggestionItem key={i} type={s.type} title={s.title} detail={s.detail} />
+            <SuggestionItem key={i} type={s.type} title={s.title} detail={s.detail} onAction={navigate} />
           ))}
         </div>
       )}
