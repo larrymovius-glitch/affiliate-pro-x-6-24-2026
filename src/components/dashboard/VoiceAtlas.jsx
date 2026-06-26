@@ -38,6 +38,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
   const [reply, setReply] = useState("");
   const [loading, setLoading] = useState(false);
   const [speaking, setSpeaking] = useState(false);
+  const [needsTapToSpeak, setNeedsTapToSpeak] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [activeTab, setActiveTab] = useState("text");
   const [textInput, setTextInput] = useState("");
@@ -94,12 +95,14 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       audioRef.current.currentTime = 0;
     }
     synthRef.current?.cancel?.();
+    setNeedsTapToSpeak(false);
     setSpeaking(false);
   }, []);
 
   const speakText = useCallback(async (text) => {
     if (!text) return;
     stopSpeaking();
+    setNeedsTapToSpeak(false);
     setSpeaking(true);
 
     try {
@@ -109,7 +112,15 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       audioRef.current = audio;
       audio.onended = () => mountedRef.current && setSpeaking(false);
       audio.onerror = () => mountedRef.current && setSpeaking(false);
-      await audio.play();
+      try {
+        await audio.play();
+      } catch (playError) {
+        console.warn("Mobile browser blocked automatic voice playback:", playError);
+        if (mountedRef.current) {
+          setNeedsTapToSpeak(true);
+          setSpeaking(false);
+        }
+      }
     } catch (error) {
       console.error("Human voice playback failed:", error);
       if (typeof SpeechSynthesisUtterance === "undefined" || !synthRef.current?.speak) {
@@ -350,6 +361,20 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
     setPulse(false);
   }, []);
 
+  const playBlockedVoice = async () => {
+    if (!audioRef.current) return;
+    setNeedsTapToSpeak(false);
+    setSpeaking(true);
+    try {
+      audioRef.current.currentTime = 0;
+      await audioRef.current.play();
+    } catch (error) {
+      console.warn("Voice playback still blocked:", error);
+      setSpeaking(false);
+      setNeedsTapToSpeak(true);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === "voice" && supported && !listening && !loading && !isInitializing) {
       const t = setTimeout(() => startListening(), 300);
@@ -436,6 +461,11 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
               )}
             </div>
             <p className="text-base text-[color:var(--voice-text)] leading-relaxed whitespace-pre-wrap">{reply}</p>
+            {needsTapToSpeak && (
+              <button onClick={playBlockedVoice} className="mt-3 w-full rounded-xl px-4 py-3 text-sm font-bold transition-all active:scale-95" style={{ background: "linear-gradient(135deg, #7c3aed, #c026d3)", color: "#fff" }}>
+                Tap to hear {name}
+              </button>
+            )}
           </div>
         )}
 
