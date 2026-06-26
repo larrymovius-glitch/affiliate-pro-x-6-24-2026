@@ -23,8 +23,8 @@ function SuggestionItem({ type = "tip", title, detail }) {
         <Icon className={cn("w-4 h-4", color)} />
       </div>
       <div className="min-w-0">
-        <p className="text-sm font-semibold text-white leading-snug">{title}</p>
-        {detail && <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">{detail}</p>}
+        <p className="text-sm font-semibold text-card-foreground leading-snug">{title}</p>
+        {detail && <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{detail}</p>}
       </div>
     </div>
   );
@@ -86,14 +86,7 @@ export default function SmartSuggestions({ links = [], posts = [] }) {
   });
 
   return (
-    <div
-      className="rounded-2xl p-6"
-      style={{
-        background: "linear-gradient(135deg, rgba(30,20,80,0.9) 0%, rgba(15,12,41,0.95) 100%)",
-        border: "1px solid rgba(167,139,250,0.2)",
-        boxShadow: "0 4px 32px rgba(124,58,237,0.1)",
-      }}
-    >
+    <div className="rounded-2xl p-6 bg-card text-card-foreground border border-border shadow-sm">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <div
@@ -103,8 +96,8 @@ export default function SmartSuggestions({ links = [], posts = [] }) {
             <Sparkles className="w-5 h-5 text-amber-400" />
           </div>
           <div>
-            <h3 className="font-display font-bold text-white text-base">AI Insights</h3>
-            <p className="text-xs text-slate-400">Live recommendations for your data</p>
+            <h3 className="font-display font-bold text-card-foreground text-base">AI Insights</h3>
+            <p className="text-xs text-muted-foreground">Live recommendations for your data</p>
           </div>
         </div>
         <button
@@ -112,7 +105,7 @@ export default function SmartSuggestions({ links = [], posts = [] }) {
           disabled={isLoading || isFetching}
           className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-white/10 disabled:opacity-40"
         >
-          <RefreshCw className={cn("w-4 h-4 text-slate-400", (isLoading || isFetching) && "animate-spin")} />
+          <RefreshCw className={cn("w-4 h-4 text-muted-foreground", (isLoading || isFetching) && "animate-spin")} />
         </button>
       </div>
 
@@ -129,7 +122,7 @@ export default function SmartSuggestions({ links = [], posts = [] }) {
           ))}
         </div>
       ) : !suggestions?.length ? (
-        <div className="py-8 text-center text-sm text-slate-500">
+        <div className="py-8 text-center text-sm text-muted-foreground">
           <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-30" />
           No insights yet — check back as your data grows.
         </div>

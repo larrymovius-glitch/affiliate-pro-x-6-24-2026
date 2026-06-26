@@ -46,13 +46,10 @@ export default function Dashboard() {
         <RefreshCw className={`w-5 h-5 text-violet-400 transition-transform ${pulling ? "animate-spin" : ""}`} style={{ transform: `rotate(${pullDistance * 2}deg)` }} />
       </div>
       <div>
-        <h1
-          className="text-3xl font-display font-extrabold tracking-tight"
-          style={{ background: "linear-gradient(90deg, #e9d5ff, #a78bfa, #f59e0b)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
-        >
+        <h1 className="text-3xl font-display font-extrabold tracking-tight text-foreground">
           Dashboard
         </h1>
-        <p className="text-slate-400 text-sm mt-1">Your affiliate income overview.</p>
+        <p className="text-muted-foreground text-sm mt-1">Your affiliate income overview.</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

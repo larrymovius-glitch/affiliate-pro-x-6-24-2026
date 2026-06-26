@@ -4,23 +4,12 @@ import { cn } from "@/lib/utils";
 export default function StatCard({ label, value, icon: Icon, trend, trendUp, className }) {
   return (
     <div
-      className={cn("p-5 relative overflow-hidden rounded-2xl group cursor-default", className)}
-      style={{
-        background: "linear-gradient(135deg, rgba(30,20,80,0.9) 0%, rgba(15,12,41,0.95) 100%)",
-        border: "1px solid rgba(167,139,250,0.25)",
-        boxShadow: "0 4px 24px rgba(124,58,237,0.12)",
-        transition: "box-shadow 0.2s",
-      }}
-      onMouseEnter={e => e.currentTarget.style.boxShadow = "0 4px 32px rgba(245,158,11,0.2)"}
-      onMouseLeave={e => e.currentTarget.style.boxShadow = "0 4px 24px rgba(124,58,237,0.12)"}
+      className={cn("p-5 relative overflow-hidden rounded-2xl group cursor-default bg-card text-card-foreground border border-border shadow-sm transition-shadow hover:shadow-lg", className)}
     >
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs text-slate-400 font-medium tracking-wide uppercase">{label}</p>
-          <p
-            className="text-3xl font-extrabold font-display mt-2 tracking-tight"
-            style={{ background: "linear-gradient(90deg, #e9d5ff, #fbbf24)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
-          >
+          <p className="text-xs text-muted-foreground font-medium tracking-wide uppercase">{label}</p>
+          <p className="text-3xl font-extrabold font-display mt-2 tracking-tight text-card-foreground">
             {value}
           </p>
           {trend && (

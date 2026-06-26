@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
@@ -87,6 +88,11 @@ const AuthenticatedApp = () => {
 };
 
 function App() {
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("affiliateProThemeMode") || "dark";
+    document.documentElement.classList.toggle("dark", savedTheme === "dark");
+  }, []);
+
   return (
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>

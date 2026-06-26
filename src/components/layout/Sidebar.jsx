@@ -35,13 +35,9 @@ export default function Sidebar({ open, onClose }) {
 
       <aside
         className={cn(
-          "fixed top-0 left-0 h-full w-64 z-50 flex flex-col transition-transform duration-300 ease-out",
+          "fixed top-0 left-0 h-full w-64 z-50 flex flex-col transition-transform duration-300 ease-out bg-sidebar text-sidebar-foreground border-r border-sidebar-border",
           open ? "translate-x-0" : "-translate-x-full"
         )}
-        style={{
-          background: "linear-gradient(180deg, #1a0f45 0%, #0f0c29 100%)",
-          borderRight: "1px solid rgba(167,139,250,0.2)",
-        }}
       >
         {/* Logo */}
         <div className="flex items-center justify-between p-6 border-b border-sidebar-border">

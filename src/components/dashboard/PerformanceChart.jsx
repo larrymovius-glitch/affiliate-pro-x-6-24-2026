@@ -14,14 +14,7 @@ export default function PerformanceChart({ data, isLoading }) {
   ];
 
   return (
-    <div
-      className="rounded-2xl p-6"
-      style={{
-        background: "linear-gradient(135deg, rgba(30,20,80,0.9) 0%, rgba(15,12,41,0.95) 100%)",
-        border: "1px solid rgba(167,139,250,0.2)",
-        boxShadow: "0 4px 32px rgba(124,58,237,0.1)",
-      }}
-    >
+    <div className="rounded-2xl p-6 bg-card text-card-foreground border border-border shadow-sm">
       <div className="flex items-center gap-3 mb-6">
         <div
           className="w-10 h-10 rounded-xl flex items-center justify-center"
@@ -30,10 +23,10 @@ export default function PerformanceChart({ data, isLoading }) {
           <TrendingUp className="w-5 h-5 text-amber-400" />
         </div>
         <div>
-          <h3 className="font-display font-bold text-white text-base">Performance Overview</h3>
-          <p className="text-xs text-slate-400">Clicks & earnings trend</p>
+          <h3 className="font-display font-bold text-card-foreground text-base">Performance Overview</h3>
+          <p className="text-xs text-muted-foreground">Clicks & earnings trend</p>
         </div>
-        <div className="ml-auto flex items-center gap-4 text-xs text-slate-400">
+        <div className="ml-auto flex items-center gap-4 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-violet-400 inline-block" />Clicks</span>
           <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />Earnings</span>
         </div>

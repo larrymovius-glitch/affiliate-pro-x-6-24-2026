@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Menu, Bell, LogOut, Trash2, ChevronLeft, MessageCircle } from "lucide-react";
+import { Menu, Bell, LogOut, Trash2, ChevronLeft, Moon, Sun } from "lucide-react";
 import VoiceAtlasModal from "@/components/dashboard/VoiceAtlasModal";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ export default function TopBar({ onMenuClick }) {
   const navigate = useNavigate();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [atlasOpen, setAtlasOpen] = useState(false);
+  const [themeMode, setThemeMode] = useState(() => localStorage.getItem("affiliateProThemeMode") || "dark");
   const isRoot = location.pathname === "/";
   const initials = user?.full_name 
     ? user.full_name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) 
@@ -52,13 +53,18 @@ export default function TopBar({ onMenuClick }) {
     await base44.auth.logout("/");
   };
 
+  const toggleThemeMode = () => {
+    const nextTheme = themeMode === "dark" ? "light" : "dark";
+    localStorage.setItem("affiliateProThemeMode", nextTheme);
+    document.documentElement.classList.toggle("dark", nextTheme === "dark");
+    setThemeMode(nextTheme);
+  };
+
   return (
     <>
       <header
-        className="sticky top-0 z-30 backdrop-blur-xl flex items-center px-4 lg:px-6"
+        className="sticky top-0 z-30 backdrop-blur-xl flex items-center px-4 lg:px-6 bg-card/90 border-b border-border text-foreground"
         style={{
-          background: "rgba(15,12,41,0.85)",
-          borderBottom: "1px solid rgba(167,139,250,0.15)",
           minHeight: 56,
           paddingTop: "env(safe-area-inset-top)",
         }}
@@ -94,6 +100,17 @@ export default function TopBar({ onMenuClick }) {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative text-muted-foreground h-11 w-11"
+            onClick={toggleThemeMode}
+            aria-label={themeMode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            style={{ userSelect: "none" }}
+          >
+            {themeMode === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          </Button>
+
           <Button variant="ghost" size="icon" className="relative text-muted-foreground h-11 w-11" style={{ userSelect: "none" }}>
             <Bell className="w-5 h-5" />
           </Button>

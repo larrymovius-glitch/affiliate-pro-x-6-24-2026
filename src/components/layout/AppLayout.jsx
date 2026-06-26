@@ -9,7 +9,7 @@ export default function AppLayout() {
   const location = useLocation();
 
   return (
-    <div className="dark flex h-screen overflow-hidden" style={{ background: "linear-gradient(160deg, #0f0c29 0%, #302b63 50%, #1a1040 100%)" }}>
+    <div className="flex h-screen overflow-hidden bg-background text-foreground">
       {/* Sidebar: always rendered, toggled on all screen sizes */}
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
