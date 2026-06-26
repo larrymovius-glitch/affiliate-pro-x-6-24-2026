@@ -52,6 +52,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
   const responseUnsubscribeRef = useRef(null);
   const responseTimeoutRef = useRef(null);
   const completionTimerRef = useRef(null);
+  const pollTimerRef = useRef(null);
 
   const quickActions = [
     { label: "💰 My Earnings", command: "Show my total earnings" },
@@ -81,6 +82,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       responseUnsubscribeRef.current?.();
       if (responseTimeoutRef.current) clearTimeout(responseTimeoutRef.current);
       if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
       if (audioRef.current) audioRef.current.pause();
       synthRef.current.cancel();
     };
@@ -132,6 +134,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
     responseUnsubscribeRef.current = null;
     if (responseTimeoutRef.current) clearTimeout(responseTimeoutRef.current);
     if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
+    if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
 
     const isTrendingPostRequest = /generate\s+(social\s+media\s+)?posts?.*trending\s+products/i.test(cleanText);
 
@@ -166,8 +169,9 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
 
     const assistantText = `[${personaDirective}]\n[User experience level: ${experienceLevel}. Tailor the depth, language, and strategy to this level. Do not mention these bracketed notes unless asked.]\n\n${cleanText}`;
 
-    const readAssistantText = (messages = []) => {
+    const readAssistantText = (messages = [], previousAssistantCount = 0) => {
       const assistantMsgs = messages.filter(m => m.role === "assistant");
+      if (assistantMsgs.length <= previousAssistantCount) return "";
       const lastMsg = assistantMsgs[assistantMsgs.length - 1];
       if (!lastMsg) return "";
       if (typeof lastMsg.content === "string") return lastMsg.content.trim();
@@ -194,6 +198,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       responseUnsubscribeRef.current = null;
       if (responseTimeoutRef.current) clearTimeout(responseTimeoutRef.current);
       if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
       setLoading(false);
       setWorkingStatus("");
       if (finalText) speakText(finalText);
@@ -202,9 +207,43 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
     try {
       let activeConversation = await ensureConversation();
       let latestAssistantText = "";
+      let assistantCountBefore = (activeConversation?.messages || []).filter(m => m.role === "assistant").length;
+
+      const startPolling = (conversationId) => {
+        const startedAt = Date.now();
+        const poll = async () => {
+          if (!mountedRef.current) return;
+          try {
+            const freshConversation = await base44.agents.getConversation(conversationId);
+            const textVal = readAssistantText(freshConversation?.messages || [], assistantCountBefore);
+            if (textVal) {
+              latestAssistantText = textVal;
+              setReply(textVal);
+              finishResponse(textVal);
+              return;
+            }
+          } catch (_) {
+            // Keep the visible flow simple; the hard cap below will end the thinking state.
+          }
+
+          if (Date.now() - startedAt >= 45000) {
+            responseUnsubscribeRef.current?.();
+            responseUnsubscribeRef.current = null;
+            if (responseTimeoutRef.current) clearTimeout(responseTimeoutRef.current);
+            if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
+            setLoading(false);
+            setWorkingStatus("");
+            setReply(`${name} did not finish that response. Please try again with a shorter request.`);
+            return;
+          }
+
+          pollTimerRef.current = setTimeout(poll, 2500);
+        };
+        pollTimerRef.current = setTimeout(poll, 2500);
+      };
 
       responseUnsubscribeRef.current = base44.agents.subscribeToConversation(activeConversation.id, (data) => {
-        const textVal = readAssistantText(data?.messages || []);
+        const textVal = readAssistantText(data?.messages || [], assistantCountBefore);
         if (!textVal || !mountedRef.current) return;
 
         latestAssistantText = textVal;
@@ -221,14 +260,16 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
         } else {
           responseUnsubscribeRef.current?.();
           responseUnsubscribeRef.current = null;
+          if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
           setLoading(false);
           setWorkingStatus("");
           setReply(`${name} is still working on that. Please try a smaller request or send it again.`);
         }
-      }, 90000);
+      }, 60000);
 
       try {
         await base44.agents.addMessage(activeConversation, { role: "user", content: assistantText });
+        startPolling(activeConversation.id);
       } catch (err) {
         const message = err?.message || String(err);
         if (!message.includes("Object not found") && !message.includes("Invalid id value")) throw err;
@@ -237,9 +278,10 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
         responseUnsubscribeRef.current = null;
         conversationRef.current = null;
         activeConversation = await ensureConversation();
+        assistantCountBefore = (activeConversation?.messages || []).filter(m => m.role === "assistant").length;
 
         responseUnsubscribeRef.current = base44.agents.subscribeToConversation(activeConversation.id, (data) => {
-          const textVal = readAssistantText(data?.messages || []);
+          const textVal = readAssistantText(data?.messages || [], assistantCountBefore);
           if (!textVal || !mountedRef.current) return;
 
           latestAssistantText = textVal;
@@ -250,6 +292,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
         });
 
         await base44.agents.addMessage(activeConversation, { role: "user", content: assistantText });
+        startPolling(activeConversation.id);
       }
     } catch (err) {
       console.error("sendMessage failed:", err);
@@ -257,6 +300,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       responseUnsubscribeRef.current = null;
       if (responseTimeoutRef.current) clearTimeout(responseTimeoutRef.current);
       if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
       if (mountedRef.current) {
         setReply(`I couldn't send that to ${name}. Please try again.`);
         setLoading(false);
