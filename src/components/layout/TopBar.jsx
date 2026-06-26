@@ -31,7 +31,7 @@ export default function TopBar({ onMenuClick }) {
   const navigate = useNavigate();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [atlasOpen, setAtlasOpen] = useState(false);
-  const [themeMode, setThemeMode] = useState(() => localStorage.getItem("affiliateProThemeMode") || "dark");
+  const [themeMode, setThemeMode] = useState(() => localStorage.getItem("affiliateProThemeMode") || "light");
   const isRoot = location.pathname === "/";
   const initials = user?.full_name 
     ? user.full_name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) 
@@ -83,17 +83,17 @@ export default function TopBar({ onMenuClick }) {
         <div className="flex-1 flex items-center">
           <button
             onClick={() => setAtlasOpen(true)}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full transition-all hover:scale-[1.03] active:scale-95"
-            style={{ background: "linear-gradient(90deg, rgba(124,58,237,0.5), rgba(168,85,247,0.4))", border: "1px solid rgba(167,139,250,0.4)", boxShadow: "0 0 14px rgba(124,58,237,0.4)", userSelect: "none" }}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full transition-all hover:scale-[1.03] active:scale-95 bg-background/85 shadow-sm shadow-primary/10 ring-1 ring-primary/15"
+            style={{ userSelect: "none" }}
           >
-            <div style={{ width: 32, height: 32, borderRadius: "50%", overflow: "hidden", background: "transparent", flexShrink: 0 }}>
+            <div className="w-8 h-8 rounded-full overflow-hidden bg-primary/10 flex-shrink-0 ring-1 ring-primary/20">
               <img
                 src={displayAvatar}
                 alt="AI Assistant"
-                style={{ width: "100%", height: "100%", objectFit: "cover", mixBlendMode: "screen" }}
+                className="w-full h-full object-cover"
               />
             </div>
-            <span className="text-xs font-bold" style={{ background: "linear-gradient(90deg, #c084fc, #f59e0b)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+            <span className="text-xs font-bold text-foreground">
               Ask Maya
             </span>
           </button>

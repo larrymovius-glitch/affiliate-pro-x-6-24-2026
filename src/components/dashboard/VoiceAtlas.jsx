@@ -456,7 +456,7 @@ export default function VoiceAtlas({ onClose } = {}) {
     }
     return { atlas: "onyx", maya: "nova" };
   });
-  const [themeMode, setThemeMode] = useState(() => localStorage.getItem("affiliateProThemeMode") || "dark");
+  const [themeMode, setThemeMode] = useState(() => localStorage.getItem("affiliateProThemeMode") || "light");
   const activePreviewRef = useRef(null);
 
   const { data: avatars = [] } = useQuery({

@@ -89,7 +89,10 @@ const AuthenticatedApp = () => {
 
 function App() {
   useEffect(() => {
-    const savedTheme = localStorage.getItem("affiliateProThemeMode") || "dark";
+    const lightRefreshApplied = localStorage.getItem("affiliateProLightRefreshApplied") === "true";
+    const savedTheme = lightRefreshApplied ? (localStorage.getItem("affiliateProThemeMode") || "light") : "light";
+    localStorage.setItem("affiliateProThemeMode", savedTheme);
+    localStorage.setItem("affiliateProLightRefreshApplied", "true");
     document.documentElement.classList.toggle("dark", savedTheme === "dark");
   }, []);
 
