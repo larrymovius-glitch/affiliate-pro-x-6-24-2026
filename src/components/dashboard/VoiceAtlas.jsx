@@ -48,6 +48,9 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
   const audioRef = useRef(null);
   const synthRef = useRef(window.speechSynthesis);
   const mountedRef = useRef(true);
+  const responseUnsubscribeRef = useRef(null);
+  const responseTimeoutRef = useRef(null);
+  const completionTimerRef = useRef(null);
 
   const quickActions = [
     { label: "💰 My Earnings", command: "Show my total earnings" },
@@ -74,6 +77,9 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
     return () => {
       mountedRef.current = false;
       recognitionRef.current?.abort();
+      responseUnsubscribeRef.current?.();
+      if (responseTimeoutRef.current) clearTimeout(responseTimeoutRef.current);
+      if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
       if (audioRef.current) audioRef.current.pause();
       synthRef.current.cancel();
     };
@@ -120,6 +126,11 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
     setReply("");
     stopSpeaking();
 
+    responseUnsubscribeRef.current?.();
+    responseUnsubscribeRef.current = null;
+    if (responseTimeoutRef.current) clearTimeout(responseTimeoutRef.current);
+    if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
+
     const assistantText = `[User experience level: ${experienceLevel}. Tailor the depth, language, and strategy to this level. Do not mention this bracketed note unless asked.]\n\n${cleanText}`;
 
     const readAssistantText = (messages = []) => {
@@ -133,86 +144,88 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       return "";
     };
 
-    const createAndSend = async () => {
+    const ensureConversation = async () => {
+      if (conversationRef.current?.id) return conversationRef.current;
       const fresh = await base44.agents.createConversation({
         agent_name: agentName,
         metadata: { name: "Voice Session", experience_level: experienceLevel },
       });
       if (!fresh?.id) throw new Error("Could not start assistant session");
       conversationRef.current = fresh;
-      await base44.agents.addMessage(fresh, { role: "user", content: assistantText });
       return fresh;
     };
 
-    let activeConversation = conversationRef.current;
+    const finishResponse = (finalText) => {
+      if (!mountedRef.current) return;
+      responseUnsubscribeRef.current?.();
+      responseUnsubscribeRef.current = null;
+      if (responseTimeoutRef.current) clearTimeout(responseTimeoutRef.current);
+      if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
+      setLoading(false);
+      if (finalText) speakText(finalText);
+    };
 
     try {
-      if (activeConversation?.id) {
-        await base44.agents.addMessage(activeConversation, { role: "user", content: assistantText });
-      } else {
-        activeConversation = await createAndSend();
-      }
-    } catch (err) {
-      const message = err?.message || String(err);
-      if (!message.includes("Object not found") && !message.includes("Invalid id value")) {
-        console.error("sendMessage failed:", err);
-        if (mountedRef.current) setReply(`I couldn't send that to ${name}. Please try again.`);
-        setLoading(false);
-        return;
-      }
+      let activeConversation = await ensureConversation();
+      let latestAssistantText = "";
+
+      responseUnsubscribeRef.current = base44.agents.subscribeToConversation(activeConversation.id, (data) => {
+        const textVal = readAssistantText(data?.messages || []);
+        if (!textVal || !mountedRef.current) return;
+
+        latestAssistantText = textVal;
+        setReply(textVal);
+
+        if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
+        completionTimerRef.current = setTimeout(() => finishResponse(latestAssistantText), 2500);
+      });
+
+      responseTimeoutRef.current = setTimeout(() => {
+        if (!mountedRef.current) return;
+        if (latestAssistantText) {
+          finishResponse(latestAssistantText);
+        } else {
+          responseUnsubscribeRef.current?.();
+          responseUnsubscribeRef.current = null;
+          setLoading(false);
+          setReply(`${name} is still working on that. Please try a smaller request or send it again.`);
+        }
+      }, 90000);
 
       try {
+        await base44.agents.addMessage(activeConversation, { role: "user", content: assistantText });
+      } catch (err) {
+        const message = err?.message || String(err);
+        if (!message.includes("Object not found") && !message.includes("Invalid id value")) throw err;
+
+        responseUnsubscribeRef.current?.();
+        responseUnsubscribeRef.current = null;
         conversationRef.current = null;
-        activeConversation = await createAndSend();
-      } catch (retryErr) {
-        console.error("sendMessage retry failed:", retryErr);
-        if (mountedRef.current) setReply(`I couldn't restart ${name}'s session. Please close and reopen the assistant.`);
-        setLoading(false);
-        return;
-      }
-    }
+        activeConversation = await ensureConversation();
 
-    if (!mountedRef.current || !activeConversation?.id) {
-      setLoading(false);
-      return;
-    }
+        responseUnsubscribeRef.current = base44.agents.subscribeToConversation(activeConversation.id, (data) => {
+          const textVal = readAssistantText(data?.messages || []);
+          if (!textVal || !mountedRef.current) return;
 
-    let currentContent = "";
-    let lastContent = "";
-    let stableCount = 0;
-
-    try {
-      for (let attempt = 0; attempt < 45; attempt++) {
-        await new Promise(r => setTimeout(r, 1000));
-        if (!mountedRef.current) return;
-
-        const latest = await base44.agents.getConversation(activeConversation.id);
-        const textVal = readAssistantText(latest?.messages || []);
-
-        if (textVal) {
-          currentContent = textVal;
+          latestAssistantText = textVal;
           setReply(textVal);
 
-          if (textVal === lastContent) {
-            stableCount++;
-            if (stableCount >= 3) break;
-          } else {
-            lastContent = textVal;
-            stableCount = 1;
-          }
-        }
-      }
+          if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
+          completionTimerRef.current = setTimeout(() => finishResponse(latestAssistantText), 2500);
+        });
 
-      if (mountedRef.current && !currentContent) {
-        setReply(`${name} did not return a response. Please try one more time.`);
+        await base44.agents.addMessage(activeConversation, { role: "user", content: assistantText });
       }
-    } catch (loopErr) {
-      console.error("Assistant response check failed:", loopErr);
-      conversationRef.current = null;
-      if (mountedRef.current) setReply(`${name}'s session had an issue. Please send your request again.`);
-    } finally {
-      setLoading(false);
-      if (mountedRef.current && currentContent) speakText(currentContent);
+    } catch (err) {
+      console.error("sendMessage failed:", err);
+      responseUnsubscribeRef.current?.();
+      responseUnsubscribeRef.current = null;
+      if (responseTimeoutRef.current) clearTimeout(responseTimeoutRef.current);
+      if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
+      if (mountedRef.current) {
+        setReply(`I couldn't send that to ${name}. Please try again.`);
+        setLoading(false);
+      }
     }
   }, [agentName, experienceLevel, isInitializing, name, speakText, stopSpeaking]);
 
