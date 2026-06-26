@@ -205,9 +205,13 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
     };
 
     try {
-      let activeConversation = await ensureConversation();
+      const activeConversation = await base44.agents.createConversation({
+        agent_name: agentName,
+        metadata: { name: `${name} Voice Session`, assistant: agentName, experience_level: experienceLevel },
+      });
+      if (!activeConversation?.id) throw new Error("Could not start assistant session");
+      conversationRef.current = activeConversation;
       let latestAssistantText = "";
-      let assistantCountBefore = (activeConversation?.messages || []).filter(m => m.role === "assistant").length;
 
       const startPolling = (conversationId) => {
         const startedAt = Date.now();
@@ -215,7 +219,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
           if (!mountedRef.current) return;
           try {
             const freshConversation = await base44.agents.getConversation(conversationId);
-            const textVal = readAssistantText(freshConversation?.messages || [], assistantCountBefore);
+            const textVal = readAssistantText(freshConversation?.messages || []);
             if (textVal) {
               latestAssistantText = textVal;
               setReply(textVal);
@@ -223,7 +227,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
               return;
             }
           } catch (_) {
-            // Keep the visible flow simple; the hard cap below will end the thinking state.
+            // The hard cap below will end the visible thinking state.
           }
 
           if (Date.now() - startedAt >= 45000) {
@@ -239,11 +243,11 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
 
           pollTimerRef.current = setTimeout(poll, 2500);
         };
-        pollTimerRef.current = setTimeout(poll, 2500);
+        pollTimerRef.current = setTimeout(poll, 1200);
       };
 
       responseUnsubscribeRef.current = base44.agents.subscribeToConversation(activeConversation.id, (data) => {
-        const textVal = readAssistantText(data?.messages || [], assistantCountBefore);
+        const textVal = readAssistantText(data?.messages || []);
         if (!textVal || !mountedRef.current) return;
 
         latestAssistantText = textVal;
@@ -267,33 +271,29 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
         }
       }, 60000);
 
-      try {
-        await base44.agents.addMessage(activeConversation, { role: "user", content: assistantText });
-        startPolling(activeConversation.id);
-      } catch (err) {
-        const message = err?.message || String(err);
-        if (!message.includes("Object not found") && !message.includes("Invalid id value")) throw err;
-
-        responseUnsubscribeRef.current?.();
-        responseUnsubscribeRef.current = null;
-        conversationRef.current = null;
-        activeConversation = await ensureConversation();
-        assistantCountBefore = (activeConversation?.messages || []).filter(m => m.role === "assistant").length;
-
-        responseUnsubscribeRef.current = base44.agents.subscribeToConversation(activeConversation.id, (data) => {
-          const textVal = readAssistantText(data?.messages || [], assistantCountBefore);
-          if (!textVal || !mountedRef.current) return;
-
-          latestAssistantText = textVal;
-          setReply(textVal);
-
+      startPolling(activeConversation.id);
+      base44.agents.addMessage(activeConversation, { role: "user", content: assistantText })
+        .then((updatedConversation) => {
+          if (!mountedRef.current || latestAssistantText) return;
+          const textVal = readAssistantText(updatedConversation?.messages || updatedConversation?.data?.messages || []);
+          if (textVal) {
+            latestAssistantText = textVal;
+            setReply(textVal);
+            finishResponse(textVal);
+          }
+        })
+        .catch((err) => {
+          console.error("sendMessage failed:", err);
+          if (!mountedRef.current || latestAssistantText) return;
+          responseUnsubscribeRef.current?.();
+          responseUnsubscribeRef.current = null;
+          if (responseTimeoutRef.current) clearTimeout(responseTimeoutRef.current);
           if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
-          completionTimerRef.current = setTimeout(() => finishResponse(latestAssistantText), 2500);
+          if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+          setReply(`I couldn't send that to ${name}. Please try again.`);
+          setLoading(false);
+          setWorkingStatus("");
         });
-
-        await base44.agents.addMessage(activeConversation, { role: "user", content: assistantText });
-        startPolling(activeConversation.id);
-      }
     } catch (err) {
       console.error("sendMessage failed:", err);
       responseUnsubscribeRef.current?.();
