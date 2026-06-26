@@ -84,7 +84,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
       if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
       if (audioRef.current) audioRef.current.pause();
-      synthRef.current.cancel();
+      synthRef.current?.cancel?.();
     };
   }, [agentName, experienceLevel, name]);
 
@@ -117,7 +117,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       utter.pitch = agentName === "maya" ? 1.08 : 0.98;
       utter.onend = () => mountedRef.current && setSpeaking(false);
       utter.onerror = () => mountedRef.current && setSpeaking(false);
-      synthRef.current.speak(utter);
+      synthRef.current?.speak?.(utter);
     }
   }, [agentName, stopSpeaking, voiceChoice]);
 
