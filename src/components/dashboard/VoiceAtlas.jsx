@@ -93,7 +93,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
-    synthRef.current.cancel();
+    synthRef.current?.cancel?.();
     setSpeaking(false);
   }, []);
 
@@ -112,6 +112,10 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       await audio.play();
     } catch (error) {
       console.error("Human voice playback failed:", error);
+      if (typeof SpeechSynthesisUtterance === "undefined" || !synthRef.current?.speak) {
+        if (mountedRef.current) setSpeaking(false);
+        return;
+      }
       const utter = new SpeechSynthesisUtterance(text);
       utter.rate = 0.95;
       utter.pitch = agentName === "maya" ? 1.08 : 0.98;
