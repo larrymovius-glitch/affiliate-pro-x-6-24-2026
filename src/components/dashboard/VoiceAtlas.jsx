@@ -7,12 +7,11 @@ const ATLAS_DEFAULT = "https://media.base44.com/images/public/6a2a72a46235784f87
 const MAYA_DEFAULT = "https://media.base44.com/images/public/6a2a72a46235784f879b968c/c0640056e_generated_image.png";
 
 const VOICE_OPTIONS = [
-  { id: "alloy", label: "Alloy", note: "Neutral and balanced" },
-  { id: "echo", label: "Echo", note: "Warm and grounded" },
-  { id: "nova", label: "Nova", note: "Bright and friendly" },
-  { id: "shimmer", label: "Shimmer", note: "Clear and executive" },
-  { id: "onyx", label: "Onyx", note: "Deep mentor tone" },
-  { id: "fable", label: "Fable", note: "Expressive storyteller" },
+  { id: "echo", label: "Echo", note: "Warm male guide", assistant: "atlas" },
+  { id: "onyx", label: "Onyx", note: "Deep male mentor", assistant: "atlas" },
+  { id: "fable", label: "Fable", note: "Expressive male storyteller", assistant: "atlas" },
+  { id: "nova", label: "Nova", note: "Bright female guide", assistant: "maya" },
+  { id: "shimmer", label: "Shimmer", note: "Clear female coach", assistant: "maya" },
 ];
 
 const SPEECH_VOICE_MAP = {
@@ -401,11 +400,19 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
 export default function VoiceAtlas({ onClose } = {}) {
   const [selectedAssistant, setSelectedAssistant] = useState("maya");
   const [experienceLevel, setExperienceLevel] = useState(() => localStorage.getItem("affiliateProExperienceLevel") || "");
-  const [voiceChoice, setVoiceChoice] = useState(() => {
-    const saved = localStorage.getItem("affiliateProVoiceChoice");
-    return VOICE_OPTIONS.some(v => v.id === saved) ? saved : "nova";
+  const [voicePreferences, setVoicePreferences] = useState(() => {
+    const saved = localStorage.getItem("affiliateProVoicePreferences");
+    if (saved) {
+      try {
+        return { atlas: "onyx", maya: "nova", ...JSON.parse(saved) };
+      } catch {
+        return { atlas: "onyx", maya: "nova" };
+      }
+    }
+    return { atlas: "onyx", maya: "nova" };
   });
   const [themeMode, setThemeMode] = useState(() => localStorage.getItem("affiliateProThemeMode") || "dark");
+  const activePreviewRef = useRef(null);
 
   const { data: avatars = [] } = useQuery({
     queryKey: ["assistant-avatars"],
@@ -420,6 +427,8 @@ export default function VoiceAtlas({ onClose } = {}) {
     maya:  { avatar: mayaAvatar,  accentColor: "#f0abfc", name: "Maya",  gradient: "linear-gradient(90deg, #f0abfc, #c084fc)", border: "2px solid rgba(240,171,252,0.55)",  bg: "linear-gradient(135deg, rgba(236,72,153,0.34), rgba(168,85,247,0.24))" },
   };
   const current = config[selectedAssistant];
+  const currentVoiceChoice = voicePreferences[selectedAssistant] || (selectedAssistant === "atlas" ? "onyx" : "nova");
+  const availableVoices = VOICE_OPTIONS.filter(voice => voice.assistant === selectedAssistant);
   const isLight = themeMode === "light";
 
   const chooseExperience = (level) => {
@@ -428,8 +437,9 @@ export default function VoiceAtlas({ onClose } = {}) {
   };
 
   const chooseVoice = (voice) => {
-    localStorage.setItem("affiliateProVoiceChoice", voice);
-    setVoiceChoice(voice);
+    const nextPreferences = { ...voicePreferences, [selectedAssistant]: voice };
+    localStorage.setItem("affiliateProVoicePreferences", JSON.stringify(nextPreferences));
+    setVoicePreferences(nextPreferences);
   };
 
   const toggleThemeMode = () => {
@@ -439,8 +449,15 @@ export default function VoiceAtlas({ onClose } = {}) {
   };
 
   const previewVoice = (voiceCode) => {
+    if (activePreviewRef.current) {
+      activePreviewRef.current.pause();
+      activePreviewRef.current.currentTime = 0;
+    }
+
     const audio = new Audio(`https://cdn.openai.com/API/docs/audio/${voiceCode}.wav`);
     audio.volume = 0.8;
+    activePreviewRef.current = audio;
+    audio.onended = () => { activePreviewRef.current = null; };
     audio.play().catch(err => console.log("Audio play blocked by browser:", err));
   };
 
@@ -488,9 +505,9 @@ export default function VoiceAtlas({ onClose } = {}) {
           <Settings2 className="w-4 h-4" /> Official voice choice
         </div>
         <div className="grid grid-cols-1 gap-2">
-          {VOICE_OPTIONS.map(voice => (
+          {availableVoices.map(voice => (
             <div key={voice.id} className="rounded-xl px-3 py-2 transition-all"
-              style={{ background: voiceChoice === voice.id ? "rgba(216,180,254,0.24)" : "var(--voice-card)", border: voiceChoice === voice.id ? "1px solid rgba(124,58,237,0.65)" : "1px solid var(--voice-border)", color: "var(--voice-text)" }}>
+              style={{ background: currentVoiceChoice === voice.id ? "rgba(216,180,254,0.24)" : "var(--voice-card)", border: currentVoiceChoice === voice.id ? "1px solid rgba(124,58,237,0.65)" : "1px solid var(--voice-border)", color: "var(--voice-text)" }}>
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <span className="block text-sm font-bold">{voice.label}</span>
@@ -498,7 +515,7 @@ export default function VoiceAtlas({ onClose } = {}) {
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => previewVoice(voice.id)} className="px-3 py-1.5 rounded-lg text-xs font-bold" style={{ background: "rgba(124,58,237,0.14)", color: "var(--voice-text)", border: "1px solid var(--voice-border)" }}>Listen</button>
-                  <button onClick={() => chooseVoice(voice.id)} className="px-3 py-1.5 rounded-lg text-xs font-bold" style={{ background: voiceChoice === voice.id ? "#7c3aed" : "var(--voice-card-strong)", color: voiceChoice === voice.id ? "#fff" : "var(--voice-text)", border: "1px solid var(--voice-border)" }}>{voiceChoice === voice.id ? "Selected" : "Select"}</button>
+                  <button onClick={() => chooseVoice(voice.id)} className="px-3 py-1.5 rounded-lg text-xs font-bold" style={{ background: currentVoiceChoice === voice.id ? "#7c3aed" : "var(--voice-card-strong)", color: currentVoiceChoice === voice.id ? "#fff" : "var(--voice-text)", border: "1px solid var(--voice-border)" }}>{currentVoiceChoice === voice.id ? "Selected" : "Select"}</button>
                 </div>
               </div>
             </div>
@@ -534,7 +551,7 @@ export default function VoiceAtlas({ onClose } = {}) {
             avatar={current.avatar}
             accentColor={current.accentColor}
             name={current.name}
-            voiceChoice={voiceChoice}
+            voiceChoice={currentVoiceChoice}
             experienceLevel={EXPERIENCE_OPTIONS.find(e => e.id === experienceLevel)?.label || experienceLevel}
             themeMode={themeMode}
           />
