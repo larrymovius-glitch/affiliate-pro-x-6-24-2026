@@ -77,12 +77,15 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
   }, [agentName]);
 
   const sendMessage = useCallback(async (text) => {
-    if (!text.trim() || !mountedRef.current || isInitializing) return;
+    const cleanText = text.trim();
+    if (!cleanText || !mountedRef.current || isInitializing) return;
 
     setLoading(true);
     setReply("");
 
-    const readAssistantText = (lastMsg) => {
+    const readAssistantText = (messages = []) => {
+      const assistantMsgs = messages.filter(m => m.role === "assistant");
+      const lastMsg = assistantMsgs[assistantMsgs.length - 1];
       if (!lastMsg) return "";
       if (typeof lastMsg.content === "string") return lastMsg.content.trim();
       if (Array.isArray(lastMsg.content)) {
@@ -91,87 +94,88 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
       return "";
     };
 
-    const sendToFreshConversation = async () => {
-      const fresh = await base44.agents.createConversation({ agent_name: agentName, metadata: { name: "Voice Session" } });
-      if (!mountedRef.current) return null;
+    const createAndSend = async () => {
+      const fresh = await base44.agents.createConversation({
+        agent_name: agentName,
+        metadata: { name: "Voice Session" },
+      });
+      if (!fresh?.id) throw new Error("Could not start assistant session");
       conversationRef.current = fresh;
-      await base44.agents.addMessage(fresh, { role: "user", content: text });
+      await base44.agents.addMessage(fresh, { role: "user", content: cleanText });
       return fresh;
     };
 
-    let activeConversation;
+    let activeConversation = conversationRef.current;
+
     try {
-      if (conversationRef.current) {
-        activeConversation = conversationRef.current;
-        await base44.agents.addMessage(activeConversation, { role: "user", content: text });
+      if (activeConversation?.id) {
+        await base44.agents.addMessage(activeConversation, { role: "user", content: cleanText });
       } else {
-        activeConversation = await sendToFreshConversation();
+        activeConversation = await createAndSend();
       }
     } catch (err) {
       const message = err?.message || String(err);
       if (!message.includes("Object not found") && !message.includes("Invalid id value")) {
-        console.error("sendMessage: failed to send:", err);
-        if (mountedRef.current) { setReply("Couldn't send message. Please try again."); setLoading(false); }
+        console.error("sendMessage failed:", err);
+        if (mountedRef.current) setReply(`I couldn't send that to ${name}. Please try again.`);
+        setLoading(false);
         return;
       }
+
       try {
-        activeConversation = await sendToFreshConversation();
+        conversationRef.current = null;
+        activeConversation = await createAndSend();
       } catch (retryErr) {
-        console.error("sendMessage: retry failed:", retryErr);
-        if (mountedRef.current) { setReply("Couldn't start Maya's session. Please try again."); setLoading(false); }
+        console.error("sendMessage retry failed:", retryErr);
+        if (mountedRef.current) setReply(`I couldn't restart ${name}'s session. Please close and reopen the assistant.`);
+        setLoading(false);
         return;
       }
     }
 
-    if (!mountedRef.current || !activeConversation?.id) { setLoading(false); return; }
-    conversationRef.current = activeConversation;
+    if (!mountedRef.current || !activeConversation?.id) {
+      setLoading(false);
+      return;
+    }
 
-    let unsubscribeFn = null;
+    let currentContent = "";
     let lastContent = "";
     let stableCount = 0;
-    let currentContent = "";
-    let isFinished = false;
-    let totalSeconds = 0;
 
     try {
-      unsubscribeFn = base44.agents.subscribeToConversation(activeConversation.id, (data) => {
-        if (!mountedRef.current || isFinished || !data || !data.messages) return;
-        const assistantMsgs = data.messages.filter(m => m.role === "assistant");
-        const textVal = readAssistantText(assistantMsgs[assistantMsgs.length - 1]);
-        if (textVal.length > 0) {
-          currentContent = textVal;
-          setReply(textVal);
-        }
-      });
-
-      while (totalSeconds < 45) {
+      for (let attempt = 0; attempt < 45; attempt++) {
         await new Promise(r => setTimeout(r, 1000));
         if (!mountedRef.current) return;
-        totalSeconds++;
 
-        if (currentContent.length > 0) {
-          if (currentContent === lastContent) {
+        const latest = await base44.agents.getConversation(activeConversation.id);
+        const textVal = readAssistantText(latest?.messages || []);
+
+        if (textVal) {
+          currentContent = textVal;
+          setReply(textVal);
+
+          if (textVal === lastContent) {
             stableCount++;
             if (stableCount >= 3) break;
           } else {
-            lastContent = currentContent;
+            lastContent = textVal;
             stableCount = 1;
           }
-        } else {
-          stableCount = 0;
         }
       }
-    } catch (loopErr) {
-      console.error("Control loop error:", loopErr);
-    } finally {
-      isFinished = true;
-      if (unsubscribeFn) unsubscribeFn();
-      setLoading(false);
-      if (mountedRef.current && currentContent.length > 0) {
-        speakText(currentContent);
+
+      if (mountedRef.current && !currentContent) {
+        setReply(`${name} did not return a response. Please try one more time.`);
       }
+    } catch (loopErr) {
+      console.error("Assistant response check failed:", loopErr);
+      conversationRef.current = null;
+      if (mountedRef.current) setReply(`${name}'s session had an issue. Please send your request again.`);
+    } finally {
+      setLoading(false);
+      if (mountedRef.current && currentContent) speakText(currentContent);
     }
-  }, [agentName, isInitializing, speakText]);
+  }, [agentName, isInitializing, name, speakText]);
 
   const startListening = useCallback(() => {
     if (!supported || isInitializing || !conversationRef.current) return;
