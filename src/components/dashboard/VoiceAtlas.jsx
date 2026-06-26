@@ -77,31 +77,50 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
   }, [agentName]);
 
   const sendMessage = useCallback(async (text) => {
-    if (!text.trim() || !conversationRef.current || !mountedRef.current || isInitializing) return;
+    if (!text.trim() || !mountedRef.current || isInitializing) return;
 
     setLoading(true);
     setReply("");
 
-    let convoId;
-    try {
-      let updated;
-      try {
-        updated = await base44.agents.addMessage(conversationRef.current, { role: "user", content: text });
-      } catch {
-        if (!mountedRef.current) { setLoading(false); return; }
-        const fresh = await base44.agents.createConversation({ agent_name: agentName, metadata: { name: "Voice Session" } });
-        if (!mountedRef.current) { setLoading(false); return; }
-        conversationRef.current = fresh;
-        updated = await base44.agents.addMessage(conversationRef.current, { role: "user", content: text });
+    const readAssistantText = (lastMsg) => {
+      if (!lastMsg) return "";
+      if (typeof lastMsg.content === "string") return lastMsg.content.trim();
+      if (Array.isArray(lastMsg.content)) {
+        return lastMsg.content.map(b => typeof b === "string" ? b : b?.text || "").join("").trim();
       }
-      if (!mountedRef.current) { setLoading(false); return; }
-      conversationRef.current = updated;
-      convoId = updated.id;
+      return "";
+    };
+
+    const sendToFreshConversation = async () => {
+      const fresh = await base44.agents.createConversation({ agent_name: agentName, metadata: { name: "Voice Session" } });
+      if (!mountedRef.current) return null;
+      conversationRef.current = fresh;
+      return base44.agents.addMessage(fresh, { role: "user", content: text });
+    };
+
+    let updated;
+    try {
+      updated = conversationRef.current
+        ? await base44.agents.addMessage(conversationRef.current, { role: "user", content: text })
+        : await sendToFreshConversation();
     } catch (err) {
-      console.error("sendMessage: failed to send:", err);
-      if (mountedRef.current) { setReply("Couldn't send message. Please try again."); setLoading(false); }
-      return;
+      const message = err?.message || String(err);
+      if (!message.includes("Object not found") && !message.includes("Invalid id value")) {
+        console.error("sendMessage: failed to send:", err);
+        if (mountedRef.current) { setReply("Couldn't send message. Please try again."); setLoading(false); }
+        return;
+      }
+      try {
+        updated = await sendToFreshConversation();
+      } catch (retryErr) {
+        console.error("sendMessage: retry failed:", retryErr);
+        if (mountedRef.current) { setReply("Couldn't start Maya's session. Please try again."); setLoading(false); }
+        return;
+      }
     }
+
+    if (!mountedRef.current || !updated?.id) { setLoading(false); return; }
+    conversationRef.current = updated;
 
     let unsubscribeFn = null;
     let lastContent = "";
@@ -111,18 +130,10 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
     let totalSeconds = 0;
 
     try {
-      unsubscribeFn = base44.agents.subscribeToConversation(convoId, (data) => {
+      unsubscribeFn = base44.agents.subscribeToConversation(updated.id, (data) => {
         if (!mountedRef.current || isFinished || !data || !data.messages) return;
         const assistantMsgs = data.messages.filter(m => m.role === "assistant");
-        if (assistantMsgs.length === 0) return;
-        const lastMsg = assistantMsgs[assistantMsgs.length - 1];
-        let textVal = "";
-        if (typeof lastMsg.content === "string") {
-          textVal = lastMsg.content;
-        } else if (Array.isArray(lastMsg.content)) {
-          textVal = lastMsg.content.map(b => typeof b === "string" ? b : b?.text || "").join("");
-        }
-        textVal = textVal.trim();
+        const textVal = readAssistantText(assistantMsgs[assistantMsgs.length - 1]);
         if (textVal.length > 0) {
           currentContent = textVal;
           setReply(textVal);
@@ -133,7 +144,7 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
         await new Promise(r => setTimeout(r, 1000));
         if (!mountedRef.current) return;
         totalSeconds++;
-        
+
         if (currentContent.length > 0) {
           if (currentContent === lastContent) {
             stableCount++;
@@ -156,7 +167,7 @@ function AssistantChat({ agentName, avatar, accentColor, name }) {
         speakText(currentContent);
       }
     }
-}, [agentName, isInitializing, speakText]);
+  }, [agentName, isInitializing, speakText]);
 
   const startListening = useCallback(() => {
     if (!supported || isInitializing || !conversationRef.current) return;
