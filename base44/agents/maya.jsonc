@@ -83,8 +83,8 @@
   "selected_workspace_skill_ids": [],
   "line_greeting": "",
   "memory_config": {
-    "enabled": false,
-    "scope": "both",
+    "enabled": true,
+    "scope": "user",
     "include_other_conversation_context": false,
     "instructions": null
   },
