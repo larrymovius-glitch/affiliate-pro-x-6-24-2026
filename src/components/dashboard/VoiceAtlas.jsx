@@ -54,6 +54,37 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
   const responseTimeoutRef = useRef(null);
   const completionTimerRef = useRef(null);
   const pollTimerRef = useRef(null);
+  const runIdRef = useRef(0);
+
+  const clearResponseHandlers = useCallback(() => {
+    const unsubscribe = responseUnsubscribeRef.current;
+    if (typeof unsubscribe === "function") unsubscribe();
+    else unsubscribe?.unsubscribe?.();
+    responseUnsubscribeRef.current = null;
+    if (responseTimeoutRef.current) clearTimeout(responseTimeoutRef.current);
+    if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
+    if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+    responseTimeoutRef.current = null;
+    completionTimerRef.current = null;
+    pollTimerRef.current = null;
+  }, []);
+
+  const resetConversationSession = useCallback((resetUi = true) => {
+    runIdRef.current += 1;
+    clearResponseHandlers();
+    recognitionRef.current?.abort?.();
+    if (audioRef.current) audioRef.current.pause();
+    synthRef.current?.cancel?.();
+    conversationRef.current = null;
+    if (resetUi && mountedRef.current) {
+      setListening(false);
+      setPulse(false);
+      setLoading(false);
+      setWorkingStatus("");
+      setSpeaking(false);
+      setNeedsTapToSpeak(false);
+    }
+  }, [clearResponseHandlers]);
 
   const quickActions = [
     { label: "💰 My Earnings", command: "Show my total earnings" },
@@ -64,30 +95,28 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
 
   useEffect(() => {
     mountedRef.current = true;
+    setIsInitializing(true);
+    resetConversationSession();
+    const initRunId = runIdRef.current;
+
     (async () => {
       try {
         const convo = await base44.agents.createConversation({
           agent_name: agentName,
           metadata: { name: `${name} Voice Session`, assistant: agentName, experience_level: experienceLevel },
         });
-        if (!mountedRef.current) return;
+        if (!mountedRef.current || initRunId !== runIdRef.current) return;
         conversationRef.current = convo;
       } finally {
-        if (mountedRef.current) setIsInitializing(false);
+        if (mountedRef.current && initRunId === runIdRef.current) setIsInitializing(false);
       }
     })();
 
     return () => {
       mountedRef.current = false;
-      recognitionRef.current?.abort();
-      responseUnsubscribeRef.current?.();
-      if (responseTimeoutRef.current) clearTimeout(responseTimeoutRef.current);
-      if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
-      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
-      if (audioRef.current) audioRef.current.pause();
-      synthRef.current?.cancel?.();
+      resetConversationSession(false);
     };
-  }, [agentName, experienceLevel, name]);
+  }, [agentName, experienceLevel, name, resetConversationSession]);
 
   const stopSpeaking = useCallback(() => {
     if (audioRef.current) {
@@ -145,11 +174,9 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
     setWorkingStatus(`${name} is thinking…`);
     stopSpeaking();
 
-    responseUnsubscribeRef.current?.();
-    responseUnsubscribeRef.current = null;
-    if (responseTimeoutRef.current) clearTimeout(responseTimeoutRef.current);
-    if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
-    if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+    clearResponseHandlers();
+    const messageRunId = runIdRef.current + 1;
+    runIdRef.current = messageRunId;
 
     const isTrendingPostRequest = /generate\s+(social\s+media\s+)?posts?.*trending\s+products/i.test(cleanText);
 
@@ -208,12 +235,8 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
     };
 
     const finishResponse = (finalText) => {
-      if (!mountedRef.current) return;
-      responseUnsubscribeRef.current?.();
-      responseUnsubscribeRef.current = null;
-      if (responseTimeoutRef.current) clearTimeout(responseTimeoutRef.current);
-      if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
-      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+      if (!mountedRef.current || messageRunId !== runIdRef.current) return;
+      clearResponseHandlers();
       setLoading(false);
       setWorkingStatus("");
       if (finalText) speakText(finalText);
@@ -231,11 +254,11 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       const startPolling = (conversationId) => {
         const startedAt = Date.now();
         const poll = async () => {
-          if (!mountedRef.current) return;
+          if (!mountedRef.current || messageRunId !== runIdRef.current) return;
           try {
             const freshConversation = await base44.agents.getConversation(conversationId);
             const textVal = readAssistantText(freshConversation?.messages || []);
-            if (textVal) {
+            if (textVal && messageRunId === runIdRef.current) {
               latestAssistantText = textVal;
               setReply(textVal);
               finishResponse(textVal);
@@ -245,11 +268,10 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
             // The hard cap below will end the visible thinking state.
           }
 
+          if (messageRunId !== runIdRef.current) return;
+
           if (Date.now() - startedAt >= 45000) {
-            responseUnsubscribeRef.current?.();
-            responseUnsubscribeRef.current = null;
-            if (responseTimeoutRef.current) clearTimeout(responseTimeoutRef.current);
-            if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
+            clearResponseHandlers();
             setLoading(false);
             setWorkingStatus("");
             setReply(`${name} did not finish that response. Please try again with a shorter request.`);
@@ -263,23 +285,21 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
 
       responseUnsubscribeRef.current = base44.agents.subscribeToConversation(activeConversation.id, (data) => {
         const textVal = readAssistantText(data?.messages || []);
-        if (!textVal || !mountedRef.current) return;
+        if (!textVal || !mountedRef.current || messageRunId !== runIdRef.current) return;
 
         latestAssistantText = textVal;
         setReply(textVal);
 
         if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
-        completionTimerRef.current = setTimeout(() => finishResponse(latestAssistantText), 2500);
+        completionTimerRef.current = setTimeout(() => finishResponse(latestAssistantText), 800);
       });
 
       responseTimeoutRef.current = setTimeout(() => {
-        if (!mountedRef.current) return;
+        if (!mountedRef.current || messageRunId !== runIdRef.current) return;
         if (latestAssistantText) {
           finishResponse(latestAssistantText);
         } else {
-          responseUnsubscribeRef.current?.();
-          responseUnsubscribeRef.current = null;
-          if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+          clearResponseHandlers();
           setLoading(false);
           setWorkingStatus("");
           setReply(`${name} is still working on that. Please try a smaller request or send it again.`);
@@ -289,7 +309,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       startPolling(activeConversation.id);
       base44.agents.addMessage(activeConversation, { role: "user", content: assistantText })
         .then((updatedConversation) => {
-          if (!mountedRef.current || latestAssistantText) return;
+          if (!mountedRef.current || latestAssistantText || messageRunId !== runIdRef.current) return;
           const textVal = readAssistantText(updatedConversation?.messages || updatedConversation?.data?.messages || []);
           if (textVal) {
             latestAssistantText = textVal;
@@ -299,30 +319,22 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
         })
         .catch((err) => {
           console.error("sendMessage failed:", err);
-          if (!mountedRef.current || latestAssistantText) return;
-          responseUnsubscribeRef.current?.();
-          responseUnsubscribeRef.current = null;
-          if (responseTimeoutRef.current) clearTimeout(responseTimeoutRef.current);
-          if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
-          if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+          if (!mountedRef.current || latestAssistantText || messageRunId !== runIdRef.current) return;
+          clearResponseHandlers();
           setReply(`I couldn't send that to ${name}. Please try again.`);
           setLoading(false);
           setWorkingStatus("");
         });
     } catch (err) {
       console.error("sendMessage failed:", err);
-      responseUnsubscribeRef.current?.();
-      responseUnsubscribeRef.current = null;
-      if (responseTimeoutRef.current) clearTimeout(responseTimeoutRef.current);
-      if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
-      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
-      if (mountedRef.current) {
+      clearResponseHandlers();
+      if (mountedRef.current && messageRunId === runIdRef.current) {
         setReply(`I couldn't send that to ${name}. Please try again.`);
         setLoading(false);
         setWorkingStatus("");
       }
     }
-  }, [agentName, experienceLevel, isInitializing, name, speakText, stopSpeaking]);
+  }, [agentName, experienceLevel, isInitializing, name, speakText, stopSpeaking, clearResponseHandlers]);
 
   const startListening = useCallback(() => {
     if (!supported || isInitializing || !conversationRef.current) return;
@@ -600,7 +612,14 @@ export default function VoiceAtlas({ onClose } = {}) {
     }}>
       <div className="flex items-center gap-2 px-5 py-3 border-b border-violet-400/30">
         {["atlas", "maya"].map(agent => (
-          <button key={agent} onClick={() => setSelectedAssistant(agent)}
+          <button key={agent} onClick={() => {
+              if (activePreviewRef.current) {
+                activePreviewRef.current.pause();
+                activePreviewRef.current.currentTime = 0;
+                activePreviewRef.current = null;
+              }
+              setSelectedAssistant(agent);
+            }}
             className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${selectedAssistant === agent ? "scale-105" : "opacity-80 hover:opacity-100"}`}
             style={{
               background: selectedAssistant === agent ? config[agent].bg : "var(--voice-card)",
