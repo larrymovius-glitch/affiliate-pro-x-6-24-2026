@@ -181,7 +181,6 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
     if (!cleanText || !mountedRef.current || isInitializing) return;
 
     setLoading(true);
-    setReply("");
     setWorkingStatus(`${name} is thinking…`);
     stopSpeaking();
 
@@ -317,7 +316,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
   }, [agentName, experienceLevel, getOrInitConversation, isInitializing, name, speakText, stopSpeaking, subscribeToSession, clearResponseHandlers]);
 
   const startListening = useCallback(() => {
-    if (speaking) return;
+    if (speaking) stopSpeaking();
     if (!supported || isInitializing || !conversationRef.current) return;
     if (recognitionRef.current) recognitionRef.current.abort();
 
@@ -346,7 +345,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       if (result.isFinal) { setTranscript(textVal); sendMessage(textVal); }
     };
     recognition.start();
-  }, [supported, isInitializing, speaking, sendMessage]);
+  }, [supported, isInitializing, speaking, sendMessage, stopSpeaking]);
 
   const stopListening = useCallback(() => {
     recognitionRef.current?.stop();
@@ -525,7 +524,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
 
 export default function VoiceAtlas({ onClose } = {}) {
   const [selectedAssistant, setSelectedAssistant] = useState("maya");
-  const [experienceLevel, setExperienceLevel] = useState(() => localStorage.getItem("affiliateProExperienceLevel") || "");
+  const [experienceLevel, setExperienceLevel] = useState(() => localStorage.getItem("affiliateProExperienceLevel") || "new");
   const [voicePreferences, setVoicePreferences] = useState(() => {
     const saved = localStorage.getItem("affiliateProVoicePreferences");
     if (saved) {
