@@ -55,6 +55,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
   const completionTimerRef = useRef(null);
   const pollTimerRef = useRef(null);
   const runIdRef = useRef(0);
+  const voiceAutoStartedRef = useRef(false);
 
   const clearResponseHandlers = useCallback(() => {
     const unsubscribe = responseUnsubscribeRef.current;
@@ -76,6 +77,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
     if (audioRef.current) audioRef.current.pause();
     synthRef.current?.cancel?.();
     conversationRef.current = null;
+    voiceAutoStartedRef.current = false;
     if (resetUi && mountedRef.current) {
       setListening(false);
       setPulse(false);
@@ -388,11 +390,17 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
   };
 
   useEffect(() => {
-    if (activeTab === "voice" && supported && !listening && !loading && !isInitializing) {
-      const t = setTimeout(() => startListening(), 300);
-      return () => clearTimeout(t);
+    if (activeTab !== "voice") {
+      voiceAutoStartedRef.current = false;
+      return;
     }
-  }, [activeTab, isInitializing, supported, listening, loading, startListening]);
+
+    if (voiceAutoStartedRef.current || !supported || listening || loading || speaking || isInitializing) return;
+
+    voiceAutoStartedRef.current = true;
+    const t = setTimeout(() => startListening(), 300);
+    return () => clearTimeout(t);
+  }, [activeTab, isInitializing, supported, listening, loading, speaking, startListening]);
 
   useEffect(() => {
     if (activeTab !== "voice" && listening) stopListening();
