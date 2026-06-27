@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Mic, MicOff, Loader2, Volume2, Send, Settings2 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import { useAssistantSession } from "@/lib/AssistantSessionProvider";
 
 const ATLAS_DEFAULT = "https://media.base44.com/images/public/6a2a72a46235784f879b968c/a6cbd43e5_generated_image.png";
 const MAYA_DEFAULT = "https://media.base44.com/images/public/6a2a72a46235784f879b968c/c0640056e_generated_image.png";
@@ -32,6 +33,7 @@ const EXPERIENCE_OPTIONS = [
 function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, experienceLevel, themeMode }) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const supported = !!SpeechRecognition;
+  const { getOrInitConversation, subscribeToSession } = useAssistantSession();
 
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState("");
@@ -53,7 +55,6 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
   const responseUnsubscribeRef = useRef(null);
   const responseTimeoutRef = useRef(null);
   const completionTimerRef = useRef(null);
-  const pollTimerRef = useRef(null);
   const runIdRef = useRef(0);
   const voiceAutoStartedRef = useRef(false);
 
@@ -64,10 +65,8 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
     responseUnsubscribeRef.current = null;
     if (responseTimeoutRef.current) clearTimeout(responseTimeoutRef.current);
     if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
-    if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
     responseTimeoutRef.current = null;
     completionTimerRef.current = null;
-    pollTimerRef.current = null;
   }, []);
 
   const resetConversationSession = useCallback((resetUi = true) => {
@@ -103,9 +102,10 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
 
     (async () => {
       try {
-        const convo = await base44.agents.createConversation({
-          agent_name: agentName,
-          metadata: { name: `${name} Voice Session`, assistant: agentName, experience_level: experienceLevel },
+        const convo = await getOrInitConversation(agentName, {
+          name: `${name} Voice Session`,
+          assistant: agentName,
+          experience_level: experienceLevel,
         });
         if (!mountedRef.current || initRunId !== runIdRef.current) return;
         conversationRef.current = convo;
@@ -118,9 +118,10 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       mountedRef.current = false;
       resetConversationSession(false);
     };
-  }, [agentName, experienceLevel, name, resetConversationSession]);
+  }, [agentName, experienceLevel, getOrInitConversation, name, resetConversationSession]);
 
   const stopSpeaking = useCallback(() => {
+    recognitionRef.current?.abort?.();
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -245,48 +246,18 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
     };
 
     try {
-      const activeConversation = await base44.agents.createConversation({
-        agent_name: agentName,
-        metadata: { name: `${name} Voice Session`, assistant: agentName, experience_level: experienceLevel },
+      const activeConversation = await getOrInitConversation(agentName, {
+        name: `${name} Voice Session`,
+        assistant: agentName,
+        experience_level: experienceLevel,
       });
       if (!activeConversation?.id) throw new Error("Could not start assistant session");
       conversationRef.current = activeConversation;
+      const baselineAssistantCount = (activeConversation.messages || []).filter(m => m.role === "assistant").length;
       let latestAssistantText = "";
 
-      const startPolling = (conversationId) => {
-        const startedAt = Date.now();
-        const poll = async () => {
-          if (!mountedRef.current || messageRunId !== runIdRef.current) return;
-          try {
-            const freshConversation = await base44.agents.getConversation(conversationId);
-            const textVal = readAssistantText(freshConversation?.messages || []);
-            if (textVal && messageRunId === runIdRef.current) {
-              latestAssistantText = textVal;
-              setReply(textVal);
-              finishResponse(textVal);
-              return;
-            }
-          } catch (_) {
-            // The hard cap below will end the visible thinking state.
-          }
-
-          if (messageRunId !== runIdRef.current) return;
-
-          if (Date.now() - startedAt >= 45000) {
-            clearResponseHandlers();
-            setLoading(false);
-            setWorkingStatus("");
-            setReply(`${name} did not finish that response. Please try again with a shorter request.`);
-            return;
-          }
-
-          pollTimerRef.current = setTimeout(poll, 2500);
-        };
-        pollTimerRef.current = setTimeout(poll, 1200);
-      };
-
-      responseUnsubscribeRef.current = base44.agents.subscribeToConversation(activeConversation.id, (data) => {
-        const textVal = readAssistantText(data?.messages || []);
+      responseUnsubscribeRef.current = subscribeToSession(activeConversation.id, (data) => {
+        const textVal = readAssistantText(data?.messages || [], baselineAssistantCount);
         if (!textVal || !mountedRef.current || messageRunId !== runIdRef.current) return;
 
         latestAssistantText = textVal;
@@ -308,11 +279,10 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
         }
       }, 60000);
 
-      startPolling(activeConversation.id);
       base44.agents.addMessage(activeConversation, { role: "user", content: assistantText })
         .then((updatedConversation) => {
           if (!mountedRef.current || latestAssistantText || messageRunId !== runIdRef.current) return;
-          const textVal = readAssistantText(updatedConversation?.messages || updatedConversation?.data?.messages || []);
+          const textVal = readAssistantText(updatedConversation?.messages || updatedConversation?.data?.messages || [], baselineAssistantCount);
           if (textVal) {
             latestAssistantText = textVal;
             setReply(textVal);
@@ -336,9 +306,10 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
         setWorkingStatus("");
       }
     }
-  }, [agentName, experienceLevel, isInitializing, name, speakText, stopSpeaking, clearResponseHandlers]);
+  }, [agentName, experienceLevel, getOrInitConversation, isInitializing, name, speakText, stopSpeaking, subscribeToSession, clearResponseHandlers]);
 
   const startListening = useCallback(() => {
+    if (speaking) return;
     if (!supported || isInitializing || !conversationRef.current) return;
     if (recognitionRef.current) recognitionRef.current.abort();
 
@@ -367,7 +338,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       if (result.isFinal) { setTranscript(textVal); sendMessage(textVal); }
     };
     recognition.start();
-  }, [supported, isInitializing, sendMessage]);
+  }, [supported, isInitializing, speaking, sendMessage]);
 
   const stopListening = useCallback(() => {
     recognitionRef.current?.stop();
@@ -398,7 +369,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
     if (voiceAutoStartedRef.current || !supported || listening || loading || speaking || isInitializing) return;
 
     voiceAutoStartedRef.current = true;
-    const t = setTimeout(() => startListening(), 300);
+    const t = setTimeout(() => startListening(), 1000);
     return () => clearTimeout(t);
   }, [activeTab, isInitializing, supported, listening, loading, speaking, startListening]);
 

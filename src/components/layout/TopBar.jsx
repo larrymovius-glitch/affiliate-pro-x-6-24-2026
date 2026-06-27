@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Menu, Bell, LogOut, Trash2, ChevronLeft, Moon, Sun } from "lucide-react";
 import VoiceAtlasModal from "@/components/dashboard/VoiceAtlasModal";
+import MobileAtlasDrawer from "@/components/dashboard/MobileAtlasDrawer";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
@@ -24,6 +25,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/AuthContext";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function TopBar({ onMenuClick }) {
   const { user } = useAuth();
@@ -32,6 +34,7 @@ export default function TopBar({ onMenuClick }) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [atlasOpen, setAtlasOpen] = useState(false);
   const [themeMode, setThemeMode] = useState(() => localStorage.getItem("affiliateProThemeMode") || "light");
+  const isMobile = useIsMobile();
   const isRoot = location.pathname === "/";
   const initials = user?.full_name 
     ? user.full_name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) 
@@ -145,7 +148,11 @@ export default function TopBar({ onMenuClick }) {
         </div>
       </header>
 
-      <VoiceAtlasModal open={atlasOpen} onClose={() => setAtlasOpen(false)} />
+      {isMobile ? (
+        <MobileAtlasDrawer open={atlasOpen} onClose={() => setAtlasOpen(false)} />
+      ) : (
+        <VoiceAtlasModal open={atlasOpen} onClose={() => setAtlasOpen(false)} />
+      )}
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
