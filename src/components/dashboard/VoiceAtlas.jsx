@@ -18,7 +18,7 @@ const VOICE_OPTIONS = [
 const SPEECH_VOICE_MAP = {
   alloy: "river",
   echo: "storm",
-  nova: "sunny",
+  nova: "honey",
   shimmer: "honey",
   onyx: "storm",
   fable: "spark",
@@ -29,6 +29,13 @@ const EXPERIENCE_OPTIONS = [
   { id: "growing", label: "Growing My Business", note: "Scaling, automation, and stronger campaigns" },
   { id: "pro", label: "Seasoned Professional", note: "Advanced strategy and performance optimization" },
 ];
+
+const cleanSpeechForVoice = (text) => text
+  .replace(/https?:\/\/\S+/g, "link")
+  .replace(/[#*_`>\[\](){}]/g, "")
+  .replace(/[•–—]/g, ", ")
+  .replace(/\s+/g, " ")
+  .trim();
 
 function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, experienceLevel, themeMode }) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -138,7 +145,8 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
     setSpeaking(true);
 
     try {
-      const speechText = text.length > 4800 ? `${text.slice(0, 4800)}...` : text;
+      const voiceReadyText = cleanSpeechForVoice(text);
+      const speechText = voiceReadyText.length > 1400 ? `${voiceReadyText.slice(0, 1400)}...` : voiceReadyText;
       const res = await base44.integrations.Core.GenerateSpeech({ text: speechText, voice: SPEECH_VOICE_MAP[voiceChoice] || "honey" });
       const audio = new Audio(res?.url || res?.data?.url);
       audioRef.current = audio;
@@ -264,7 +272,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
         setReply(textVal);
 
         if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
-        completionTimerRef.current = setTimeout(() => finishResponse(latestAssistantText), 800);
+        completionTimerRef.current = setTimeout(() => finishResponse(latestAssistantText), 350);
       });
 
       responseTimeoutRef.current = setTimeout(() => {
@@ -522,15 +530,23 @@ export default function VoiceAtlas({ onClose } = {}) {
     const saved = localStorage.getItem("affiliateProVoicePreferences");
     if (saved) {
       try {
-        return { atlas: "onyx", maya: "nova", ...JSON.parse(saved) };
+        return { atlas: "onyx", maya: "shimmer", ...JSON.parse(saved) };
       } catch {
-        return { atlas: "onyx", maya: "nova" };
+        return { atlas: "onyx", maya: "shimmer" };
       }
     }
-    return { atlas: "onyx", maya: "nova" };
+    return { atlas: "onyx", maya: "shimmer" };
   });
   const [themeMode, setThemeMode] = useState(() => localStorage.getItem("affiliateProThemeMode") || "light");
   const activePreviewRef = useRef(null);
+
+  useEffect(() => {
+    if (localStorage.getItem("affiliateProVoiceMapV2") === "true") return;
+    const correctedVoices = { atlas: "onyx", maya: "shimmer" };
+    localStorage.setItem("affiliateProVoicePreferences", JSON.stringify(correctedVoices));
+    localStorage.setItem("affiliateProVoiceMapV2", "true");
+    setVoicePreferences(correctedVoices);
+  }, []);
 
   const { data: avatars = [] } = useQuery({
     queryKey: ["assistant-avatars"],
@@ -545,7 +561,7 @@ export default function VoiceAtlas({ onClose } = {}) {
     maya:  { avatar: mayaAvatar,  accentColor: "#f0abfc", name: "Maya",  gradient: "linear-gradient(90deg, #f0abfc, #c084fc)", border: "2px solid rgba(240,171,252,0.55)",  bg: "linear-gradient(135deg, rgba(236,72,153,0.34), rgba(168,85,247,0.24))" },
   };
   const current = config[selectedAssistant];
-  const currentVoiceChoice = voicePreferences[selectedAssistant] || (selectedAssistant === "atlas" ? "onyx" : "nova");
+  const currentVoiceChoice = voicePreferences[selectedAssistant] || (selectedAssistant === "atlas" ? "onyx" : "shimmer");
   const availableVoices = VOICE_OPTIONS.filter(voice => voice.assistant === selectedAssistant);
   const isLight = themeMode === "light";
 

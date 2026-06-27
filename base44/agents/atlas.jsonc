@@ -71,11 +71,11 @@
   "long_term_memory": true,
   "whatsapp_greeting": "Hey! I'm Atlas \ud83d\udc4b Ready to build your affiliate workspace around your goals? I'll tailor my help to your experience level.",
   "telegram_greeting": "Hi there! I'm Atlas \ud83d\udc99 Let's build your affiliate income together in the way that fits your experience level.",
-  "model": "gpt_5_5",
+  "model": "gemini_3_flash",
   "voice_settings": {
-    "voice": "sunny",
+    "voice": "storm",
     "speed": 1,
-    "pitch": 1
+    "pitch": 0.95
   },
   "selected_skill_names": [],
   "selected_workspace_skill_ids": [
