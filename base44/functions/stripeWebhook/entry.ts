@@ -50,14 +50,37 @@ Deno.serve(async (req) => {
       }
 
       case 'customer.subscription.created':
-      case 'customer.subscription.updated': {
+      case 'customer.subscription.updated':
+      case 'customer.subscription.deleted': {
         const subscription = event.data.object;
-        
-        // Update user subscription status
-        if (subscription.metadata?.user_id) {
-          // You could create a Subscription entity to track active subscriptions
-          console.log('Subscription updated:', subscription.id);
+
+        if (subscription.metadata?.base44_app_id !== Deno.env.get("BASE44_APP_ID")) {
+          return Response.json({ message: 'Ignored - different app' });
         }
+
+        const record = {
+          user_id: subscription.metadata?.user_id || '',
+          user_email: subscription.metadata?.user_email || '',
+          stripe_subscription_id: subscription.id,
+          stripe_customer_id: typeof subscription.customer === 'string' ? subscription.customer : '',
+          plan_type: subscription.metadata?.plan_type,
+          status: subscription.status,
+          current_period_end: subscription.current_period_end
+            ? new Date(subscription.current_period_end * 1000).toISOString()
+            : null,
+          canceled_at: subscription.canceled_at
+            ? new Date(subscription.canceled_at * 1000).toISOString()
+            : null,
+        };
+
+        const existing = await db.entities.Subscription.filter({ stripe_subscription_id: subscription.id });
+        if (existing.length > 0) {
+          await db.entities.Subscription.update(existing[0].id, record);
+        } else {
+          await db.entities.Subscription.create(record);
+        }
+
+        console.log('Subscription synced:', subscription.id, subscription.status);
         break;
       }
 
