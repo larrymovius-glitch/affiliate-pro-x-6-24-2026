@@ -51,7 +51,14 @@ Deno.serve(async (req) => {
       ...schedules.map(r => base44.entities.PayoutSchedule.delete(r.id)),
     ]);
 
-    // Finally, delete the User record itself
+    // Finally, delete the User record itself.
+    // Hardening: the target id comes ONLY from the authenticated session token (never from
+    // request input), and we re-verify the record matches the caller before the
+    // service-role delete — this is strictly a self-deletion.
+    const target = await base44.asServiceRole.entities.User.get(user.id);
+    if (!target || target.email !== user.email) {
+      return Response.json({ error: 'Account verification failed' }, { status: 403 });
+    }
     await base44.asServiceRole.entities.User.delete(user.id);
 
     return Response.json({ success: true });

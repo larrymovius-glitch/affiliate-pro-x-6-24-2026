@@ -12,18 +12,35 @@ Deno.serve(async (req) => {
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY"), { apiVersion: '2023-10-16' });
     const db = base44.asServiceRole;
-    const { payoutId, veteranEmail, amount } = await req.json();
+    const { payoutId, veteranEmail } = await req.json();
 
-    // Validate payout
-    if (!payoutId || !veteranEmail || !amount || amount <= 0) {
+    if (!payoutId) {
       return Response.json({ error: 'Invalid payout data' }, { status: 400 });
     }
 
-    // Find the recipient and their connected Stripe account
-    const recipients = await db.entities.User.filter({ email: veteranEmail });
-    const recipient = recipients[0];
+    // Load the payout record — amount and recipient are derived from the approved
+    // record, never from the request body.
+    let payoutRecord = null;
+    try { payoutRecord = await db.entities.Payout.get(payoutId); } catch (_) { payoutRecord = null; }
+    if (!payoutRecord) {
+      return Response.json({ error: 'Payout not found' }, { status: 404 });
+    }
+    if (payoutRecord.status !== 'approved') {
+      return Response.json({ error: `Payout is not approved (status: ${payoutRecord.status})` }, { status: 400 });
+    }
+    const amount = payoutRecord.amount;
+    if (!amount || amount <= 0) {
+      return Response.json({ error: 'Invalid payout amount on record' }, { status: 400 });
+    }
+
+    // Recipient is the payout's creator
+    const recipient = await db.entities.User.get(payoutRecord.created_by_id);
     if (!recipient) {
       return Response.json({ error: 'Recipient user not found' }, { status: 404 });
+    }
+    // Cross-check the email supplied by the admin UI against the record
+    if (veteranEmail && recipient.email !== veteranEmail) {
+      return Response.json({ error: 'Recipient email does not match the payout record' }, { status: 400 });
     }
     if (!recipient.stripeAccountId || !String(recipient.stripeAccountId).startsWith('acct_')) {
       return Response.json({

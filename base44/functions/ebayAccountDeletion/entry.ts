@@ -8,8 +8,11 @@ Deno.serve(async (req) => {
       const url = new URL(req.url);
       const challengeCode = url.searchParams.get("challenge_code");
 
-      if (!challengeCode) {
-        return Response.json({ error: "Missing challenge_code" }, { status: 400 });
+      // Strict input validation: eBay challenge codes are short URL-safe tokens.
+      // Rejecting anything else prevents this endpoint being used as an
+      // arbitrary-input hash oracle against the verification token.
+      if (!challengeCode || !/^[A-Za-z0-9_-]{1,64}$/.test(challengeCode)) {
+        return Response.json({ error: "Invalid challenge_code" }, { status: 400 });
       }
       if (!verificationToken) {
         console.error("EBAY_VERIFICATION_TOKEN is not set");
