@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
     // Networks send a test ping with unsubstituted placeholders (e.g. "[tid]") when you save the URL.
     // Respond 200 OK to those so the URL validates, and log it.
     if (!code || code.includes('[') || code.includes('{')) {
-      console.log('Test ping or missing code — responding OK. code:', code);
+      console.log('Test ping or missing code — responding OK. code:', code, 'app:', Deno.env.get("BASE44_APP_ID"));
       return new Response('OK', { status: 200 });
     }
 
