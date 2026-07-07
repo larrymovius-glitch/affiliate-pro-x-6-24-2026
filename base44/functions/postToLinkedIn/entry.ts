@@ -8,8 +8,8 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get LinkedIn connection for the current app user
-    const { accessToken } = await base44.asServiceRole.connectors.getCurrentAppUserConnection("6a3a1c4e98737984ce1e0230");
+    // Get the LinkedIn connection belonging to the calling user (no service-role bypass)
+    const { accessToken } = await base44.connectors.getCurrentAppUserConnection("6a3a1c4e98737984ce1e0230");
     
     const { postContent, affiliateLink } = await req.json();
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
@@ -65,6 +65,23 @@ export default function Admin() {
   });
 
   const EBAY_SIGNIN_URL = "https://signin.ebay.com/ws/eBayISAPI.dll?SignIn&runame=Lawerence_Moviu-Lawerenc-Affili-zgqyaq";
+
+  // Complete the eBay connection securely as a logged-in admin (session ID passed back from the OAuth redirect)
+  const [ebayLinking, setEbayLinking] = useState(false);
+  const [ebayLinkError, setEbayLinkError] = useState(null);
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessid = urlParams.get("ebay_sessid");
+    if (!sessid || user?.role !== "admin") return;
+    urlParams.delete("ebay_sessid");
+    window.history.replaceState({}, document.title, `${window.location.pathname}${urlParams.toString() ? `?${urlParams}` : ""}`);
+    setEbayLinking(true);
+    setEbayLinkError(null);
+    base44.functions.invoke("ebayOAuthCallback", { sessid })
+      .then(() => refetchEbay())
+      .catch((e) => setEbayLinkError(e.response?.data?.error || e.message))
+      .finally(() => setEbayLinking(false));
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleInvite = async () => {
     if (!inviteEmail.trim()) return;
@@ -442,6 +459,16 @@ export default function Admin() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {ebayLinking && (
+                <div className="flex items-center gap-2 rounded-xl p-3 bg-blue-500/10 border border-blue-500/20 text-blue-300 text-sm">
+                  <RefreshCw className="w-4 h-4 animate-spin" /> Finalizing eBay connection…
+                </div>
+              )}
+              {ebayLinkError && (
+                <div className="flex items-center gap-2 rounded-xl p-3 bg-red-500/10 border border-red-500/20 text-red-300 text-sm">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" /> {ebayLinkError}
+                </div>
+              )}
               {/* Status */}
               <div className={`flex items-center gap-3 rounded-xl p-4 ${ebayConnected ? "bg-green-500/10 border border-green-500/20" : "bg-orange-500/10 border border-orange-500/20"}`}>
                 {ebayConnected

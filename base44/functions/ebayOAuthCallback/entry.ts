@@ -1,22 +1,38 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
+// Security: this endpoint no longer stores tokens on the unauthenticated GET redirect
+// from eBay. The GET redirect just forwards the session ID to the Admin page; the
+// Admin page (logged-in admin only) then POSTs the session ID here to complete the
+// token exchange. This prevents anyone from overwriting the global eBay token.
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const url = new URL(req.url);
-
-    // eBay sends isAuth=true on success, isAuth=false on decline
-    const isAuth = url.searchParams.get("isAuth");
-    const sessId = url.searchParams.get("sessid");
     const ruName = "Lawerence_Moviu-Lawerenc-Affili-zgqyaq";
 
-    // NOTE: the unauthenticated ebaytkn direct-token path was removed —
-    // it allowed anyone to wipe/replace the stored eBay token. Tokens are now
-    // only accepted via the FetchToken session exchange below, which requires
-    // a valid eBay-issued session ID.
+    // --- Unauthenticated GET redirect from eBay: never store anything here ---
+    if (req.method === "GET") {
+      const isAuth = url.searchParams.get("isAuth");
+      const sessId = url.searchParams.get("sessid");
+      if (isAuth === "false" || !sessId) {
+        return Response.redirect("https://apx.amhere4utoday.com/", 302);
+      }
+      // Hand the session ID to the Admin page to complete the exchange while authenticated
+      return Response.redirect(
+        `https://apx.amhere4utoday.com/admin?ebay_sessid=${encodeURIComponent(sessId)}`,
+        302
+      );
+    }
 
-    if (isAuth === "false" || !sessId) {
-      return Response.redirect("https://apx.amhere4utoday.com/", 302);
+    // --- Authenticated POST from the Admin page: complete the token exchange ---
+    const user = await base44.auth.me();
+    if (!user || user.role !== 'admin') {
+      return Response.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const { sessid } = await req.json();
+    if (!sessid || typeof sessid !== 'string') {
+      return Response.json({ error: 'Missing sessid' }, { status: 400 });
     }
 
     // Exchange the session ID for a user token via eBay's FetchToken API
@@ -25,11 +41,10 @@ Deno.serve(async (req) => {
   <RequesterCredentials>
     <eBayAuthToken></eBayAuthToken>
   </RequesterCredentials>
-  <SessionID>${sessId}</SessionID>
+  <SessionID>${sessid.replace(/[<>&]/g, '')}</SessionID>
 </FetchTokenRequest>`;
 
-    const ebayApiUrl = "https://api.ebay.com/ws/api.dll";
-    const tokenRes = await fetch(ebayApiUrl, {
+    const tokenRes = await fetch("https://api.ebay.com/ws/api.dll", {
       method: "POST",
       headers: {
         "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
@@ -44,32 +59,26 @@ Deno.serve(async (req) => {
     });
 
     const tokenXml = await tokenRes.text();
-
-    // Extract token and expiration from XML response
     const tokenMatch = tokenXml.match(/<eBayAuthToken>([\s\S]*?)<\/eBayAuthToken>/);
     const expiresMatch = tokenXml.match(/<HardExpirationTime>([\s\S]*?)<\/HardExpirationTime>/);
 
     if (!tokenMatch) {
       console.error("eBay FetchToken failed:", tokenXml);
-      return Response.redirect("https://apx.amhere4utoday.com/error", 302);
+      return Response.json({ error: 'eBay token exchange failed' }, { status: 400 });
     }
 
-    const ebayToken = tokenMatch[1].trim();
-    const expiresAt = expiresMatch ? expiresMatch[1].trim() : null;
-
-    // Store the token for the authenticated user (service role since this is a redirect callback)
     await base44.asServiceRole.entities.EbayToken.deleteMany({});
     await base44.asServiceRole.entities.EbayToken.create({
-      token: ebayToken,
-      expires_at: expiresAt,
+      token: tokenMatch[1].trim(),
+      expires_at: expiresMatch ? expiresMatch[1].trim() : null,
       ru_name: ruName,
       connected_at: new Date().toISOString(),
     });
 
-    return Response.redirect("https://apx.amhere4utoday.com/", 302);
+    return Response.json({ success: true });
 
   } catch (error) {
     console.error("eBay OAuth callback error:", error.message);
-    return Response.redirect("https://apx.amhere4utoday.com/", 302);
+    return Response.json({ error: error.message }, { status: 500 });
   }
 });
