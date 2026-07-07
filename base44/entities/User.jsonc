@@ -42,5 +42,12 @@
   },
   "required": [
     "role"
-  ]
+  ],
+  "rls": {
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
 }
