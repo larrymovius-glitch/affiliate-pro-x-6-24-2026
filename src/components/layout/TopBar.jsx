@@ -24,6 +24,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -32,6 +33,7 @@ export default function TopBar({ onMenuClick }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirmEmail, setDeleteConfirmEmail] = useState("");
   const [atlasOpen, setAtlasOpen] = useState(false);
   const [themeMode, setThemeMode] = useState(() => localStorage.getItem("affiliateProThemeMode") || "light");
   const isMobile = useIsMobile();
@@ -154,18 +156,26 @@ export default function TopBar({ onMenuClick }) {
         <VoiceAtlasModal open={atlasOpen} onClose={() => setAtlasOpen(false)} />
       )}
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => { setDeleteDialogOpen(open); if (!open) setDeleteConfirmEmail(""); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Account?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action is permanent and cannot be undone. All your data will be removed. Are you sure you want to delete your account?
+              This action is permanent and cannot be undone. All your data will be removed. To confirm, type your email address below.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <Input
+            type="email"
+            placeholder={user?.email || "your email address"}
+            value={deleteConfirmEmail}
+            onChange={(e) => setDeleteConfirmEmail(e.target.value)}
+            className="h-11"
+          />
           <AlertDialogFooter>
             <AlertDialogCancel className="h-11">Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteConfirmEmail.trim().toLowerCase() !== (user?.email || "").toLowerCase()}
               onClick={handleDeleteAccount}
             >
               Yes, Delete Account
