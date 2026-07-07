@@ -1,6 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
-// Secure conversion postback: /functions/trackConversion?secret=<CONVERSION_SECRET>&code=<short_code>&amount=<earnings>
+// Secure conversion postback endpoint: /functions/trackConversion?secret=<CONVERSION_SECRET>&code=<short_code>&amount=<earnings>
 // Networks (ClickBank, Digistore24, etc.) call this URL when a sale happens.
 Deno.serve(async (req) => {
   try {
