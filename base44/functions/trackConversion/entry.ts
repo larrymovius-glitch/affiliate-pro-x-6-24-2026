@@ -18,28 +18,30 @@ Deno.serve(async (req) => {
     }
 
     const code = url.searchParams.get('code') || body.code;
-    if (!code) {
-      return Response.json({ error: 'Missing code parameter' }, { status: 400 });
+    // Networks send a test ping with unsubstituted placeholders (e.g. "[tid]") when you save the URL.
+    // Respond 200 OK to those so the URL validates, and log it.
+    if (!code || code.includes('[') || code.includes('{')) {
+      console.log('Test ping or missing code — responding OK. code:', code);
+      return new Response('OK', { status: 200 });
     }
 
     const rawAmount = url.searchParams.get('amount') || body.amount || 0;
     const amount = Number(rawAmount);
-    if (Number.isNaN(amount) || amount < 0) {
-      return Response.json({ error: 'Invalid amount' }, { status: 400 });
-    }
+    const safeAmount = Number.isNaN(amount) || amount < 0 ? 0 : amount;
 
     const links = await base44.asServiceRole.entities.AffiliateLink.filter({ short_code: code });
     if (!links || links.length === 0) {
-      return Response.json({ error: 'Link not found' }, { status: 404 });
+      console.warn('Conversion received for unknown code:', code);
+      return new Response('OK', { status: 200 });
     }
 
     const link = links[0];
     await base44.asServiceRole.entities.AffiliateLink.update(link.id, {
       conversions: (link.conversions || 0) + 1,
-      earnings: (link.earnings || 0) + amount
+      earnings: (link.earnings || 0) + safeAmount
     });
 
-    return Response.json({ success: true, short_code: code, recorded_amount: amount });
+    return new Response('OK', { status: 200 });
   } catch (error) {
     console.error('trackConversion error:', error);
     return Response.json({ error: error.message }, { status: 500 });
