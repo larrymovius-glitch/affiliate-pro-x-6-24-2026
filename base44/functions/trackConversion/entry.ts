@@ -1,6 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
-// Secure conversion postback endpoint: /functions/trackConversion?secret=<CONVERSION_SECRET>&code=<short_code>&amount=<earnings>
+// Secure conversion postback URL: /functions/trackConversion?secret=<CONVERSION_SECRET>&code=<short_code>&amount=<earnings>
 // Networks (ClickBank, Digistore24, etc.) call this URL when a sale happens.
 Deno.serve(async (req) => {
   try {
@@ -13,7 +13,9 @@ Deno.serve(async (req) => {
     } catch (_) { /* no body */ }
 
     const secret = url.searchParams.get('secret') || body.secret;
-    if (!secret || secret !== Deno.env.get("CONVERSION_SECRET")) {
+    const expected = Deno.env.get("CONVERSION_SECRET");
+    if (!secret || !expected || secret !== expected) {
+      console.warn('Secret mismatch. provided_len:', secret ? secret.length : 0, 'expected_len:', expected ? expected.length : 0, 'expected_set:', !!expected);
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
