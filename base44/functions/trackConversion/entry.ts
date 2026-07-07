@@ -15,7 +15,6 @@ Deno.serve(async (req) => {
     const secret = url.searchParams.get('secret') || body.secret;
     const expected = Deno.env.get("CONVERSION_SECRET");
     if (!secret || !expected || secret !== expected) {
-      console.warn('Secret mismatch. provided_len:', secret ? secret.length : 0, 'expected_len:', expected ? expected.length : 0, 'expected_set:', !!expected);
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
