@@ -72,7 +72,7 @@ Return JSON in this exact format:
       }
     });
 
-    const cbNickname = "amxalaska";
+    const cbNickname = "apxalaska";
     const ds24Affiliate = "Here_4you";
     const added = [];
     const removed = [];
