@@ -5,10 +5,10 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
 
     // Works both per-user (authenticated) and on a cron schedule (no user context)
-    const CRON_TOKEN = Deno.env.get("CRON_SECRET") || "apx_cron_8c41f2d97ab34e6f902d5e1b7c3a6f48";
+    const CRON_TOKEN = Deno.env.get("CRON_SECRET");
     let payload = {};
     try { payload = await req.json(); } catch (_) { payload = {}; }
-    const cronOk = payload.cron_secret === CRON_TOKEN || req.headers.get('x-cron-secret') === CRON_TOKEN;
+    const cronOk = !!CRON_TOKEN && (payload.cron_secret === CRON_TOKEN || req.headers.get('x-cron-secret') === CRON_TOKEN);
     let user = null;
     try { user = await base44.auth.me(); } catch (_) { user = null; }
     if (!user && !cronOk) return Response.json({ error: 'Unauthorized' }, { status: 401 });

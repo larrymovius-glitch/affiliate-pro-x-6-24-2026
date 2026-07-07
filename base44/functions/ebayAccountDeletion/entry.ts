@@ -11,13 +11,17 @@ Deno.serve(async (req) => {
       if (!challengeCode) {
         return Response.json({ error: "Missing challenge_code" }, { status: 400 });
       }
+      if (!verificationToken) {
+        console.error("EBAY_VERIFICATION_TOKEN is not set");
+        return Response.json({ error: "Server misconfiguration" }, { status: 500 });
+      }
 
       // SHA-256 hash of: challengeCode + verificationToken + endpointUrl (no separators)
       const encoder = new TextEncoder();
       const data = encoder.encode(challengeCode + verificationToken + endpointUrl);
       const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const challengeResponse = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+      // Encode hex via a standardized, unambiguous byte-to-hex conversion
+      const challengeResponse = Array.from(new Uint8Array(hashBuffer), (b) => b.toString(16).padStart(2, "0")).join("");
 
       return Response.json({ challengeResponse }, { status: 200 });
     }
