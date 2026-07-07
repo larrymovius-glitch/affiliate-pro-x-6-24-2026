@@ -5,12 +5,13 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
-    
+
     if (!user || user.role !== 'admin') {
       return Response.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY"));
+    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY"), { apiVersion: '2023-10-16' });
+    const db = base44.asServiceRole;
     const { payoutId, veteranEmail, amount } = await req.json();
 
     // Validate payout
@@ -18,30 +19,42 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Invalid payout data' }, { status: 400 });
     }
 
-    // Check available balance
-    const allLinks = await db.entities.AffiliateLink.list();
-    const totalEarned = allLinks.reduce((sum, l) => sum + (l.earnings || 0), 0);
-    
-    const existingPayouts = await db.entities.Payout.list();
-    const totalPaid = existingPayouts
-      .filter(p => p.status === 'paid')
-      .reduce((sum, p) => sum + (p.amount || 0), 0);
-    
-    const availableBalance = totalEarned - totalPaid;
-    
-    if (amount > availableBalance) {
-      return Response.json({ 
-        error: 'Insufficient balance',
-        available: availableBalance,
-        requested: amount 
+    // Find the recipient and their connected Stripe account
+    const recipients = await db.entities.User.filter({ email: veteranEmail });
+    const recipient = recipients[0];
+    if (!recipient) {
+      return Response.json({ error: 'Recipient user not found' }, { status: 404 });
+    }
+    if (!recipient.stripeAccountId || !String(recipient.stripeAccountId).startsWith('acct_')) {
+      return Response.json({
+        error: 'Recipient has no connected Stripe account. They must complete Stripe Connect onboarding and save their account via payment settings first.'
       }, { status: 400 });
     }
 
-    // Create Stripe transfer (requires Stripe Connect setup)
+    // Check available balance — scoped to the recipient only
+    const recipientLinks = await db.entities.AffiliateLink.filter({ created_by_id: recipient.id });
+    const totalEarned = recipientLinks.reduce((sum, l) => sum + (l.earnings || 0), 0);
+
+    const recipientPayouts = await db.entities.Payout.filter({ created_by_id: recipient.id });
+    const totalPaid = recipientPayouts
+      .filter(p => p.status === 'paid')
+      .reduce((sum, p) => sum + (p.amount || 0), 0);
+
+    const availableBalance = totalEarned - totalPaid;
+
+    if (amount > availableBalance) {
+      return Response.json({
+        error: 'Insufficient balance',
+        available: availableBalance,
+        requested: amount
+      }, { status: 400 });
+    }
+
+    // Transfer to the recipient's Stripe connected account
     const transfer = await stripe.transfers.create({
-      amount: Math.round(amount * 100), // Convert to cents
+      amount: Math.round(amount * 100),
       currency: 'usd',
-      destination: veteranEmail, // This would be a connected account ID in production
+      destination: recipient.stripeAccountId,
       transfer_group: `payout_${payoutId}`,
     });
 
@@ -49,14 +62,14 @@ Deno.serve(async (req) => {
     await db.entities.Payout.update(payoutId, {
       status: 'paid',
       paid_at: new Date().toISOString(),
-      payment_method: 'stripe',
-      transaction_id: transfer.id
+      payment_method: 'bank_transfer',
+      notes: `Stripe transfer ${transfer.id}`
     });
 
-    return Response.json({ 
+    return Response.json({
       success: true,
       transfer_id: transfer.id,
-      amount: amount 
+      amount: amount
     });
   } catch (error) {
     console.error('Payout error:', error);

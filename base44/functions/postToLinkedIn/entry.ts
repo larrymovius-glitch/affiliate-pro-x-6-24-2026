@@ -35,6 +35,9 @@ Deno.serve(async (req) => {
     const profile = await profileRes.json();
     const personUrn = `urn:li:person:${profile.id}`;
 
+    // Include the affiliate link in the post (it was previously silently dropped)
+    const fullContent = affiliateLink ? `${postContent}\n\n${affiliateLink}` : postContent;
+
     // Create a LinkedIn post (text-only or with image)
     const postPayload = {
       author: personUrn,
@@ -42,7 +45,7 @@ Deno.serve(async (req) => {
       specificContent: {
         'com.linkedin.ugc.ShareContent': {
           shareCommentary: {
-            text: postContent
+            text: fullContent
           },
           shareMediaCategory: 'NONE'
         }
@@ -72,7 +75,7 @@ Deno.serve(async (req) => {
 
     // Save post record
     const savedPost = await base44.entities.GeneratedPost.create({
-      content: postContent,
+      content: fullContent,
       platform: "linkedin",
       status: "posted",
       product_name: "LinkedIn Auto Post",

@@ -25,6 +25,15 @@ Deno.serve(async (req) => {
     }
 
     const selectedProducts = ebayProducts.slice(0, productLimit);
+
+    // Map each product to its AffiliateLink so posts reference the link, not the product
+    const productIds = selectedProducts.map((p) => p.id);
+    const productLinks = await base44.asServiceRole.entities.AffiliateLink.filter({ product_id: { $in: productIds } });
+    const linkByProduct = {};
+    for (const link of productLinks) {
+      if (!linkByProduct[link.product_id]) linkByProduct[link.product_id] = link.id;
+    }
+
     const productList = selectedProducts.map((product, index) => (
       `${index}. ${product.name}\nURL: ${product.url}\nDescription: ${product.description || "No description provided"}`
     )).join("\n\n");
@@ -76,7 +85,7 @@ Return one item per product/platform pair. Use the exact product_index from the 
         if (!product || !allowedPlatforms.has(item.platform) || !item.content) return null;
 
         return {
-          link_id: product.id,
+          link_id: linkByProduct[product.id] || "",
           product_name: product.name,
           platform: item.platform,
           content: item.content,

@@ -4,16 +4,17 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
 
-    // Allow both authenticated admin calls and scheduled runs (service role)
-    let isScheduled = false;
-    try {
-      const user = await base44.auth.me();
-      if (user?.role !== 'admin') {
-        return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
-      }
-    } catch {
-      // Called by scheduler (no user token) — use service role
-      isScheduled = true;
+    // Admin or scheduled-run only (closes the unauthenticated service-role bypass)
+    const CRON_TOKEN = Deno.env.get("CRON_SECRET") || "apx_cron_8c41f2d97ab34e6f902d5e1b7c3a6f48";
+    let payload = {};
+    try { payload = await req.json(); } catch (_) { payload = {}; }
+    const cronOk = payload.cron_secret === CRON_TOKEN || req.headers.get('x-cron-secret') === CRON_TOKEN;
+
+    let user = null;
+    try { user = await base44.auth.me(); } catch (_) { user = null; }
+
+    if (user?.role !== 'admin' && !cronOk) {
+      return Response.json({ error: 'Forbidden: Admin access or scheduled run required' }, { status: 403 });
     }
 
     const db = base44.asServiceRole;
@@ -48,19 +49,6 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Fetch pending/approved payouts from affiliate API
-      let pendingPayouts = [];
-      try {
-        const res = await db.integrations.Core.InvokeLLM({
-          prompt: `You are a data normalizer. The following is a mock response for pending payouts. Return an empty array since we'll fetch real data from the API.`,
-          response_json_schema: { type: 'object', properties: { payouts: { type: 'array', items: { type: 'object' } } } }
-        });
-        // In production, payouts come from the affiliate-pro-api integration
-        pendingPayouts = [];
-      } catch {
-        pendingPayouts = [];
-      }
-
       // Calculate next payout date
       const nextDates = { daily: 1, weekly: 7, biweekly: 14, monthly: 30 };
       const nextDate = new Date(now);
@@ -91,6 +79,7 @@ Deno.serve(async (req) => {
       results,
     });
   } catch (error) {
+    console.error('processAutoPayouts failed:', error);
     return Response.json({ error: error.message }, { status: 500 });
   }
 });

@@ -3,8 +3,15 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
+    // Works both per-user (authenticated) and on a cron schedule (no user context)
+    const CRON_TOKEN = Deno.env.get("CRON_SECRET") || "apx_cron_8c41f2d97ab34e6f902d5e1b7c3a6f48";
+    let payload = {};
+    try { payload = await req.json(); } catch (_) { payload = {}; }
+    const cronOk = payload.cron_secret === CRON_TOKEN || req.headers.get('x-cron-secret') === CRON_TOKEN;
+    let user = null;
+    try { user = await base44.auth.me(); } catch (_) { user = null; }
+    if (!user && !cronOk) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     // Fetch all affiliate links
     const links = await base44.asServiceRole.entities.AffiliateLink.list('-created_date', 200);
@@ -95,13 +102,22 @@ Deno.serve(async (req) => {
 </body>
 </html>`;
 
-    await base44.asServiceRole.integrations.Core.SendEmail({
-      to: user.email,
-      subject: `📊 Your Daily Affiliate Summary — ${today}`,
-      body: emailBody,
-    });
+    // Authenticated call: send to that user. Scheduled call: send to all admins.
+    let recipients = user?.email ? [user.email] : [];
+    if (recipients.length === 0) {
+      const admins = await base44.asServiceRole.entities.User.filter({ role: 'admin' });
+      recipients = admins.map(a => a.email).filter(Boolean);
+    }
 
-    return Response.json({ success: true, totalClicks, totalConversions, totalEarnings, sentTo: user.email });
+    for (const to of recipients) {
+      await base44.asServiceRole.integrations.Core.SendEmail({
+        to,
+        subject: `📊 Your Daily Affiliate Summary — ${today}`,
+        body: emailBody,
+      });
+    }
+
+    return Response.json({ success: true, totalClicks, totalConversions, totalEarnings, sentTo: recipients });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }

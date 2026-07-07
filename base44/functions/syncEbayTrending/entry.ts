@@ -3,8 +3,24 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
+    // Admin or scheduled-run only (any user could previously trigger platform-wide deletions)
+    const CRON_TOKEN = Deno.env.get("CRON_SECRET") || "apx_cron_8c41f2d97ab34e6f902d5e1b7c3a6f48";
+    let payload = {};
+    try { payload = await req.json(); } catch (_) { payload = {}; }
+    const cronOk = payload.cron_secret === CRON_TOKEN || req.headers.get('x-cron-secret') === CRON_TOKEN;
+    let user = null;
+    try { user = await base44.auth.me(); } catch (_) { user = null; }
+    if (user?.role !== 'admin' && !cronOk) {
+      return Response.json({ error: 'Forbidden: Admin access or scheduled run required' }, { status: 403 });
+    }
+
+    // Owner for created records so they're visible under RLS
+    let ownerId = user?.id;
+    if (!ownerId) {
+      const admins = await base44.asServiceRole.entities.User.filter({ role: 'admin' });
+      ownerId = admins[0]?.id;
+    }
 
     // Step 1: Use LLM to find trending eBay products
     const trendingResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
@@ -71,9 +87,10 @@ Return ONLY real, verified products that are currently trending on eBay. Do NOT 
       newTrendingUrls.add(url);
     }
 
-    // Remove links that are no longer trending
+    // Remove links that are no longer trending — but never delete links with earnings (history feeds payouts)
     for (const link of existingLinks) {
       if (!newTrendingUrls.has(link.destination_url)) {
+        if ((link.earnings || 0) > 0) continue;
         await base44.asServiceRole.entities.AffiliateLink.delete(link.id);
         const products = await base44.asServiceRole.entities.Product.filter({ 
           url: link.destination_url, 
@@ -101,6 +118,7 @@ Return ONLY real, verified products that are currently trending on eBay. Do NOT 
         productId = existing[0].id;
       } else {
         const product = await base44.asServiceRole.entities.Product.create({
+          created_by_id: ownerId,
           name: item.name || item.search_term,
           url,
           description: `eBay trending product — ${item.category}`,
@@ -112,6 +130,7 @@ Return ONLY real, verified products that are currently trending on eBay. Do NOT 
       }
 
       await base44.asServiceRole.entities.AffiliateLink.create({
+        created_by_id: ownerId,
         product_id: productId,
         product_name: item.name || item.search_term,
         destination_url: url,

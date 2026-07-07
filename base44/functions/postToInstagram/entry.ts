@@ -10,29 +10,32 @@ Deno.serve(async (req) => {
 
     // Get Instagram connection
     const { accessToken } = await base44.asServiceRole.connectors.getConnection("instagram");
-    
-    // Get Instagram user ID first
-    const userRes = await fetch(
-      `https://graph.instagram.com/me?fields=id,username&access_token=${accessToken}`
-    );
+
+    // Get Instagram user ID first (token in header, not URL)
+    const userRes = await fetch('https://graph.instagram.com/me?fields=id,username', {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
     const userData = await userRes.json();
-    
+
     if (!userData.id) {
       return Response.json({ error: 'Instagram account not found', details: userData }, { status: 400 });
     }
 
     const instagramUserId = userData.id;
+    const { postContent, imageUrl } = await req.json();
 
-    // Create media container (image post)
-    const { postContent, imageUrl, affiliateLink } = await req.json();
-
-    // First, create the media container
-    const mediaCreateRes = await fetch(
-      `https://graph.instagram.com/${instagramUserId}/media?image_url=${encodeURIComponent(imageUrl)}&caption=${encodeURIComponent(postContent)}&access_token=${accessToken}`,
-      { method: 'POST' }
-    );
+    // Create the media container (token in POST body, not URL)
+    const mediaCreateRes = await fetch(`https://graph.instagram.com/${instagramUserId}/media`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        image_url: imageUrl,
+        caption: postContent,
+        access_token: accessToken
+      })
+    });
     const mediaData = await mediaCreateRes.json();
-    
+
     if (mediaData.error) {
       return Response.json({ error: 'Failed to create media', details: mediaData.error }, { status: 400 });
     }
@@ -40,10 +43,14 @@ Deno.serve(async (req) => {
     const creationId = mediaData.id;
 
     // Publish the media
-    const publishRes = await fetch(
-      `https://graph.instagram.com/${instagramUserId}/media_publish?creation_id=${creationId}&access_token=${accessToken}`,
-      { method: 'POST' }
-    );
+    const publishRes = await fetch(`https://graph.instagram.com/${instagramUserId}/media_publish`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        creation_id: creationId,
+        access_token: accessToken
+      })
+    });
     const publishData = await publishRes.json();
 
     if (publishData.error) {
@@ -56,12 +63,11 @@ Deno.serve(async (req) => {
       platform: "instagram",
       status: "posted",
       product_name: "Instagram Auto Post",
-      ai_score: 10,
-      posted_at: new Date().toISOString()
+      ai_score: 10
     });
 
-    return Response.json({ 
-      success: true, 
+    return Response.json({
+      success: true,
       postId: publishData.id,
       instagramPostId: savedPost.id,
       message: 'Posted to Instagram successfully!'

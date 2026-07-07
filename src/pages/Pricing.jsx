@@ -71,10 +71,26 @@ const veteranPlan = {
 };
 
 export default function Pricing() {
-  const [veteranStatus, setVeteranStatus] = useState("regular");
+  const [veteranRequestStatus, setVeteranRequestStatus] = useState("");
+
+  const veteranMutation = useMutation({
+    mutationFn: async () => {
+      const response = await base44.functions.invoke('requestVeteranVerification', {});
+      return response.data;
+    },
+    onSuccess: (data) => {
+      setVeteranRequestStatus(data.status);
+      toast.success(data.message);
+    },
+    onError: (err) => toast.error(err.message || "Failed to submit verification request")
+  });
 
   const checkoutMutation = useMutation({
     mutationFn: async (data) => {
+      // Iframe check BEFORE creating the checkout session
+      if (window.self !== window.top) {
+        throw new Error("Checkout works only from the published app. Please open the app in a new tab.");
+      }
       const response = await base44.functions.invoke('createStripeCheckout', data);
       return response.data;
     },
@@ -82,11 +98,6 @@ export default function Pricing() {
       if (data.veteranAccess) {
         toast.success("Veteran discount applied! Free access granted.");
       } else if (data.url) {
-        // Check if running in iframe
-        if (window.self !== window.top) {
-          toast.error("Checkout requires published app. Please open in a new tab.");
-          return;
-        }
         window.location.href = data.url;
       }
     },
@@ -137,10 +148,16 @@ export default function Pricing() {
             </ul>
             <Button 
               className="w-full bg-emerald-600 hover:bg-emerald-700"
-              onClick={() => setVeteranStatus("verified")}
-              disabled={veteranStatus === "verified"}
+              onClick={() => veteranMutation.mutate()}
+              disabled={veteranMutation.isPending || veteranRequestStatus !== ""}
             >
-              {veteranStatus === "verified" ? "Veteran Access Active" : "Verify Veteran Status"}
+              {veteranRequestStatus === "verified"
+                ? "Veteran Access Active"
+                : veteranRequestStatus === "pending"
+                ? "Verification Pending Review"
+                : veteranMutation.isPending
+                ? "Submitting..."
+                : "Request Veteran Verification"}
             </Button>
           </CardContent>
         </Card>
@@ -172,11 +189,8 @@ export default function Pricing() {
                 </ul>
                 <Button 
                   className="w-full"
-                  onClick={() => checkoutMutation.mutate({ 
-                    planType: plan.id, 
-                    veteranStatus 
-                  })}
-                  disabled={checkoutMutation.isPending || veteranStatus === "verified"}
+                  onClick={() => checkoutMutation.mutate({ planType: plan.id })}
+                  disabled={checkoutMutation.isPending || veteranRequestStatus === "verified"}
                 >
                   {checkoutMutation.isPending ? "Processing..." : "Get Started"}
                 </Button>

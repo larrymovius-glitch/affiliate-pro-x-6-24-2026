@@ -10,21 +10,10 @@ Deno.serve(async (req) => {
     const sessId = url.searchParams.get("sessid");
     const ruName = "Lawerence_Moviu-Lawerenc-Affili-zgqyaq";
 
-    // eBay Auth'n'Auth can also send the token directly as ebaytkn + tknexp
-    const ebayTkn = url.searchParams.get("ebaytkn");
-    const tknExp = url.searchParams.get("tknexp");
-
-    if (ebayTkn) {
-      // Direct token delivery — store it immediately
-      await base44.asServiceRole.entities.EbayToken.deleteMany({});
-      await base44.asServiceRole.entities.EbayToken.create({
-        token: ebayTkn,
-        expires_at: tknExp ? decodeURIComponent(tknExp) : null,
-        ru_name: ruName,
-        connected_at: new Date().toISOString(),
-      });
-      return Response.redirect("https://apx.amhere4utoday.com/", 302);
-    }
+    // NOTE: the unauthenticated ebaytkn direct-token path was removed —
+    // it allowed anyone to wipe/replace the stored eBay token. Tokens are now
+    // only accepted via the FetchToken session exchange below, which requires
+    // a valid eBay-issued session ID.
 
     if (isAuth === "false" || !sessId) {
       return Response.redirect("https://apx.amhere4utoday.com/", 302);

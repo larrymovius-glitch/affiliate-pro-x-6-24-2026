@@ -4,7 +4,7 @@ import Stripe from 'npm:stripe@14.0.0';
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY"));
+    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY"), { apiVersion: '2023-10-16' });
     const signature = req.headers.get('stripe-signature');
 
     // Verify webhook signature
@@ -69,6 +69,33 @@ Deno.serve(async (req) => {
         }
 
         console.log('Payment succeeded:', paymentIntent.id);
+        break;
+      }
+
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object;
+
+        // Record subscription RENEWAL payments (the initial payment is recorded via checkout.session.completed)
+        if (invoice.subscription && invoice.billing_reason === 'subscription_cycle') {
+          const subscription = await stripe.subscriptions.retrieve(invoice.subscription);
+
+          if (subscription.metadata?.base44_app_id !== Deno.env.get("BASE44_APP_ID")) {
+            return Response.json({ message: 'Ignored - different app' });
+          }
+
+          await db.entities.Payment.create({
+            user_id: subscription.metadata?.user_id,
+            amount: invoice.amount_paid / 100,
+            currency: invoice.currency,
+            status: 'completed',
+            payment_method: 'stripe',
+            transaction_id: invoice.id,
+            plan_type: subscription.metadata?.plan_type,
+            notes: 'Subscription renewal'
+          });
+
+          console.log('Renewal payment recorded:', invoice.id);
+        }
         break;
       }
 
