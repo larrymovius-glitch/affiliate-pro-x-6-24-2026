@@ -5,9 +5,9 @@ import { Card } from "@/components/ui/card";
 
 export default function AutomationHooks() {
   const hooks = [
-    { title: "Tracking Links", detail: "Manage short codes and destinations.", path: "/links" },
-    { title: "Social Posting", detail: "Connect channels and publish faster.", path: "/social" },
-    { title: "Campaign Controls", detail: "Organize tokens by promotion.", path: "/campaigns" },
+    { title: "Webhooks Setup", detail: "Manage tracking destinations and short-code routing.", path: "/links" },
+    { title: "Postback API Logs", detail: "Review conversion performance and source patterns.", path: "/analytics" },
+    { title: "Custom Domains", detail: "Prepare branded routing by campaign.", path: "/campaigns" },
   ];
 
   return (

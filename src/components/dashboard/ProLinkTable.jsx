@@ -10,7 +10,7 @@ export default function ProLinkTable({ links = [] }) {
       <div className="mt-4 overflow-auto rounded-xl border">
         <table className="w-full min-w-[680px] text-sm">
           <thead className="bg-muted text-muted-foreground">
-            <tr><th className="p-3 text-left">Token</th><th className="p-3 text-left">Product</th><th className="p-3 text-right">Clicks</th><th className="p-3 text-right">Conv.</th><th className="p-3 text-right">EPC</th><th className="p-3 text-right">Earnings</th></tr>
+            <tr><th className="p-3 text-left">Token</th><th className="p-3 text-left">Product</th><th className="p-3 text-right">Clicks</th><th className="p-3 text-right">Conv.</th><th className="p-3 text-right">EPC</th><th className="p-3 text-left">Postback</th><th className="p-3 text-right">Earnings</th></tr>
           </thead>
           <tbody>
             {rows.map((link) => {
@@ -22,6 +22,7 @@ export default function ProLinkTable({ links = [] }) {
                   <td className="p-3 text-right">{link.clicks || 0}</td>
                   <td className="p-3 text-right">{link.conversions || 0}</td>
                   <td className="p-3 text-right">${epc.toFixed(2)}</td>
+                  <td className="p-3"><span className="rounded-full bg-muted px-2 py-1 text-xs font-semibold">{(link.conversions || 0) > 0 ? "Receiving" : "Waiting"}</span></td>
                   <td className="p-3 text-right font-semibold">${(link.earnings || 0).toFixed(2)}</td>
                 </tr>
               );

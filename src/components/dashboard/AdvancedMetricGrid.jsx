@@ -4,9 +4,9 @@ import { Card } from "@/components/ui/card";
 export default function AdvancedMetricGrid({ metrics }) {
   const cards = [
     { label: "EPC", value: `$${metrics.epc.toFixed(2)}`, note: "earnings per click" },
-    { label: "Unique Click Signals", value: metrics.uniqueClicks.toLocaleString(), note: "daily source-level estimate" },
+    { label: "ROI / Net Margin", value: "Needs cost", note: "ready for ad spend data" },
+    { label: "Unique vs Raw", value: `${metrics.uniqueClicks}/${metrics.totalClicks}`, note: "estimated unique signals vs clicks" },
     { label: "Average Order Value", value: `$${metrics.avgConversion.toFixed(2)}`, note: "earnings per conversion" },
-    { label: "ROI / Refunds", value: "Needs feed", note: "connect cost + refund data" },
   ];
 
   return (

@@ -5,6 +5,7 @@ import { DollarSign, Link2, MousePointerClick, TrendingUp } from "lucide-react";
 import StatCard from "@/components/dashboard/StatCard";
 import TodayAction from "@/components/dashboard/TodayAction";
 import StandardLinksTable from "@/components/dashboard/StandardLinksTable";
+import SmartTipsCard from "@/components/dashboard/SmartTipsCard";
 
 export default function StandardDashboard({ metrics, links, posts }) {
   return (
@@ -14,8 +15,8 @@ export default function StandardDashboard({ metrics, links, posts }) {
           <h2 className="font-display text-2xl font-bold">Simple view</h2>
           <p className="text-muted-foreground">Only the numbers and actions that matter most today.</p>
         </div>
-        <Button asChild className="h-12 px-6">
-          <Link to="/make-money"><Link2 className="mr-2 h-4 w-4" /> Create Tracking Link</Link>
+        <Button asChild className="h-14 px-8 text-base">
+          <Link to="/make-money"><Link2 className="mr-2 h-5 w-5" /> Create Tracking Link</Link>
         </Button>
       </div>
 
@@ -27,6 +28,7 @@ export default function StandardDashboard({ metrics, links, posts }) {
 
       <TodayAction links={links} posts={posts} conversions={metrics.totalConversions} earnings={metrics.totalEarnings} />
       <StandardLinksTable links={links} />
+      <SmartTipsCard links={links} />
     </div>
   );
 }

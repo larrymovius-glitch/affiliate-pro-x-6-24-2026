@@ -1,6 +1,6 @@
 import React from "react";
-import PerformanceChart from "@/components/dashboard/PerformanceChart";
 import SmartSuggestions from "@/components/dashboard/SmartSuggestions";
+import DeepAnalyticsPanel from "@/components/dashboard/DeepAnalyticsPanel";
 import AdvancedMetricGrid from "@/components/dashboard/AdvancedMetricGrid";
 import ProLinkTable from "@/components/dashboard/ProLinkTable";
 import SourceBreakdown from "@/components/dashboard/SourceBreakdown";
@@ -15,7 +15,7 @@ export default function ProDashboard({ metrics, links, posts, chartData, clickEv
       </div>
       <AdvancedMetricGrid metrics={metrics} />
       <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
-        <PerformanceChart data={chartData} isLoading={false} />
+        <DeepAnalyticsPanel data={chartData} />
         <SmartSuggestions links={links} posts={posts} />
       </div>
       <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
