@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Copy, CheckCheck, Video, TrendingUp, Music } from "lucide-react";
 import AffiliateDisclosure from "@/components/AffiliateDisclosure";
+import { withTimeout } from "@/lib/withTimeout";
+import { getTrackableUrl } from "@/lib/links";
 
 const tones = ["energetic", "storytelling", "educational", "trending", "humorous"];
 
@@ -32,7 +34,7 @@ export default function TikTokPostGenerator() {
     try {
       const link = links.find(l => l.id === selectedLink || l._id === selectedLink);
       const productName = link?.product_name || link?.title || "the product";
-      const affiliateUrl = link?.short_url || link?.url || "#";
+      const affiliateUrl = getTrackableUrl(link);
 
       const prompt = `You are a TikTok viral content expert creating video scripts for affiliate marketing.
 
@@ -50,6 +52,13 @@ Create 3 TikTok video scripts. Each should include:
 - TEXT OVERLAY suggestions: What text to show on screen
 - HASHTAGS: 5-7 relevant TikTok hashtags
 
+
+REQUIRED — these are not optional, especially given this audience:
+- Include a disclosure like "#ad" or "#affiliate" naturally in the hashtags
+- Never state or imply a specific income amount, guaranteed earnings, or "get rich quick" framing — this audience is financially vulnerable and deserves honesty, not hype
+- Never make health, medical, or "cure" claims of any kind
+- Enthusiasm and confidence are welcome; false promises are not
+
 Return JSON with:
 - scripts: array of 3 objects with:
   - hook: opening line
@@ -63,7 +72,7 @@ Return JSON with:
   - ai_score: predicted viral score 1-10
   - viral_reason: why this could go viral`;
 
-      const result = await base44.integrations.Core.InvokeLLM({
+      const result = await withTimeout(base44.integrations.Core.InvokeLLM({
         prompt,
         add_context_from_internet: true,
         model: "gemini_3_flash",
@@ -90,7 +99,7 @@ Return JSON with:
             }
           }
         }
-      });
+      }), 60000, "Script generation");
 
       const savedPosts = await Promise.all(
         (result.scripts || []).map(s =>

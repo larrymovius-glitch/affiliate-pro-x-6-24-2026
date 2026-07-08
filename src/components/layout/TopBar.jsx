@@ -1,5 +1,7 @@
 import React, { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { withTimeout } from "@/lib/withTimeout";
+import { format } from "date-fns";
 import { Menu, Bell, LogOut, Trash2, ChevronLeft, Moon, Sun } from "lucide-react";
 import VoiceAtlasModal from "@/components/dashboard/VoiceAtlasModal";
 import MobileAtlasDrawer from "@/components/dashboard/MobileAtlasDrawer";
@@ -49,6 +51,25 @@ export default function TopBar({ onMenuClick }) {
   const mayaAvatar = avatars.find(a => a.assistant === "maya");
   const displayAvatar = mayaAvatar?.file_url || "https://media.base44.com/images/public/6a2a72a46235784f879b968c/c0640056e_generated_image.png";
 
+
+  const queryClient = useQueryClient();
+  const { data: notifications = [] } = useQuery({
+    queryKey: ["notifications"],
+    queryFn: () => withTimeout(
+      base44.entities.Notification.filter({ user_id: user?.id }, "-created_date", 20),
+      15000, "Loading notifications"
+    ),
+    enabled: Boolean(user?.id),
+    refetchInterval: 60000,
+  });
+  const unreadCount = notifications.filter(n => !n.read).length;
+  const handleOpenNotifications = (open) => {
+    if (open && unreadCount > 0) {
+      Promise.all(notifications.filter(n => !n.read).map(n => base44.entities.Notification.update(n.id, { read: true })))
+        .then(() => queryClient.invalidateQueries({ queryKey: ["notifications"] }))
+        .catch(() => {});
+    }
+  };
   const handleDeleteAccount = async () => {
     try {
       await base44.functions.invoke("deleteAccount", {});
@@ -117,9 +138,36 @@ export default function TopBar({ onMenuClick }) {
             {themeMode === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </Button>
 
-          <Button variant="ghost" size="icon" className="relative text-muted-foreground h-11 w-11" aria-label="Notifications" style={{ userSelect: "none" }}>
-            <Bell className="w-5 h-5" />
-          </Button>
+          <DropdownMenu onOpenChange={handleOpenNotifications}>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="relative text-muted-foreground h-11 w-11" aria-label="Notifications" style={{ userSelect: "none" }}>
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500" />}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              {notifications.length === 0 ? (
+                <div className="px-3 py-6 text-center">
+                  <Bell className="w-5 h-5 mx-auto mb-2 text-muted-foreground opacity-40" />
+                  <p className="text-sm font-medium">You're all caught up</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">No new notifications right now.</p>
+                </div>
+              ) : (
+                <div className="max-h-80 overflow-y-auto">
+                  {notifications.map((n) => (
+                    <DropdownMenuItem key={n.id} onClick={() => n.link_to && navigate(n.link_to)} className="flex flex-col items-start gap-0.5 py-2.5 cursor-pointer">
+                      <div className="flex items-center gap-2 w-full">
+                        {!n.read && <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />}
+                        <p className="text-sm font-medium truncate">{n.title}</p>
+                      </div>
+                      {n.body && <p className="text-xs text-muted-foreground pl-3.5">{n.body}</p>}
+                      {n.created_date && <p className="text-[10px] text-muted-foreground/70 pl-3.5">{format(new Date(n.created_date), "MMM d, h:mm a")}</p>}
+                    </DropdownMenuItem>
+                  ))}
+                </div>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

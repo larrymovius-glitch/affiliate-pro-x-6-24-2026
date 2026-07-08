@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { withTimeout } from "@/lib/withTimeout";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sparkles, TrendingUp, AlertCircle, Lightbulb, RefreshCw } from "lucide-react";
@@ -66,7 +67,7 @@ Affiliate platform analytics summary:
 - Posted content: ${posts.filter(p => p.status === "posted").length}
 `.trim();
 
-  const result = await base44.integrations.Core.InvokeLLM({
+  const result = await withTimeout(base44.integrations.Core.InvokeLLM({
     prompt: `You are an AI advisor for an autonomous affiliate marketing platform. Based on the following performance data, generate 3–4 smart, actionable suggestions. Focus on growth opportunities, underperforming areas, and strategic wins. Be concise and specific.
 
 ${contextSummary}
@@ -91,7 +92,7 @@ Types: "opportunity" (growth wins), "warning" (things to fix), "tip" (best pract
         },
       },
     },
-  });
+  }), 45000, "AI insights");
 
   return result?.suggestions || [];
 }

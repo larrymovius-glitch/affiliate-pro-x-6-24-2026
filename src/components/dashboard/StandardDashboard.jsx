@@ -6,6 +6,7 @@ import StatCard from "@/components/dashboard/StatCard";
 import TodayAction from "@/components/dashboard/TodayAction";
 import StandardLinksTable from "@/components/dashboard/StandardLinksTable";
 import SmartTipsCard from "@/components/dashboard/SmartTipsCard";
+import ReferralCard from "@/components/dashboard/ReferralCard";
 
 export default function StandardDashboard({ metrics, links, posts }) {
   return (
@@ -29,6 +30,7 @@ export default function StandardDashboard({ metrics, links, posts }) {
       <TodayAction links={links} posts={posts} conversions={metrics.totalConversions} earnings={metrics.totalEarnings} />
       <StandardLinksTable links={links} />
       <SmartTipsCard links={links} />
+      <ReferralCard />
     </div>
   );
 }

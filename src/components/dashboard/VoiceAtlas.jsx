@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Mic, MicOff, Loader2, Volume2, Send, Settings2 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useAssistantSession } from "@/lib/AssistantSessionProvider";
+import { useAuth } from "@/lib/AuthContext";
+import { withTimeout } from "@/lib/withTimeout";
 
 const ATLAS_DEFAULT = "https://media.base44.com/images/public/6a2a72a46235784f879b968c/a6cbd43e5_generated_image.png";
 const MAYA_DEFAULT = "https://media.base44.com/images/public/6a2a72a46235784f879b968c/c0640056e_generated_image.png";
@@ -16,12 +18,11 @@ const VOICE_OPTIONS = [
 ];
 
 const SPEECH_VOICE_MAP = {
-  alloy: "river",
-  echo: "storm",
-  nova: "honey",
-  shimmer: "honey",
+  echo: "honey",
   onyx: "storm",
   fable: "spark",
+  nova: "sunny",
+  shimmer: "river",
 };
 
 const EXPERIENCE_OPTIONS = [
@@ -41,6 +42,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const supported = !!SpeechRecognition;
   const { getOrInitConversation, subscribeToSession } = useAssistantSession();
+  const { user } = useAuth();
 
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState("");
@@ -147,8 +149,26 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
     try {
       const voiceReadyText = cleanSpeechForVoice(text);
       const speechText = voiceReadyText.length > 1400 ? `${voiceReadyText.slice(0, 1400)}...` : voiceReadyText;
-      const res = await base44.integrations.Core.GenerateSpeech({ text: speechText, voice: SPEECH_VOICE_MAP[voiceChoice] || "honey" });
-      const audio = new Audio(res?.url || res?.data?.url);
+      let audioUrl = null;
+      // Premium tier: try OpenAI voices first — only activates once the
+      // OPENAI_API_KEY secret exists; otherwise falls back silently.
+      if (user?.voice_tier === "premium") {
+        try {
+          const premiumRes = await withTimeout(
+            base44.functions.invoke("generatePremiumSpeech", { text: speechText, voice: voiceChoice }),
+            20000, "Premium voice"
+          );
+          if (premiumRes?.data?.url) audioUrl = premiumRes.data.url;
+        } catch (e) { console.warn("Premium voice unavailable, using standard:", e); }
+      }
+      if (!audioUrl) {
+        const res = await withTimeout(
+          base44.integrations.Core.GenerateSpeech({ text: speechText, voice: SPEECH_VOICE_MAP[voiceChoice] || "honey" }),
+          20000, "Voice generation"
+        );
+        audioUrl = res?.url || res?.data?.url;
+      }
+      const audio = new Audio(audioUrl);
       audioRef.current = audio;
       audio.onended = () => mountedRef.current && setSpeaking(false);
       audio.onerror = () => mountedRef.current && setSpeaking(false);

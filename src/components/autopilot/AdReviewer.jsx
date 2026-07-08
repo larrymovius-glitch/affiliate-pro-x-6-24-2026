@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
+import { withTimeout } from "@/lib/withTimeout";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -69,7 +70,7 @@ Return a JSON object with these fields:
 
 Be honest. Don't sugarcoat. The goal is helping this person make money.`;
 
-      const review = await base44.integrations.Core.InvokeLLM({
+      const review = await withTimeout(base44.integrations.Core.InvokeLLM({
         prompt,
         file_urls: imageUrl ? [imageUrl] : undefined,
         response_json_schema: {
@@ -85,7 +86,7 @@ Be honest. Don't sugarcoat. The goal is helping this person make money.`;
             rewritten_version: { type: "string" }
           }
         }
-      });
+      }), 45000, "Ad review");
 
       // Save to entity
       await base44.entities.AdReview.create({

@@ -120,7 +120,7 @@ export default function Login() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full h-14 rounded-xl font-bold text-base text-black transition-all hover:opacity-90 disabled:opacity-60 flex items-center justify-center gap-2"
+          className="w-full h-14 rounded-xl font-bold text-base text-white transition-all hover:opacity-90 disabled:opacity-60 flex items-center justify-center gap-2"
           style={{ background: "linear-gradient(90deg, #7c3aed 0%, #a855f7 40%, #f59e0b 100%)", boxShadow: "0 4px 20px rgba(168,85,247,0.4)" }}
         >
           {loading ? (

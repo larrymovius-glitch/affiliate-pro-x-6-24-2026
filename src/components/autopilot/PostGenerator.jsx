@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Zap, Copy, CheckCheck, TrendingUp, RefreshCw } from "lucide-react";
 import AffiliateDisclosure from "@/components/AffiliateDisclosure";
+import { withTimeout } from "@/lib/withTimeout";
+import { getTrackableUrl } from "@/lib/links";
 
 const platforms = ["facebook", "instagram", "linkedin", "tiktok", "twitter", "email", "general"];
 const tones = ["inspiring", "urgent", "casual", "professional", "storytelling"];
@@ -40,7 +42,7 @@ export default function PostGenerator() {
     try {
       const link = links.find(l => l.id === selectedLink || l._id === selectedLink);
       const productName = link?.product_name || link?.title || "the product";
-      const affiliateUrl = link?.short_url || link?.url || "#";
+      const affiliateUrl = getTrackableUrl(link);
 
       // Build learning context from top performers
       const learningContext = topPosts.length > 0
@@ -64,6 +66,13 @@ Write 3 unique, high-converting social media posts for ${platform}. Each should:
 - Feel authentic, NOT spammy
 - Be optimized for ${platform}'s algorithm
 
+
+REQUIRED — these are not optional, especially given this audience:
+- Include a disclosure like "#ad" or "#affiliate" naturally in the hashtags
+- Never state or imply a specific income amount, guaranteed earnings, or "get rich quick" framing — this audience is financially vulnerable and deserves honesty, not hype
+- Never make health, medical, or "cure" claims of any kind
+- Enthusiasm and confidence are welcome; false promises are not
+
 Return a JSON object with:
 - posts: array of 3 objects, each with:
   - content: the full post text (include the link naturally)
@@ -72,7 +81,7 @@ Return a JSON object with:
   - ai_feedback: one sentence on why this will work
   - trending_topics: any trending angles used`;
 
-      const result = await base44.integrations.Core.InvokeLLM({
+      const result = await withTimeout(base44.integrations.Core.InvokeLLM({
         prompt,
         add_context_from_internet: true,
         model: "gemini_3_flash",
@@ -94,7 +103,7 @@ Return a JSON object with:
             }
           }
         }
-      });
+      }), 60000, "Post generation");
 
       // Save all posts to entity
       const savedPosts = await Promise.all(

@@ -98,6 +98,19 @@ export const AuthProvider = ({ children }) => {
       setIsAuthenticated(true);
       setIsLoadingAuth(false);
       setAuthChecked(true);
+
+      // Apply a pending referral code once — covers OTP and OAuth paths.
+      const pendingCode = sessionStorage.getItem("pending_referral_code");
+      if (pendingCode && currentUser && !currentUser.referred_by_code) {
+        try {
+          await base44.entities.User.update(currentUser.id, { referred_by_code: pendingCode });
+          setUser({ ...currentUser, referred_by_code: pendingCode });
+        } catch (refErr) {
+          console.warn("Referral code could not be applied (non-blocking):", refErr);
+        } finally {
+          sessionStorage.removeItem("pending_referral_code");
+        }
+      }
     } catch (error) {
       console.error('User auth check failed:', error);
       setIsLoadingAuth(false);

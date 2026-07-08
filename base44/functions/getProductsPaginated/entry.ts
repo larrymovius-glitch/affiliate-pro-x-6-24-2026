@@ -12,7 +12,8 @@ Deno.serve(async (req) => {
     const skip = (pageNum - 1) * limitNum;
 
     // Get all products for filtering (service role for full dataset)
-    let allProducts = await base44.asServiceRole.entities.Product.list("-created_date");
+    // RLS-scoped: Product reads are per-user; asServiceRole leaked every user's products
+    let allProducts = await base44.entities.Product.list("-created_date");
 
     // Apply filters
     if (search) {
