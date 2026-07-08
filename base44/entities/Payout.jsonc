@@ -2,6 +2,10 @@
   "name": "Payout",
   "type": "object",
   "properties": {
+    "user_id": {
+      "type": "string",
+      "description": "User this payout belongs to"
+    },
     "amount": {
       "type": "number",
       "description": "Payout amount in dollars"
@@ -29,6 +33,20 @@
       "type": "string",
       "description": "PayPal or payment destination"
     },
+    "source": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "auto"
+      ],
+      "default": "manual",
+      "description": "Whether the payout was manually requested or created by auto-payout"
+    },
+    "requested_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the payout was requested"
+    },
     "notes": {
       "type": "string"
     },
@@ -43,7 +61,14 @@
   "rls": {
     "create": {},
     "read": {
-      "created_by_id": "{{user.id}}"
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "data.user_id": "{{user.id}}"
+        }
+      ]
     },
     "update": {
       "user_condition": {
