@@ -4,37 +4,45 @@ import Stripe from 'npm:stripe@14.0.0';
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    
-    if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+    if (!stripeKey) {
+      console.error('Stripe checkout error: STRIPE_SECRET_KEY not configured');
+      return Response.json({ error: 'Payment configuration is incomplete' }, { status: 500 });
     }
 
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY"), { apiVersion: '2023-10-16' });
-    const { planType } = await req.json();
+    let user = null;
+    try { user = await base44.auth.me(); } catch (_) { user = null; }
 
-    // Validate plan type
+    const { planType, email } = await req.json();
+
     const validPlans = ['monthly', 'yearly', 'lifetime'];
     if (!validPlans.includes(planType)) {
       return Response.json({ error: 'Invalid plan type' }, { status: 400 });
     }
 
-    // Map plan types to Stripe price IDs
     const priceIds = {
       monthly: 'price_1TlONtLiK3PoXkX5WStUc9On',
       yearly: 'price_1TlONuLiK3PoXkX5lI4jLfip',
-      lifetime: null // Lifetime is one-time, handle separately
+      lifetime: null
     };
 
-    // Veterans get free access - verified server-side from the user record, never from client input
-    if (['verified_veteran', 'disabled_vet', 'homeless_vet'].includes(user.veteran_status)) {
-      return Response.json({ 
+    if (['verified_veteran', 'disabled_vet', 'homeless_vet'].includes(user?.veteran_status)) {
+      return Response.json({
         message: 'Veteran discount applied - free access granted',
-        veteranAccess: true 
+        veteranAccess: true
       });
     }
 
-    // Create Stripe checkout session
+    const stripe = new Stripe(stripeKey, { apiVersion: '2023-10-16' });
+    const origin = req.headers.get('origin') || new URL(req.url).origin;
+    const customerEmail = user?.email || email || '';
+    const metadata = {
+      base44_app_id: Deno.env.get("BASE44_APP_ID") || '',
+      user_id: user?.id || '',
+      user_email: customerEmail,
+      plan_type: planType
+    };
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: planType === 'lifetime' ? [{
@@ -49,37 +57,13 @@ Deno.serve(async (req) => {
         quantity: 1,
       }],
       mode: planType === 'lifetime' ? 'payment' : 'subscription',
-      success_url: `${Deno.env.get("BASE44_APP_URL")}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${Deno.env.get("BASE44_APP_URL")}/pricing?canceled=true`,
-      metadata: {
-        base44_app_id: Deno.env.get("BASE44_APP_ID"),
-        user_id: user.id,
-        user_email: user.email,
-        plan_type: planType
-      },
-      customer_email: user.email,
-      // Carry metadata to the PaymentIntent (lifetime) / Subscription (recurring) so webhooks can attribute payments
+      success_url: `${origin}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/pricing?canceled=true`,
+      metadata,
+      ...(customerEmail ? { customer_email: customerEmail } : {}),
       ...(planType === 'lifetime'
-        ? {
-            payment_intent_data: {
-              metadata: {
-                base44_app_id: Deno.env.get("BASE44_APP_ID"),
-                user_id: user.id,
-                user_email: user.email,
-                plan_type: 'lifetime'
-              }
-            }
-          }
-        : {
-            subscription_data: {
-              metadata: {
-                base44_app_id: Deno.env.get("BASE44_APP_ID"),
-                user_id: user.id,
-                user_email: user.email,
-                plan_type: planType
-              }
-            }
-          }),
+        ? { payment_intent_data: { metadata } }
+        : { subscription_data: { metadata } }),
     });
 
     return Response.json({ url: session.url, sessionId: session.id });

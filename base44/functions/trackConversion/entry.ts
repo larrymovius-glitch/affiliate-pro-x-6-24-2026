@@ -37,9 +37,19 @@ Deno.serve(async (req) => {
     }
 
     const link = links[0];
+    const now = new Date().toISOString();
     await base44.asServiceRole.entities.AffiliateLink.update(link.id, {
       conversions: (link.conversions || 0) + 1,
       earnings: (link.earnings || 0) + safeAmount
+    });
+
+    await base44.asServiceRole.entities.ConversionEvent.create({
+      created_by_id: link.created_by_id,
+      link_id: link.id,
+      short_code: link.short_code,
+      product_name: link.product_name || '',
+      amount: safeAmount,
+      converted_at: now
     });
 
     return new Response('OK', { status: 200 });

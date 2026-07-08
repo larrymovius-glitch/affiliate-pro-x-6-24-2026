@@ -25,9 +25,21 @@ Deno.serve(async (req) => {
 
     const link = links[0];
 
+    const now = new Date().toISOString();
+
     // Awaited write — click is recorded before we redirect
     await base44.asServiceRole.entities.AffiliateLink.update(link.id, {
       clicks: (link.clicks || 0) + 1
+    });
+
+    await base44.asServiceRole.entities.ClickEvent.create({
+      created_by_id: link.created_by_id,
+      link_id: link.id,
+      short_code: link.short_code,
+      product_name: link.product_name || '',
+      clicked_at: now,
+      referrer: req.headers.get('referer') || '',
+      source: url.searchParams.get('source') || ''
     });
 
     return new Response(null, {

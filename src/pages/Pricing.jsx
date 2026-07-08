@@ -153,7 +153,7 @@ export default function Pricing() {
             >
               {veteranRequestStatus === "verified"
                 ? "Veteran Access Active"
-                : veteranRequestStatus === "pending"
+                : veteranRequestStatus === "pending_verification"
                 ? "Verification Pending Review"
                 : veteranMutation.isPending
                 ? "Submitting..."

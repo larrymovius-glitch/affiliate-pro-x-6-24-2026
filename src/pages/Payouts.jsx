@@ -38,16 +38,21 @@ export default function Payouts() {
       // Validate payout amount against actual earnings
       const allLinks = await base44.entities.AffiliateLink.list();
       const totalEarned = allLinks.reduce((sum, l) => sum + (l.earnings || 0), 0);
-      const totalRequested = payouts.filter(p => p.status === "pending" || p.status === "approved").reduce((sum, p) => sum + (p.amount || 0), 0);
-      const availableBalance = totalEarned - totalRequested;
+      const totalReserved = payouts
+        .filter(p => p.status === "pending" || p.status === "approved" || p.status === "paid")
+        .reduce((sum, p) => sum + (p.amount || 0), 0);
+      const availableBalance = Math.max(0, totalEarned - totalReserved);
       
+      if (!data.amount || data.amount <= 0) {
+        throw new Error("Enter a payout amount greater than $0.");
+      }
       if (data.amount > availableBalance) {
         throw new Error(`Insufficient balance. Available: $${availableBalance.toFixed(2)}`);
       }
       
       return base44.entities.Payout.create(data);
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["payouts"] }); setDialogOpen(false); setAmount(""); toast.success("Payout requested!"); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["payouts"] }); queryClient.invalidateQueries({ queryKey: ["all-links-balance"] }); setDialogOpen(false); setAmount(""); toast.success("Payout requested!"); },
     onError: (err) => toast.error(err.message || "Failed to request payout"),
   });
 
@@ -60,7 +65,7 @@ export default function Payouts() {
     queryFn: () => base44.entities.AffiliateLink.list(),
   });
   const totalEarned = allLinks.reduce((sum, l) => sum + (l.earnings || 0), 0);
-  const availableBalance = totalEarned - totalPending;
+  const availableBalance = Math.max(0, totalEarned - totalPaid - totalPending);
 
   return (
     <div className="space-y-6" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
@@ -82,8 +87,8 @@ export default function Payouts() {
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Amount ($)</Label>
-                <Input type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="50.00" />
+                <Label htmlFor="payout-amount">Amount ($)</Label>
+                <Input id="payout-amount" type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="50.00" />
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>

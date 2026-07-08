@@ -1,0 +1,45 @@
+{
+  "name": "ConversionEvent",
+  "type": "object",
+  "properties": {
+    "link_id": {
+      "type": "string",
+      "description": "Affiliate link credited for the conversion"
+    },
+    "short_code": {
+      "type": "string",
+      "description": "Tracking short code used"
+    },
+    "product_name": {
+      "type": "string",
+      "description": "Cached product name"
+    },
+    "amount": {
+      "type": "number",
+      "default": 0,
+      "description": "Commission amount earned"
+    },
+    "converted_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the conversion was received"
+    }
+  },
+  "required": [
+    "link_id",
+    "short_code",
+    "converted_at"
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "created_by_id": "{{user.id}}"
+    },
+    "update": {
+      "created_by_id": "{{user.id}}"
+    },
+    "delete": {
+      "created_by_id": "{{user.id}}"
+    }
+  }
+}

@@ -16,8 +16,37 @@ import { format } from "date-fns";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import AffiliateDisclosure from "@/components/AffiliateDisclosure";
 
-function generateShortCode() {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
+function sanitizeShortCode(value) {
+  return String(value || "link")
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .substring(0, 18) || "link";
+}
+
+function makeUniqueShortCode(base, links = []) {
+  const existing = new Set(links.map(l => l.short_code));
+  const cleanBase = sanitizeShortCode(base);
+  let code = cleanBase;
+  let i = 2;
+  while (existing.has(code)) {
+    code = `${cleanBase}_${i}`.substring(0, 24);
+    i += 1;
+  }
+  return code;
+}
+
+function generateShortCode(links = []) {
+  const existing = new Set(links.map(l => l.short_code));
+  let code = Math.random().toString(36).substring(2, 8).toUpperCase();
+  while (existing.has(code)) {
+    code = Math.random().toString(36).substring(2, 8).toUpperCase();
+  }
+  return code;
+}
+
+function buildTrackingUrl(link) {
+  return `${window.location.origin}/functions/trackClick?code=${encodeURIComponent(link.short_code)}`;
 }
 
 export default function Links() {
@@ -54,7 +83,7 @@ export default function Links() {
         product_id: product.id,
         product_name: product.name,
         destination_url: product.url,
-        short_code: generateShortCode(),
+        short_code: generateShortCode(links),
         clicks: 0,
         conversions: 0,
         earnings: 0,
@@ -131,7 +160,7 @@ export default function Links() {
         product_id: productId,
         product_name: vendor,
         destination_url: hopLink,
-        short_code: `cb_${vendor}`,
+        short_code: makeUniqueShortCode(`cb_${vendor}`, links),
         clicks: 0, conversions: 0, earnings: 0,
       });
     },
@@ -167,7 +196,7 @@ export default function Links() {
         product_id: productEntityId,
         product_name: name,
         destination_url: url,
-        short_code: `ds_${productId}`,
+        short_code: makeUniqueShortCode(`ds_${productId}`, links),
         clicks: 0, conversions: 0, earnings: 0,
       });
     },
@@ -203,7 +232,7 @@ export default function Links() {
         product_id: productEntityId,
         product_name: name,
         destination_url: url,
-        short_code: `link_${name.replace(/\s+/g, "_").toLowerCase().substring(0, 12)}`,
+        short_code: makeUniqueShortCode(`link_${name}`, links),
         clicks: 0, conversions: 0, earnings: 0,
       });
     },
@@ -219,8 +248,8 @@ export default function Links() {
   });
 
   const copyLink = (link) => {
-    navigator.clipboard.writeText(link.destination_url);
-    toast.success("Link copied to clipboard!");
+    navigator.clipboard.writeText(buildTrackingUrl(link));
+    toast.success("Tracking link copied to clipboard!");
   };
 
   const filtered = links.filter(l =>
@@ -420,15 +449,15 @@ export default function Links() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => copyLink(link)}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => copyLink(link)} aria-label={`Copy tracking link for ${link.product_name || "product"}`}>
                           <Copy className="w-3.5 h-3.5" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                          <a href={link.destination_url} target="_blank" rel="noopener noreferrer">
+                          <a href={buildTrackingUrl(link)} target="_blank" rel="noopener noreferrer" aria-label={`Open tracking link for ${link.product_name || "product"}`}>
                             <ExternalLink className="w-3.5 h-3.5" />
                           </a>
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(link.id)}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(link.id)} aria-label={`Delete ${link.product_name || "link"}`}>
                           <Trash2 className="w-3.5 h-3.5" />
                         </Button>
                       </div>

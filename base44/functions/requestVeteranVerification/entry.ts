@@ -12,15 +12,15 @@ Deno.serve(async (req) => {
     if (verifiedStatuses.includes(user.veteran_status)) {
       return Response.json({ status: 'verified', message: 'Veteran access is already active.' });
     }
-    if (user.veteran_status === 'pending') {
-      return Response.json({ status: 'pending', message: 'Your veteran verification is already under review.' });
+    if (user.veteran_status === 'pending_verification') {
+      return Response.json({ status: 'pending_verification', message: 'Your veteran verification is already under review.' });
     }
 
-    // Only legal path for a user to request veteran status: regular -> pending
-    await base44.asServiceRole.entities.User.update(user.id, { veteran_status: 'pending' });
+    // Only legal path for a user to request veteran status: regular -> pending_verification
+    await base44.asServiceRole.entities.User.update(user.id, { veteran_status: 'pending_verification' });
 
     return Response.json({
-      status: 'pending',
+      status: 'pending_verification',
       message: 'Veteran verification request submitted. An admin will review it shortly.'
     });
   } catch (error) {
