@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { buildPerformanceChartData, buildPerformanceMetrics } from "@/lib/performance-calculations";
 import { RefreshCw } from "lucide-react";
 import DashboardHero from "@/components/dashboard/DashboardHero";
 import ViewModeToggle from "@/components/dashboard/ViewModeToggle";
@@ -8,25 +9,6 @@ import ModeOnboardingChoice from "@/components/dashboard/ModeOnboardingChoice";
 import StandardDashboard from "@/components/dashboard/StandardDashboard";
 import ProDashboard from "@/components/dashboard/ProDashboard";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
-
-function buildChartData(clicks = [], conversions = []) {
-  return Array.from({ length: 30 }, (_, i) => {
-    const day = new Date();
-    day.setDate(day.getDate() - (29 - i));
-    const key = day.toISOString().slice(0, 10);
-    return {
-      date: day.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      clicks: clicks.filter(c => (c.clicked_at || c.created_date || "").slice(0, 10) === key).length,
-      earnings: conversions
-        .filter(c => (c.converted_at || c.created_date || "").slice(0, 10) === key)
-        .reduce((sum, c) => sum + (c.amount || 0), 0),
-    };
-  });
-}
-
-function uniqueClickSignals(clicks = []) {
-  return new Set(clicks.map(click => `${click.short_code}-${click.source || click.referrer || "direct"}-${(click.clicked_at || click.created_date || "").slice(0, 10)}`)).size;
-}
 
 export default function Dashboard() {
   const queryClient = useQueryClient();
@@ -66,21 +48,8 @@ export default function Dashboard() {
     queryClient.invalidateQueries()
   );
 
-  const totalClicks = links.reduce((sum, l) => sum + (l.clicks || 0), 0);
-  const totalEarnings = links.reduce((sum, l) => sum + (l.earnings || 0), 0);
-  const totalConversions = links.reduce((sum, l) => sum + (l.conversions || 0), 0);
-  const conversionRate = totalClicks > 0 ? ((totalConversions / totalClicks) * 100).toFixed(1) : "0.0";
-  const chartData = buildChartData(clickEvents, conversionEvents);
-
-  const metrics = {
-    totalClicks,
-    totalEarnings,
-    totalConversions,
-    conversionRate,
-    epc: totalClicks > 0 ? totalEarnings / totalClicks : 0,
-    uniqueClicks: uniqueClickSignals(clickEvents),
-    avgConversion: totalConversions > 0 ? totalEarnings / totalConversions : 0,
-  };
+  const metrics = buildPerformanceMetrics({ links, clickEvents, conversionEvents });
+  const chartData = buildPerformanceChartData(clickEvents, conversionEvents);
 
   return (
     <div className="space-y-6" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
@@ -88,7 +57,7 @@ export default function Dashboard() {
         <RefreshCw className={`w-5 h-5 text-violet-400 transition-transform ${pulling ? "animate-spin" : ""}`} style={{ transform: `rotate(${pullDistance * 2}deg)` }} />
       </div>
 
-      <DashboardHero totalEarnings={totalEarnings} />
+      <DashboardHero totalEarnings={metrics.totalEarnings} />
 
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>

@@ -1,6 +1,14 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 import Stripe from 'npm:stripe@14.0.0';
 
+function moneyToCents(value) {
+  return Math.round((Number(value) || 0) * 100);
+}
+
+function centsToMoney(cents) {
+  return Number(((Number(cents) || 0) / 100).toFixed(2));
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -35,10 +43,11 @@ Deno.serve(async (req) => {
     if (payoutRecord.status !== 'approved') {
       return Response.json({ error: `Payout is not approved (status: ${payoutRecord.status})` }, { status: 400 });
     }
-    const amount = payoutRecord.amount;
-    if (!amount || amount <= 0) {
+    const amountCents = moneyToCents(payoutRecord.amount);
+    if (!amountCents || amountCents <= 0) {
       return Response.json({ error: 'Invalid payout amount on record' }, { status: 400 });
     }
+    const amount = centsToMoney(amountCents);
 
     // Recipient is the payout's creator
     const recipient = await db.entities.User.get(payoutRecord.created_by_id);
@@ -57,26 +66,26 @@ Deno.serve(async (req) => {
 
     // Check available balance — scoped to the recipient only
     const recipientLinks = await db.entities.AffiliateLink.filter({ created_by_id: recipient.id });
-    const totalEarned = recipientLinks.reduce((sum, l) => sum + (l.earnings || 0), 0);
+    const totalEarnedCents = recipientLinks.reduce((sum, l) => sum + moneyToCents(l.earnings), 0);
 
     const recipientPayouts = await db.entities.Payout.filter({ created_by_id: recipient.id });
-    const reservedByOtherPayouts = recipientPayouts
+    const reservedByOtherPayoutsCents = recipientPayouts
       .filter(p => p.id !== payoutId && ['pending', 'approved', 'paid'].includes(p.status))
-      .reduce((sum, p) => sum + (p.amount || 0), 0);
+      .reduce((sum, p) => sum + moneyToCents(p.amount), 0);
 
-    const availableBalance = totalEarned - reservedByOtherPayouts;
+    const availableCents = totalEarnedCents - reservedByOtherPayoutsCents;
 
-    if (amount > availableBalance) {
+    if (amountCents > availableCents) {
       return Response.json({
         error: 'Insufficient balance',
-        available: availableBalance,
+        available: centsToMoney(availableCents),
         requested: amount
       }, { status: 400 });
     }
 
     // Transfer to the recipient's Stripe connected account
     const transfer = await stripe.transfers.create({
-      amount: Math.round(amount * 100),
+      amount: amountCents,
       currency: 'usd',
       destination: recipient.stripeAccountId,
       transfer_group: `payout_${payoutId}`,

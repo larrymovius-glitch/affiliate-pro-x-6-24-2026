@@ -1,5 +1,13 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
+function moneyToCents(value) {
+  return Math.round((Number(value) || 0) * 100);
+}
+
+function centsToMoney(cents) {
+  return Number(((Number(cents) || 0) / 100).toFixed(2));
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -62,22 +70,24 @@ Deno.serve(async (req) => {
       }
 
       const links = await db.entities.AffiliateLink.filter({ created_by_id: ownerId });
-      const totalEarned = links.reduce((sum, link) => sum + (link.earnings || 0), 0);
+      const totalEarnedCents = links.reduce((sum, link) => sum + moneyToCents(link.earnings), 0);
 
       const payouts = await db.entities.Payout.filter({ created_by_id: ownerId });
-      const reserved = payouts
+      const reservedCents = payouts
         .filter(payout => ['pending', 'approved', 'paid'].includes(payout.status))
-        .reduce((sum, payout) => sum + (payout.amount || 0), 0);
+        .reduce((sum, payout) => sum + moneyToCents(payout.amount), 0);
 
-      const availableBalance = Math.max(0, totalEarned - reserved);
-      const minimumAmount = schedule.minimum_amount || 25;
+      const availableCents = Math.max(0, totalEarnedCents - reservedCents);
+      const availableBalance = centsToMoney(availableCents);
+      const minimumAmount = Number(schedule.minimum_amount) || 25;
+      const minimumAmountCents = moneyToCents(minimumAmount);
       let createdPayout = null;
 
-      if (availableBalance >= minimumAmount) {
+      if (availableCents >= minimumAmountCents) {
         createdPayout = await db.entities.Payout.create({
           created_by_id: ownerId,
           user_id: ownerId,
-          amount: Number(availableBalance.toFixed(2)),
+          amount: availableBalance,
           status: 'pending',
           payment_method: schedule.payment_method || 'paypal',
           payment_email: schedule.payment_email || '',
@@ -91,8 +101,8 @@ Deno.serve(async (req) => {
         last_processed_at: now.toISOString(),
         next_payout_date: nextDate.toISOString().split('T')[0],
         notes: createdPayout
-          ? `Created payout $${Number(availableBalance.toFixed(2))} on ${now.toISOString()}`
-          : `Checked balance $${availableBalance.toFixed(2)} on ${now.toISOString()}; minimum is $${minimumAmount}`
+          ? `Created payout $${availableBalance.toFixed(2)} on ${now.toISOString()}`
+          : `Checked balance $${availableBalance.toFixed(2)} on ${now.toISOString()}; minimum is $${minimumAmount.toFixed(2)}`
       });
 
       results.push({
@@ -100,7 +110,7 @@ Deno.serve(async (req) => {
         processed: true,
         payout_created: !!createdPayout,
         payout_id: createdPayout?.id || null,
-        available_balance: Number(availableBalance.toFixed(2)),
+        available_balance: availableBalance,
         minimum_amount: minimumAmount,
         next_payout_date: nextDate.toISOString().split('T')[0]
       });

@@ -3,10 +3,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { RefreshCw } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import { buildPerformanceChartData, buildPerformanceMetrics } from "@/lib/performance-calculations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format, subDays } from "date-fns";
 
 const COLORS = ["hsl(258, 80%, 65%)", "hsl(210, 90%, 60%)", "hsl(160, 84%, 39%)", "hsl(38, 92%, 50%)", "hsl(0, 84%, 60%)"];
 
@@ -21,23 +21,28 @@ export default function Analytics() {
     queryFn: () => base44.entities.Payout.list("-created_date", 100),
   });
 
-  const isLoading = loadingLinks || loadingPayouts;
+  const { data: clickEvents = [], isLoading: loadingClicks } = useQuery({
+    queryKey: ["click-events"],
+    queryFn: () => base44.entities.ClickEvent.list("-created_date", 500),
+  });
+
+  const { data: conversionEvents = [], isLoading: loadingConversions } = useQuery({
+    queryKey: ["conversion-events"],
+    queryFn: () => base44.entities.ConversionEvent.list("-created_date", 500),
+  });
+
+  const isLoading = loadingLinks || loadingPayouts || loadingClicks || loadingConversions;
   const queryClient = useQueryClient();
   const { onTouchStart, onTouchMove, onTouchEnd, pullDistance, pulling } = usePullToRefresh(() =>
     queryClient.invalidateQueries()
   );
 
-  const totalClicks = links.reduce((sum, l) => sum + (l.clicks || 0), 0);
-  const totalEarnings = links.reduce((sum, l) => sum + (l.earnings || 0), 0);
-  const totalConversions = links.reduce((sum, l) => sum + (l.conversions || 0), 0);
+  const metrics = buildPerformanceMetrics({ links, clickEvents, conversionEvents });
+  const totalClicks = metrics.totalClicks;
+  const totalEarnings = metrics.totalEarnings;
+  const totalConversions = metrics.totalConversions;
   const totalPaid = payouts.filter(p => p.status === "paid").reduce((sum, p) => sum + (p.amount || 0), 0);
-
-  // Build empty 30-day chart scaffold
-  const chartData = Array.from({ length: 30 }, (_, i) => ({
-    date: format(subDays(new Date(), 29 - i), "MMM d"),
-    clicks: 0,
-    earnings: 0,
-  }));
+  const chartData = buildPerformanceChartData(clickEvents, conversionEvents);
 
   const topLinks = links
     .filter(l => (l.clicks || 0) > 0)

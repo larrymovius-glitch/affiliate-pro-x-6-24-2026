@@ -14,6 +14,7 @@ import PayoutScheduleCard from "@/components/payouts/PayoutScheduleCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { calculatePayoutBalance } from "@/lib/performance-calculations";
 
 const statusStyles = {
   pending: "bg-amber-500/10 text-amber-600 border-amber-200",
@@ -35,41 +36,18 @@ export default function Payouts() {
 
   const requestMutation = useMutation({
     mutationFn: async (data) => {
-      // Validate payout amount against actual earnings
-      const allLinks = await base44.entities.AffiliateLink.list();
-      const totalEarned = allLinks.reduce((sum, l) => sum + (l.earnings || 0), 0);
-      const totalReserved = payouts
-        .filter(p => p.status === "pending" || p.status === "approved" || p.status === "paid")
-        .reduce((sum, p) => sum + (p.amount || 0), 0);
-      const availableBalance = Math.max(0, totalEarned - totalReserved);
-      
-      if (!data.amount || data.amount <= 0) {
-        throw new Error("Enter a payout amount greater than $0.");
-      }
-      if (data.amount > availableBalance) {
-        throw new Error(`Insufficient balance. Available: $${availableBalance.toFixed(2)}`);
-      }
-      
-      return base44.entities.Payout.create({
-        ...data,
-        source: "manual",
-        requested_at: new Date().toISOString()
-      });
+      const response = await base44.functions.invoke("requestPayout", { amount: data.amount });
+      return response.data;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["payouts"] }); queryClient.invalidateQueries({ queryKey: ["all-links-balance"] }); setDialogOpen(false); setAmount(""); toast.success("Payout requested!"); },
-    onError: (err) => toast.error(err.message || "Failed to request payout"),
+    onError: (err) => toast.error(err.response?.data?.error || err.message || "Failed to request payout"),
   });
 
-  const totalPaid = payouts.filter(p => p.status === "paid").reduce((sum, p) => sum + (p.amount || 0), 0);
-  const totalPending = payouts.filter(p => p.status === "pending" || p.status === "approved").reduce((sum, p) => sum + (p.amount || 0), 0);
-  
-  // Calculate available balance
   const { data: allLinks = [] } = useQuery({
     queryKey: ["all-links-balance"],
     queryFn: () => base44.entities.AffiliateLink.list(),
   });
-  const totalEarned = allLinks.reduce((sum, l) => sum + (l.earnings || 0), 0);
-  const availableBalance = Math.max(0, totalEarned - totalPaid - totalPending);
+  const { totalPaid, totalPending, availableBalance } = calculatePayoutBalance(allLinks, payouts);
 
   return (
     <div className="space-y-6" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
@@ -93,10 +71,11 @@ export default function Payouts() {
               <div className="space-y-2">
                 <Label htmlFor="payout-amount">Amount ($)</Label>
                 <Input id="payout-amount" type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="50.00" />
+                <p className="text-xs text-muted-foreground">Available now: ${availableBalance.toFixed(2)}. Pending and paid payouts are already reserved.</p>
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-                <Button onClick={() => requestMutation.mutate({ amount: parseFloat(amount), status: "pending" })} disabled={requestMutation.isPending || !amount}>
+                <Button onClick={() => requestMutation.mutate({ amount: parseFloat(amount) })} disabled={requestMutation.isPending || !amount || parseFloat(amount) > availableBalance}>
                   {requestMutation.isPending ? "Requesting..." : "Request"}
                 </Button>
               </div>

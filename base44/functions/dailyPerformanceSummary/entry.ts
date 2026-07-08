@@ -1,5 +1,13 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
+function moneyToCents(value) {
+  return Math.round((Number(value) || 0) * 100);
+}
+
+function centsToMoney(cents) {
+  return Number(((Number(cents) || 0) / 100).toFixed(2));
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -17,17 +25,23 @@ Deno.serve(async (req) => {
     try { user = await base44.auth.me(); } catch (_) { user = null; }
     if (!user && !cronOk) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // Fetch all affiliate links
+    // Fetch all affiliate performance records
     const links = await base44.asServiceRole.entities.AffiliateLink.list('-created_date', 200);
+    const clickEvents = await base44.asServiceRole.entities.ClickEvent.list('-created_date', 1000);
+    const conversionEvents = await base44.asServiceRole.entities.ConversionEvent.list('-created_date', 1000);
 
     if (!links || links.length === 0) {
       return Response.json({ message: 'No links found, skipping email.' });
     }
 
-    // Aggregate totals
-    const totalClicks = links.reduce((sum, l) => sum + (l.clicks || 0), 0);
-    const totalConversions = links.reduce((sum, l) => sum + (l.conversions || 0), 0);
-    const totalEarnings = links.reduce((sum, l) => sum + (l.earnings || 0), 0);
+    // Aggregate totals using cents for money math and event records when they exceed cached link counters
+    const linkClicks = links.reduce((sum, l) => sum + (Number(l.clicks) || 0), 0);
+    const linkConversions = links.reduce((sum, l) => sum + (Number(l.conversions) || 0), 0);
+    const linkEarningsCents = links.reduce((sum, l) => sum + moneyToCents(l.earnings), 0);
+    const eventEarningsCents = conversionEvents.reduce((sum, event) => sum + moneyToCents(event.amount), 0);
+    const totalClicks = Math.max(linkClicks, clickEvents.length);
+    const totalConversions = Math.max(linkConversions, conversionEvents.length);
+    const totalEarnings = centsToMoney(Math.max(linkEarningsCents, eventEarningsCents));
     const conversionRate = totalClicks > 0 ? ((totalConversions / totalClicks) * 100).toFixed(1) : '0.0';
 
     // Top 5 links by clicks
