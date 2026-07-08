@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import StepCard from "@/components/make-money/StepCard";
 import ProductPick from "@/components/make-money/ProductPick";
 import SharePostBox from "@/components/make-money/SharePostBox";
+import NicheAutopilot from "@/components/make-money/NicheAutopilot";
 import { ArrowRight, Loader2, Sparkles } from "lucide-react";
 
 function cleanCode(value) {
@@ -35,6 +36,7 @@ function buildPost(product, url) {
 
 export default function MakeMoney() {
   const queryClient = useQueryClient();
+  const [selectedNiche, setSelectedNiche] = useState("all");
   const [selectedId, setSelectedId] = useState("");
   const [activeLink, setActiveLink] = useState(null);
   const [post, setPost] = useState("");
@@ -52,14 +54,23 @@ export default function MakeMoney() {
     queryFn: () => base44.entities.AffiliateLink.list("-created_date", 100),
   });
 
-  const recommended = useMemo(() => [...products]
+  const niches = useMemo(() => [...new Set(products.map(product => product.category).filter(Boolean))].slice(0, 8), [products]);
+
+  const nicheProducts = useMemo(() => {
+    if (selectedNiche === "all") return products;
+    return products.filter(product => product.category === selectedNiche);
+  }, [products, selectedNiche]);
+
+  const recommended = useMemo(() => [...nicheProducts]
     .sort((a, b) => (b.commission_rate || 0) - (a.commission_rate || 0))
-    .slice(0, 3), [products]);
+    .slice(0, 3), [nicheProducts]);
 
   const selectedProduct = recommended.find(product => product.id === selectedId) || recommended[0];
 
   useEffect(() => {
-    if (!selectedId && recommended[0]) setSelectedId(recommended[0].id);
+    if (recommended[0] && !recommended.some(product => product.id === selectedId)) {
+      setSelectedId(recommended[0].id);
+    }
   }, [recommended, selectedId]);
 
   const createSharePack = async () => {
@@ -125,15 +136,28 @@ export default function MakeMoney() {
     <div className="space-y-6">
       <section className="rounded-3xl bg-gradient-to-br from-slate-950 via-violet-950 to-slate-900 p-6 text-white">
         <p className="text-sm font-semibold text-amber-300">One Button Simple</p>
-        <h1 className="mt-2 font-display text-3xl font-black md:text-5xl">Make money in three guided steps.</h1>
-        <p className="mt-3 max-w-2xl text-white/70">Pick a recommended product, create a tracking link, copy the ready-to-share post, then share it anywhere.</p>
+        <h1 className="mt-2 font-display text-3xl font-black md:text-5xl">Pick a niche. Let autopilot test the ads.</h1>
+        <p className="mt-3 max-w-2xl text-white/70">Choose a niche, get 3 top products, generate 3 ads for each, and keep manual product control whenever you want it.</p>
       </section>
 
-      <StepCard number="1" title="Pick a product" description="Start with the highest commission item available right now." complete={!!selectedProduct}>
+      <StepCard number="1" title="Pick a niche and start autopilot" description="The app finds the top 3 products, writes 3 ads for each, and starts the daily test." complete={!!selectedProduct}>
+        <NicheAutopilot
+          niches={niches}
+          selectedNiche={selectedNiche}
+          onNicheChange={setSelectedNiche}
+          products={recommended}
+          onCreated={() => {
+            queryClient.invalidateQueries({ queryKey: ["links"] });
+            queryClient.invalidateQueries({ queryKey: ["generated-posts"] });
+          }}
+        />
+      </StepCard>
+
+      <StepCard number="2" title="Manual choice stays open" description="Want to pick one product yourself instead? Choose from the same top 3 and make a single share pack." complete={!!selectedProduct}>
         <ProductPick products={recommended} selectedId={selectedProduct?.id} onSelect={setSelectedId} isLoading={productsLoading} />
       </StepCard>
 
-      <StepCard number="2" title="Create your share pack" description="This creates a trackable link and a simple post in one step." complete={!!post}>
+      <StepCard number="3" title="Create one manual share pack" description="This creates a trackable link and a simple post in one step." complete={!!post}>
         <Button onClick={createSharePack} disabled={!selectedProduct || isBusy} className="h-12">
           {isBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
           Create Link and Post
@@ -141,7 +165,7 @@ export default function MakeMoney() {
         {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
       </StepCard>
 
-      <StepCard number="3" title="Copy and share" description="Paste this on Facebook, LinkedIn, email, text message, or anywhere your audience will see it." complete={copied}>
+      <StepCard number="4" title="Copy and share" description="Paste this on Facebook, LinkedIn, email, text message, or anywhere your audience will see it." complete={copied}>
         <SharePostBox post={post} trackingUrl={activeLink ? trackingUrl(activeLink) : ""} onCopy={copyPost} copied={copied} isBusy={isBusy} />
       </StepCard>
     </div>

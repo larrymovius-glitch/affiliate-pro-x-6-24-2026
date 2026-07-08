@@ -6,6 +6,10 @@
       "type": "string",
       "description": "The affiliate link this post promotes"
     },
+    "product_id": {
+      "type": "string",
+      "description": "Product this post promotes"
+    },
     "product_name": {
       "type": "string",
       "description": "Product name for reference"
@@ -85,6 +89,43 @@
     "moderation_notes": {
       "type": "string",
       "description": "JSON string with moderation details"
+    },
+    "autopilot_enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this post is part of the simplified niche autopilot"
+    },
+    "autopilot_status": {
+      "type": "string",
+      "enum": [
+        "queued",
+        "running",
+        "weekly_winner",
+        "paused"
+      ],
+      "description": "Current autopilot rotation state"
+    },
+    "niche": {
+      "type": "string",
+      "description": "Niche selected for autopilot generation"
+    },
+    "variant_number": {
+      "type": "number",
+      "description": "Ad variation number for a product"
+    },
+    "scheduled_day": {
+      "type": "number",
+      "description": "Day number this variant should run during the first test cycle"
+    },
+    "last_selected_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this post was last selected by autopilot"
+    },
+    "week_starts_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Start of the current autopilot testing week"
     }
   },
   "required": [
