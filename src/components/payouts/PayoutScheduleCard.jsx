@@ -62,12 +62,13 @@ export default function PayoutScheduleCard() {
   });
 
   const runNowMutation = useMutation({
-    mutationFn: () => base44.functions.invoke("processAutoPayouts", {}),
+    mutationFn: () => base44.functions.invoke("processAutoPayouts", { self_only: true }),
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ["payout-schedules"] });
       queryClient.invalidateQueries({ queryKey: ["payouts"] });
       const processed = res?.data?.processed ?? 0;
-      toast.success(`Auto-payout run complete — ${processed} schedule(s) processed`);
+      const created = res?.data?.created ?? 0;
+      toast.success(`Auto-payout run complete — ${created} payout(s) created, ${processed} schedule(s) checked`);
     },
     onError: () => toast.error("Failed to run auto-payout"),
   });

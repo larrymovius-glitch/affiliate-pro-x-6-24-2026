@@ -4,8 +4,18 @@ import Stripe from 'npm:stripe@14.0.0';
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY"), { apiVersion: '2023-10-16' });
+    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+    const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
+    if (!stripeKey || !webhookSecret) {
+      console.error('Stripe webhook misconfigured');
+      return Response.json({ error: 'Server misconfiguration' }, { status: 500 });
+    }
+
+    const stripe = new Stripe(stripeKey, { apiVersion: '2023-10-16' });
     const signature = req.headers.get('stripe-signature');
+    if (!signature) {
+      return Response.json({ error: 'Missing signature' }, { status: 400 });
+    }
 
     // Verify webhook signature
     let event;
@@ -14,8 +24,8 @@ Deno.serve(async (req) => {
       event = await stripe.webhooks.constructEventAsync(
         body,
         signature,
-        Deno.env.get("STRIPE_WEBHOOK_SECRET")
-      );
+        webhookSecret
+        );
     } catch (err) {
       console.error('Webhook signature verification failed:', err.message);
       return Response.json({ error: 'Invalid signature' }, { status: 400 });
@@ -33,17 +43,20 @@ Deno.serve(async (req) => {
           return Response.json({ message: 'Ignored - different app' });
         }
 
-        // Record the transaction
-        await db.entities.Payment.create({
-          user_id: session.metadata?.user_id,
-          amount: session.amount_total / 100, // Convert from cents
-          currency: session.currency,
-          status: 'completed',
-          payment_method: 'stripe',
-          transaction_id: session.id,
-          plan_type: session.metadata?.plan_type,
-          veteran_status: 'regular'
-        });
+        // Record the transaction once, even if Stripe retries the webhook.
+        const existingPayment = await db.entities.Payment.filter({ transaction_id: session.id });
+        if (existingPayment.length === 0) {
+          await db.entities.Payment.create({
+            user_id: session.metadata?.user_id,
+            amount: session.amount_total / 100,
+            currency: session.currency,
+            status: 'completed',
+            payment_method: 'stripe',
+            transaction_id: session.id,
+            plan_type: session.metadata?.plan_type,
+            veteran_status: 'regular'
+          });
+        }
 
         console.log('Payment recorded:', session.id);
         break;
@@ -106,16 +119,19 @@ Deno.serve(async (req) => {
             return Response.json({ message: 'Ignored - different app' });
           }
 
-          await db.entities.Payment.create({
-            user_id: subscription.metadata?.user_id,
-            amount: invoice.amount_paid / 100,
-            currency: invoice.currency,
-            status: 'completed',
-            payment_method: 'stripe',
-            transaction_id: invoice.id,
-            plan_type: subscription.metadata?.plan_type,
-            notes: 'Subscription renewal'
-          });
+          const existingRenewal = await db.entities.Payment.filter({ transaction_id: invoice.id });
+          if (existingRenewal.length === 0) {
+            await db.entities.Payment.create({
+              user_id: subscription.metadata?.user_id,
+              amount: invoice.amount_paid / 100,
+              currency: invoice.currency,
+              status: 'completed',
+              payment_method: 'stripe',
+              transaction_id: invoice.id,
+              plan_type: subscription.metadata?.plan_type,
+              notes: 'Subscription renewal'
+            });
+          }
 
           console.log('Renewal payment recorded:', invoice.id);
         }

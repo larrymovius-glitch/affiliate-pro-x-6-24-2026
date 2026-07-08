@@ -17,12 +17,15 @@ Deno.serve(async (req) => {
     let user = null;
     try { user = await base44.auth.me(); } catch (_) { user = null; }
 
-    if (user?.role !== 'admin' && !cronOk) {
-      return Response.json({ error: 'Forbidden: Admin access or scheduled run required' }, { status: 403 });
+    const selfOnly = payload.self_only === true && !!user;
+    if (user?.role !== 'admin' && !cronOk && !selfOnly) {
+      return Response.json({ error: 'Forbidden: Admin access, scheduled run, or self-run required' }, { status: 403 });
     }
 
     const db = base44.asServiceRole;
-    const schedules = await db.entities.PayoutSchedule.filter({ is_active: true });
+    const schedules = selfOnly
+      ? await db.entities.PayoutSchedule.filter({ is_active: true, created_by_id: user.id })
+      : await db.entities.PayoutSchedule.filter({ is_active: true });
 
     if (!schedules || schedules.length === 0) {
       return Response.json({ message: 'No active payout schedules found', processed: 0, created: 0 });

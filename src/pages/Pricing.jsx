@@ -82,7 +82,7 @@ export default function Pricing() {
       setVeteranRequestStatus(data.status);
       toast.success(data.message);
     },
-    onError: (err) => toast.error(err.message || "Failed to submit verification request")
+    onError: (err) => toast.error(err.response?.data?.error || err.message || "Failed to submit verification request")
   });
 
   const checkoutMutation = useMutation({
@@ -101,7 +101,7 @@ export default function Pricing() {
         window.location.href = data.url;
       }
     },
-    onError: (err) => toast.error(err.message || "Failed to start checkout")
+    onError: (err) => toast.error(err.response?.data?.error || err.message || "Failed to start checkout")
   });
 
   return (
