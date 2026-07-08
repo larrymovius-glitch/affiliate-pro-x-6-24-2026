@@ -45,6 +45,7 @@ Deno.serve(async (req) => {
 
     await base44.asServiceRole.entities.ConversionEvent.create({
       created_by_id: link.created_by_id,
+      owner_user_id: link.created_by_id,
       link_id: link.id,
       short_code: link.short_code,
       product_name: link.product_name || '',
