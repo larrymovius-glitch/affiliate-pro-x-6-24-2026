@@ -1,13 +1,12 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { MousePointerClick, DollarSign, TrendingUp, Link2, RefreshCw } from "lucide-react";
-import StatCard from "@/components/dashboard/StatCard";
-import PerformanceChart from "@/components/dashboard/PerformanceChart";
-import SmartSuggestions from "@/components/dashboard/SmartSuggestions";
+import { RefreshCw } from "lucide-react";
 import DashboardHero from "@/components/dashboard/DashboardHero";
-import TodayAction from "@/components/dashboard/TodayAction";
-import { Skeleton } from "@/components/ui/skeleton";
+import ViewModeToggle from "@/components/dashboard/ViewModeToggle";
+import ModeOnboardingChoice from "@/components/dashboard/ModeOnboardingChoice";
+import StandardDashboard from "@/components/dashboard/StandardDashboard";
+import ProDashboard from "@/components/dashboard/ProDashboard";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 
 function buildChartData(clicks = [], conversions = []) {
@@ -25,10 +24,25 @@ function buildChartData(clicks = [], conversions = []) {
   });
 }
 
+function uniqueClickSignals(clicks = []) {
+  return new Set(clicks.map(click => `${click.short_code}-${click.source || click.referrer || "direct"}-${(click.clicked_at || click.created_date || "").slice(0, 10)}`)).size;
+}
+
 export default function Dashboard() {
   const queryClient = useQueryClient();
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem("affiliateProViewMode") || "standard");
+  const [hasChosenMode, setHasChosenMode] = useState(() => Boolean(localStorage.getItem("affiliateProViewMode")));
 
-  const { data: links = [], isLoading } = useQuery({
+  const chooseMode = (mode) => {
+    setViewMode(mode);
+    setHasChosenMode(true);
+  };
+
+  useEffect(() => {
+    if (hasChosenMode) localStorage.setItem("affiliateProViewMode", viewMode);
+  }, [viewMode, hasChosenMode]);
+
+  const { data: links = [] } = useQuery({
     queryKey: ["links"],
     queryFn: () => base44.entities.AffiliateLink.list("-created_date", 100),
   });
@@ -58,6 +72,16 @@ export default function Dashboard() {
   const conversionRate = totalClicks > 0 ? ((totalConversions / totalClicks) * 100).toFixed(1) : "0.0";
   const chartData = buildChartData(clickEvents, conversionEvents);
 
+  const metrics = {
+    totalClicks,
+    totalEarnings,
+    totalConversions,
+    conversionRate,
+    epc: totalClicks > 0 ? totalEarnings / totalClicks : 0,
+    uniqueClicks: uniqueClickSignals(clickEvents),
+    avgConversion: totalConversions > 0 ? totalEarnings / totalConversions : 0,
+  };
+
   return (
     <div className="space-y-6" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
       <div className="ptr-indicator" style={{ height: pullDistance }}>
@@ -66,25 +90,21 @@ export default function Dashboard() {
 
       <DashboardHero totalEarnings={totalEarnings} />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {isLoading ? (
-          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)
-        ) : (
-          <>
-            <StatCard label="Tracked Clicks" value={totalClicks.toLocaleString()} icon={MousePointerClick} />
-            <StatCard label="Total Earnings" value={`$${totalEarnings.toFixed(2)}`} icon={DollarSign} />
-            <StatCard label="Conversions" value={totalConversions.toLocaleString()} icon={TrendingUp} />
-            <StatCard label="Conversion Rate" value={`${conversionRate}%`} icon={Link2} />
-          </>
-        )}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-primary">Adaptive experience</p>
+          <h1 className="font-display text-2xl font-bold text-foreground">Choose the dashboard that fits how you work.</h1>
+        </div>
+        <ViewModeToggle mode={viewMode} onChange={chooseMode} />
       </div>
 
-      <TodayAction links={links} posts={posts} conversions={totalConversions} earnings={totalEarnings} />
+      {!hasChosenMode && <ModeOnboardingChoice onChoose={chooseMode} />}
 
-      <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
-        <PerformanceChart data={chartData} isLoading={false} />
-        <SmartSuggestions links={links} posts={posts} />
-      </div>
+      {viewMode === "standard" ? (
+        <StandardDashboard metrics={metrics} links={links} posts={posts} />
+      ) : (
+        <ProDashboard metrics={metrics} links={links} posts={posts} chartData={chartData} clickEvents={clickEvents} />
+      )}
     </div>
   );
 }
