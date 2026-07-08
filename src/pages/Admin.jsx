@@ -104,8 +104,8 @@ export default function Admin() {
   });
 
   const updateVeteranStatusMutation = useMutation({
-    mutationFn: ({ id, veteranStatus, veteranNotes }) => 
-      base44.entities.User.update(id, { veteranStatus, veteranNotes }),
+    mutationFn: ({ id, veteranStatus, veteranNotes }) =>
+      base44.entities.User.update(id, { veteran_status: veteranStatus, veteran_notes: veteranNotes }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       setEditVeteranStatus(null);

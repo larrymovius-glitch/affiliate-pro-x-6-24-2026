@@ -24,18 +24,21 @@ Deno.serve(async (req) => {
       }, { status: 400 });
     }
 
-    // Update user with payment info
-    await base44.entities.User.update(user.id, {
+    const db = base44.asServiceRole;
+
+    // Update the current user's payment info through the service role after authentication.
+    await db.entities.User.update(user.id, {
       stripeAccountId,
       paymentEmail: email,
       payoutReady: true
     });
 
     // Create or update payout schedule
-    const existingSchedule = await base44.entities.PayoutSchedule.filter({});
+    const existingSchedule = await base44.entities.PayoutSchedule.filter({ created_by_id: user.id });
     
     if (existingSchedule.length === 0) {
-      await base44.entities.PayoutSchedule.create({
+      await db.entities.PayoutSchedule.create({
+        created_by_id: user.id,
         is_active: true,
         frequency: "weekly",
         minimum_amount: 25,

@@ -76,11 +76,11 @@ export default function TopBar({ onMenuClick }) {
       >
         {/* Mobile: Back button when not on root, Hamburger menu on root */}
         {!isRoot ? (
-          <Button variant="ghost" size="icon" className="mr-2 h-11 w-11" onClick={() => navigate(-1)} style={{ userSelect: "none" }}>
+          <Button variant="ghost" size="icon" className="mr-2 h-11 w-11" onClick={() => navigate(-1)} aria-label="Go back" style={{ userSelect: "none" }}>
             <ChevronLeft className="w-5 h-5" />
           </Button>
         ) : (
-          <Button variant="ghost" size="icon" className="mr-2 h-11 w-11" onClick={onMenuClick} style={{ userSelect: "none" }}>
+          <Button variant="ghost" size="icon" className="mr-2 h-11 w-11" onClick={onMenuClick} aria-label="Open navigation menu" style={{ userSelect: "none" }}>
             <Menu className="w-5 h-5" />
           </Button>
         )}
@@ -88,7 +88,8 @@ export default function TopBar({ onMenuClick }) {
         <div className="flex-1 flex items-center">
           <button
             onClick={() => setAtlasOpen(true)}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full transition-all hover:scale-[1.03] active:scale-95 bg-background/85 shadow-sm shadow-primary/10 ring-1 ring-primary/15"
+            aria-label="Open Maya assistant"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full transition-all hover:scale-[1.03] active:scale-95 bg-background/85 shadow-sm shadow-primary/10 ring-1 ring-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             style={{ userSelect: "none" }}
           >
             <div className="w-8 h-8 rounded-full overflow-hidden bg-primary/10 flex-shrink-0 ring-1 ring-primary/20">
@@ -116,7 +117,7 @@ export default function TopBar({ onMenuClick }) {
             {themeMode === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </Button>
 
-          <Button variant="ghost" size="icon" className="relative text-muted-foreground h-11 w-11" style={{ userSelect: "none" }}>
+          <Button variant="ghost" size="icon" className="relative text-muted-foreground h-11 w-11" aria-label="Notifications" style={{ userSelect: "none" }}>
             <Bell className="w-5 h-5" />
           </Button>
 

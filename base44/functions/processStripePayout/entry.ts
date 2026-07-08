@@ -10,7 +10,13 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY"), { apiVersion: '2023-10-16' });
+    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+    if (!stripeKey) {
+      console.error('STRIPE_SECRET_KEY not configured');
+      return Response.json({ error: 'Server misconfiguration' }, { status: 500 });
+    }
+
+    const stripe = new Stripe(stripeKey, { apiVersion: '2023-10-16' });
     const db = base44.asServiceRole;
     const { payoutId, veteranEmail } = await req.json();
 
@@ -53,11 +59,11 @@ Deno.serve(async (req) => {
     const totalEarned = recipientLinks.reduce((sum, l) => sum + (l.earnings || 0), 0);
 
     const recipientPayouts = await db.entities.Payout.filter({ created_by_id: recipient.id });
-    const totalPaid = recipientPayouts
-      .filter(p => p.status === 'paid')
+    const reservedByOtherPayouts = recipientPayouts
+      .filter(p => p.id !== payoutId && ['pending', 'approved', 'paid'].includes(p.status))
       .reduce((sum, p) => sum + (p.amount || 0), 0);
 
-    const availableBalance = totalEarned - totalPaid;
+    const availableBalance = totalEarned - reservedByOtherPayouts;
 
     if (amount > availableBalance) {
       return Response.json({
@@ -73,7 +79,12 @@ Deno.serve(async (req) => {
       currency: 'usd',
       destination: recipient.stripeAccountId,
       transfer_group: `payout_${payoutId}`,
-    });
+      metadata: {
+        payout_id: payoutId,
+        recipient_user_id: recipient.id,
+        base44_app_id: Deno.env.get("BASE44_APP_ID") || ''
+      }
+    }, { idempotencyKey: `payout_${payoutId}` });
 
     // Update payout record
     await db.entities.Payout.update(payoutId, {

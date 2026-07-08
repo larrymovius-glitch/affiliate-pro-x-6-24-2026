@@ -50,7 +50,11 @@ export default function Payouts() {
         throw new Error(`Insufficient balance. Available: $${availableBalance.toFixed(2)}`);
       }
       
-      return base44.entities.Payout.create(data);
+      return base44.entities.Payout.create({
+        ...data,
+        source: "manual",
+        requested_at: new Date().toISOString()
+      });
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["payouts"] }); queryClient.invalidateQueries({ queryKey: ["all-links-balance"] }); setDialogOpen(false); setAmount(""); toast.success("Payout requested!"); },
     onError: (err) => toast.error(err.message || "Failed to request payout"),

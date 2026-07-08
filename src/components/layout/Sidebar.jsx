@@ -56,8 +56,8 @@ export default function Sidebar({ open, onClose }) {
               <span className="text-[10px] text-sidebar-foreground/40 tracking-wide mt-0.5">amhere4utoday.com</span>
             </div>
           </Link>
-          <button onClick={onClose} className="lg:hidden text-sidebar-foreground/60 hover:text-sidebar-foreground">
-            <X className="w-5 h-5" />
+          <button onClick={onClose} aria-label="Close navigation menu" className="lg:hidden min-h-11 min-w-11 rounded-lg text-sidebar-foreground/70 hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
+            <X className="w-5 h-5 mx-auto" />
           </button>
         </div>
 

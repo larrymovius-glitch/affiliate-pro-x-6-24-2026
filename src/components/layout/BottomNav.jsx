@@ -44,6 +44,7 @@ export default function BottomNav() {
 
   return (
     <nav
+      aria-label="Main mobile navigation"
       className="lg:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around"
       style={{
         background: "rgba(10,8,30,0.97)",
@@ -59,7 +60,9 @@ export default function BottomNav() {
           <button
             key={item.root}
             onClick={() => handleTabPress(item)}
-            className="relative flex flex-col items-center justify-center flex-1 py-2 gap-1 transition-all"
+            aria-label={item.label}
+            aria-current={active ? "page" : undefined}
+            className="relative flex flex-col items-center justify-center flex-1 py-2 gap-1 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
             style={{ minHeight: 56, userSelect: "none", WebkitUserSelect: "none" }}
           >
             <Icon className={cn("w-5 h-5 transition-colors", active ? "text-violet-400" : "text-slate-500")} />
