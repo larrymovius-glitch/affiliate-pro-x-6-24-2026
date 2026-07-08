@@ -19,7 +19,7 @@ export default function DashboardHero({ totalEarnings = 0 }) {
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button asChild className="h-12 bg-amber-400 text-slate-950 hover:bg-amber-300">
-              <Link to="/links"><Link2 className="mr-2 h-4 w-4" /> Create Money Link</Link>
+              <Link to="/make-money"><Link2 className="mr-2 h-4 w-4" /> Start Make Money Flow</Link>
             </Button>
             <Button asChild variant="outline" className="h-12 border-white/20 bg-white/10 text-white hover:bg-white/15 hover:text-white">
               <Link to="/autopilot"><Zap className="mr-2 h-4 w-4" /> Generate Posts</Link>

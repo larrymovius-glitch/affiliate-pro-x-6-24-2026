@@ -21,6 +21,7 @@ import AppLayout from '@/components/layout/AppLayout';
 // Pages
 import Splash from '@/pages/Splash.jsx';
 import Dashboard from '@/pages/Dashboard';
+import MakeMoney from '@/pages/MakeMoney';
 import Products from '@/pages/Products';
 import Links from '@/pages/Links';
 import Campaigns from '@/pages/Campaigns';
@@ -73,6 +74,7 @@ const AuthenticatedApp = () => {
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
         <Route element={<AppLayout />}>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/make-money" element={<MakeMoney />} />
           <Route path="/products" element={<Products />} />
           <Route path="/links" element={<Links />} />
           <Route path="/campaigns" element={<Campaigns />} />

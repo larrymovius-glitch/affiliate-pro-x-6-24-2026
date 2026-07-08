@@ -1,11 +1,11 @@
 import React, { useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Package, Link2, BarChart3, Zap } from "lucide-react";
+import { LayoutDashboard, Link2, BarChart3, Zap, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, root: "/" },
-  { label: "Products", icon: Package, root: "/products" },
+  { label: "Make Money", icon: Target, root: "/make-money" },
   { label: "Links", icon: Link2, root: "/links" },
   { label: "Analytics", icon: BarChart3, root: "/analytics" },
   { label: "AutoPilot", icon: Zap, root: "/autopilot" },

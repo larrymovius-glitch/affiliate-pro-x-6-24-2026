@@ -5,12 +5,12 @@ import { Card } from "@/components/ui/card";
 import { ArrowRight, Target } from "lucide-react";
 
 export default function TodayAction({ links = [], posts = [], conversions = 0, earnings = 0 }) {
-  let action = { title: "Create your first money link", detail: "Start with one product and one trackable link.", path: "/links", cta: "Create Link" };
+  let action = { title: "Create your first money link", detail: "Use the guided flow to pick a product, create a link, and copy a post.", path: "/make-money", cta: "Start Guided Flow" };
 
   if (links.length > 0 && posts.length === 0) {
-    action = { title: "Turn your best link into a post", detail: "Let AI write a simple post you can share today.", path: "/autopilot", cta: "Generate Post" };
+    action = { title: "Turn your best link into a post", detail: "Use the guided flow to create a simple post you can share today.", path: "/make-money", cta: "Create Share Pack" };
   } else if (links.some(l => (l.clicks || 0) > 0) && conversions === 0) {
-    action = { title: "Improve a link that is getting attention", detail: "Clicks are coming in. Use AI to create a stronger message.", path: "/autopilot", cta: "Improve Post" };
+    action = { title: "Improve a link that is getting attention", detail: "Clicks are coming in. Create a fresh share pack for your best product.", path: "/make-money", cta: "Create Share Pack" };
   } else if (earnings > 0) {
     action = { title: "Check your payout readiness", detail: "You have earnings. Make sure your payout setup is ready.", path: "/payouts", cta: "View Payouts" };
   }

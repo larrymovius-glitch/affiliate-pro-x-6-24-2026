@@ -2,13 +2,14 @@ import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, Link2, Package, Megaphone, 
-  BarChart3, Wallet, X, Zap, Crown, Shield, FileText, Instagram
+  BarChart3, Wallet, X, Zap, Crown, Shield, FileText, Instagram, Target
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
 
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/" },
+  { label: "Make Money", icon: Target, path: "/make-money" },
   { label: "Products", icon: Package, path: "/products" },
   { label: "Links", icon: Link2, path: "/links" },
   { label: "Campaigns", icon: Megaphone, path: "/campaigns" },
