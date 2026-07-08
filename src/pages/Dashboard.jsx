@@ -44,6 +44,11 @@ export default function Dashboard() {
     queryFn: () => base44.entities.ConversionEvent.list("-created_date", 500),
   });
 
+  const { data: rules = [] } = useQuery({
+    queryKey: ["pro-automation-rules"],
+    queryFn: () => base44.entities.ProAutomationRule.list("-created_date", 50),
+  });
+
   const { onTouchStart, onTouchMove, onTouchEnd, pullDistance, pulling } = usePullToRefresh(() =>
     queryClient.invalidateQueries()
   );
@@ -72,7 +77,7 @@ export default function Dashboard() {
       {viewMode === "standard" ? (
         <StandardDashboard metrics={metrics} links={links} posts={posts} />
       ) : (
-        <ProDashboard metrics={metrics} links={links} posts={posts} chartData={chartData} clickEvents={clickEvents} />
+        <ProDashboard metrics={metrics} links={links} posts={posts} chartData={chartData} clickEvents={clickEvents} rules={rules} />
       )}
     </div>
   );

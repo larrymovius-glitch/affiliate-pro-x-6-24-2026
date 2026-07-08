@@ -5,8 +5,9 @@ import AdvancedMetricGrid from "@/components/dashboard/AdvancedMetricGrid";
 import ProLinkTable from "@/components/dashboard/ProLinkTable";
 import SourceBreakdown from "@/components/dashboard/SourceBreakdown";
 import AutomationHooks from "@/components/dashboard/AutomationHooks";
+import ProGrowthCommandCenter from "@/components/dashboard/pro-growth/ProGrowthCommandCenter";
 
-export default function ProDashboard({ metrics, links, posts, chartData, clickEvents }) {
+export default function ProDashboard({ metrics, links, posts, chartData, clickEvents, rules }) {
   return (
     <div className="space-y-6">
       <div>
@@ -14,6 +15,7 @@ export default function ProDashboard({ metrics, links, posts, chartData, clickEv
         <p className="text-muted-foreground">Expanded analytics for experienced affiliate operators.</p>
       </div>
       <AdvancedMetricGrid metrics={metrics} />
+      <ProGrowthCommandCenter metrics={metrics} links={links} rules={rules} />
       <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
         <DeepAnalyticsPanel data={chartData} />
         <SmartSuggestions links={links} posts={posts} />

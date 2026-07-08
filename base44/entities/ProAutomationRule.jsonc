@@ -1,0 +1,78 @@
+{
+  "name": "ProAutomationRule",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Rule name shown to the user"
+    },
+    "trigger_metric": {
+      "type": "string",
+      "enum": [
+        "epc",
+        "conversion_rate",
+        "clicks",
+        "earnings"
+      ],
+      "default": "epc",
+      "description": "Performance metric watched by this rule"
+    },
+    "trigger_operator": {
+      "type": "string",
+      "enum": [
+        "gte",
+        "lte"
+      ],
+      "default": "gte",
+      "description": "How the metric is compared to the threshold"
+    },
+    "trigger_value": {
+      "type": "number",
+      "default": 1,
+      "description": "Threshold value for the selected metric"
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "promote_winner",
+        "pause_loser",
+        "create_variants",
+        "send_alert"
+      ],
+      "default": "promote_winner",
+      "description": "Recommended autopilot action"
+    },
+    "connected_surface": {
+      "type": "string",
+      "enum": [
+        "autopilot",
+        "analytics",
+        "payouts"
+      ],
+      "default": "autopilot",
+      "description": "Where this rule applies"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "name",
+    "trigger_metric",
+    "trigger_value",
+    "action"
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "created_by_id": "{{user.id}}"
+    },
+    "update": {
+      "created_by_id": "{{user.id}}"
+    },
+    "delete": {
+      "created_by_id": "{{user.id}}"
+    }
+  }
+}
