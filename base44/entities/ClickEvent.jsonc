@@ -2,6 +2,10 @@
   "name": "ClickEvent",
   "type": "object",
   "properties": {
+    "owner_user_id": {
+      "type": "string",
+      "description": "Affiliate user who owns the tracked link"
+    },
     "link_id": {
       "type": "string",
       "description": "Affiliate link that received the click"
@@ -36,13 +40,34 @@
   "rls": {
     "create": {},
     "read": {
-      "created_by_id": "{{user.id}}"
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "data.owner_user_id": "{{user.id}}"
+        }
+      ]
     },
     "update": {
-      "created_by_id": "{{user.id}}"
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "data.owner_user_id": "{{user.id}}"
+        }
+      ]
     },
     "delete": {
-      "created_by_id": "{{user.id}}"
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "data.owner_user_id": "{{user.id}}"
+        }
+      ]
     }
   }
 }
