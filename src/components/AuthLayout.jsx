@@ -1,83 +1,60 @@
 import React from "react";
-import { Heart } from "lucide-react";
-import BrandLogo from "@/components/BrandLogo";
+
+// The login backdrop is the founder's emblem over its Kodiak Island home —
+// shown large, the way it deserves. Upload hero_login.jpg to your Base44
+// media library and paste its URL below. Until then, a deep dusk gradient
+// close to the photograph's palette stands in, so nothing ever looks broken.
+const HERO_IMAGE_URL = ""; // e.g. "https://media.base44.com/images/public/<your-app-id>/hero_login.jpg"
 
 export default function AuthLayout({ icon: Icon, title, subtitle, footer, children }) {
   return (
     <div
-      className="dark min-h-screen flex flex-col items-center justify-center px-4 py-10"
+      className="dark min-h-screen flex flex-col items-center justify-start px-4 pb-10"
       style={{
-        background: "linear-gradient(160deg, #0f0c29 0%, #302b63 50%, #24243e 100%)",
+        background: HERO_IMAGE_URL
+          ? `linear-gradient(to bottom, rgba(10,14,22,0.15) 0%, rgba(10,14,22,0.35) 45%, rgba(10,14,22,0.92) 78%, #0a0e16 100%), url(${HERO_IMAGE_URL}) center 18% / cover no-repeat fixed`
+          : "linear-gradient(170deg, #24303f 0%, #17202c 45%, #0a0e16 100%)",
       }}
     >
-      {/* Brand Title */}
-      <div className="text-center mb-2">
-        <div className="mb-1">
-          <span
-            className="font-display text-3xl font-extrabold tracking-tight"
-            style={{ background: "linear-gradient(90deg, #c084fc, #f59e0b)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
-          >
-            Affiliate Pro
-          </span>
-          <span
-            className="font-display text-3xl font-extrabold ml-0.5"
-            style={{ background: "linear-gradient(90deg, #f59e0b, #fbbf24)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
-          >
-            X
-          </span>
-        </div>
-      </div>
+      {/* Hero space — lets the medallion in the backdrop own the top of the screen */}
+      <div className="w-full" style={{ height: "38vh", minHeight: 220 }} />
 
-      {/* Welcome heading */}
-      <div className="text-center mb-6">
-        <h1
-          className="text-5xl font-extrabold font-display leading-tight"
-          style={{ background: "linear-gradient(90deg, #c084fc 0%, #f59e0b 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
-        >
+      {/* Title over the scene */}
+      <div className="text-center mb-1">
+        <h1 className="font-display text-4xl font-extrabold tracking-tight text-white" style={{ textShadow: "0 2px 18px rgba(0,0,0,0.7)" }}>
           {title}
         </h1>
-        {subtitle && <p className="text-slate-300 text-base mt-2">{subtitle}</p>}
+        {subtitle && (
+          <p className="text-slate-200 text-base mt-2" style={{ textShadow: "0 1px 10px rgba(0,0,0,0.7)" }}>
+            {subtitle}
+          </p>
+        )}
       </div>
 
-      {/* Mission Banner */}
-      <div className="w-full max-w-md mb-5">
-        <div
-          className="rounded-2xl p-4 flex items-center gap-4"
-          style={{
-            background: "linear-gradient(135deg, rgba(124,58,237,0.25) 0%, rgba(30,27,75,0.7) 100%)",
-            border: "1px solid rgba(167,139,250,0.35)",
-            boxShadow: "0 0 24px rgba(124,58,237,0.2)",
-          }}
-        >
-          <BrandLogo className="w-20 h-20" />
-          <div
-            className="rounded-xl px-4 py-3 flex items-start gap-2"
-            style={{ background: "rgba(15,12,41,0.7)", border: "1px solid rgba(167,139,250,0.25)" }}
-          >
-            <Heart className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
-            <p className="text-xs text-slate-300 leading-relaxed">
-              <span className="font-bold text-white">Built for those who deserve a break.</span>{" "}
-              Veterans, disabled individuals, single parents, and anyone facing hard times — this platform earns for you, automatically.
-            </p>
-          </div>
-        </div>
-      </div>
+      <p className="text-xs tracking-widest uppercase text-slate-300 mb-6" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.8)" }}>
+        Founded on Kodiak Island, Alaska
+      </p>
 
-      {/* Form Card */}
+      {/* Form card — dark glass so the scene shows through */}
       <div className="w-full max-w-md">
         <div
           className="rounded-2xl p-7"
           style={{
-            background: "linear-gradient(145deg, rgba(30,27,75,0.95) 0%, rgba(15,12,41,0.98) 100%)",
-            border: "1px solid rgba(167,139,250,0.3)",
-            boxShadow: "0 0 40px rgba(124,58,237,0.15), 0 8px 40px rgba(0,0,0,0.5)",
+            background: "rgba(13,18,28,0.78)",
+            backdropFilter: "blur(14px)",
+            WebkitBackdropFilter: "blur(14px)",
+            border: "1px solid rgba(148,180,220,0.22)",
+            boxShadow: "0 12px 48px rgba(0,0,0,0.55)",
           }}
         >
           {children}
         </div>
 
+        <p className="text-center text-xs text-slate-400 mt-5">
+          Free lifetime access for verified veterans
+        </p>
         {footer && (
-          <p className="text-center text-sm text-slate-400 mt-6 font-medium">{footer}</p>
+          <p className="text-center text-sm text-slate-400 mt-2 font-medium">{footer}</p>
         )}
       </div>
     </div>
