@@ -94,11 +94,12 @@ const AuthenticatedApp = () => {
 
 function App() {
   useEffect(() => {
-    const lightRefreshApplied = localStorage.getItem("affiliateProLightRefreshApplied") === "true";
-    const savedTheme = lightRefreshApplied ? (localStorage.getItem("affiliateProThemeMode") || "light") : "light";
-    localStorage.setItem("affiliateProThemeMode", savedTheme);
-    localStorage.setItem("affiliateProLightRefreshApplied", "true");
-    document.documentElement.classList.toggle("dark", savedTheme === "dark");
+    const savedTheme = localStorage.getItem("affiliateProThemeMode");
+    const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    const activeTheme = savedTheme === "dark" || savedTheme === "light" ? savedTheme : systemTheme;
+
+    document.documentElement.classList.toggle("dark", activeTheme === "dark");
+    localStorage.setItem("affiliateProThemeMode", activeTheme);
   }, []);
 
   return (
