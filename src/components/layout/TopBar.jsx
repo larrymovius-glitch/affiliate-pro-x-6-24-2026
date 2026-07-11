@@ -36,6 +36,9 @@ export default function TopBar({ onMenuClick }) {
   const navigate = useNavigate();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmEmail, setDeleteConfirmEmail] = useState("");
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
   const [atlasOpen, setAtlasOpen] = useState(false);
   const [themeMode, setThemeMode] = useState(() => localStorage.getItem("affiliateProThemeMode") || "light");
   const isMobile = useIsMobile();
@@ -70,13 +73,19 @@ export default function TopBar({ onMenuClick }) {
         .catch(() => {});
     }
   };
-  const handleDeleteAccount = async () => {
+  const handleDeleteAccount = async (event) => {
+    event.preventDefault();
+    if (isDeleting) return;
+
+    setIsDeleting(true);
+    setDeleteError("");
     try {
-      await base44.functions.invoke("deleteAccount", {});
-    } catch (_) {
-      // best-effort data deletion
+      await base44.functions.invoke("deleteAccount", { password: deletePassword });
+      await base44.auth.logout("/");
+    } catch (error) {
+      setDeleteError(error?.response?.data?.error || error?.message || "Unable to delete your account. Please try again.");
+      setIsDeleting(false);
     }
-    await base44.auth.logout("/");
   };
 
   const toggleThemeMode = () => {
@@ -205,29 +214,47 @@ export default function TopBar({ onMenuClick }) {
         <VoiceAtlasModal open={atlasOpen} onClose={() => setAtlasOpen(false)} />
       )}
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => { setDeleteDialogOpen(open); if (!open) setDeleteConfirmEmail(""); }}>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => {
+        setDeleteDialogOpen(open);
+        if (!open) {
+          setDeleteConfirmEmail("");
+          setDeletePassword("");
+          setDeleteError("");
+        }
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Account?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action is permanent and cannot be undone. All your data will be removed. To confirm, type your email address below.
+              This action is permanent and cannot be undone. All your data will be removed. Enter your email address and current password to confirm your identity.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <Input
             type="email"
+            aria-label="Confirm email address"
             placeholder={user?.email || "your email address"}
             value={deleteConfirmEmail}
             onChange={(e) => setDeleteConfirmEmail(e.target.value)}
             className="h-11"
           />
+          <Input
+            type="password"
+            aria-label="Current password"
+            autoComplete="current-password"
+            placeholder="Current password"
+            value={deletePassword}
+            onChange={(e) => setDeletePassword(e.target.value)}
+            className="h-11"
+          />
+          {deleteError && <p role="alert" className="text-sm text-destructive">{deleteError}</p>}
           <AlertDialogFooter>
-            <AlertDialogCancel className="h-11">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="h-11" disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={deleteConfirmEmail.trim().toLowerCase() !== (user?.email || "").toLowerCase()}
+              disabled={deleteConfirmEmail.trim().toLowerCase() !== (user?.email || "").toLowerCase() || !deletePassword || isDeleting}
               onClick={handleDeleteAccount}
             >
-              Yes, Delete Account
+              {isDeleting ? "Deleting..." : "Yes, Delete Account"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

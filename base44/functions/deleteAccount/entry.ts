@@ -10,6 +10,19 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const body = await req.json().catch(() => ({}));
+    const password = typeof body.password === 'string' ? body.password : '';
+    if (!password) {
+      return Response.json({ error: 'Current password is required' }, { status: 400 });
+    }
+
+    try {
+      await base44.auth.loginViaEmailPassword(user.email, password);
+    } catch (authError) {
+      console.warn('Account deletion credential verification failed for user:', user.id);
+      return Response.json({ error: 'The current password is incorrect' }, { status: 401 });
+    }
+
     // Cancel any active Stripe subscriptions so deleted accounts stop being billed
     try {
       const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
