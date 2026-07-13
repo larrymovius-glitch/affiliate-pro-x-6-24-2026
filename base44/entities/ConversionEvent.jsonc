@@ -35,7 +35,11 @@
     "converted_at"
   ],
   "rls": {
-    "create": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
     "read": {
       "$or": [
         {
@@ -47,24 +51,14 @@
       ]
     },
     "update": {
-      "$or": [
-        {
-          "created_by_id": "{{user.id}}"
-        },
-        {
-          "data.owner_user_id": "{{user.id}}"
-        }
-      ]
+      "user_condition": {
+        "role": "admin"
+      }
     },
     "delete": {
-      "$or": [
-        {
-          "created_by_id": "{{user.id}}"
-        },
-        {
-          "data.owner_user_id": "{{user.id}}"
-        }
-      ]
+      "user_condition": {
+        "role": "admin"
+      }
     }
   }
 }
