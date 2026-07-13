@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
 
     const existingLinks = await base44.entities.AffiliateLink.list('-created_date', 500);
     const existingCodes = new Set(existingLinks.map((link) => link.short_code).filter(Boolean));
-    const origin = req.headers.get('origin') || new URL(req.url).origin;
+    const trustedAppOrigin = 'https://apx.amhere4utoday.com';
     const weekStartsAt = new Date().toISOString();
     const linkByKey = {};
 
@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
     const productList = topProducts.map((product, index) => {
       const links = [1, 2, 3].map((variant) => {
         const link = linkByKey[`${product.id}:${variant}`];
-        return `Variant ${variant} link: ${origin}/functions/trackClick?code=${encodeURIComponent(link.short_code)}`;
+        return `Variant ${variant} link: ${trustedAppOrigin}/functions/trackClick?code=${encodeURIComponent(link.short_code)}`;
       }).join('\n');
       return `${index}. ${product.name}\nNiche: ${product.category || niche}\nDescription: ${product.description || 'Useful product for everyday shoppers.'}\n${links}`;
     }).join('\n\n');

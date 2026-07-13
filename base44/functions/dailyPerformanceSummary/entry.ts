@@ -8,6 +8,11 @@ function centsToMoney(cents) {
   return Number(((Number(cents) || 0) / 100).toFixed(2));
 }
 
+function escapeHtml(value) {
+  const entities = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  return String(value ?? '').replace(/[&<>"']/g, (character) => entities[character]);
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -49,14 +54,18 @@ Deno.serve(async (req) => {
       .sort((a, b) => (b.clicks || 0) - (a.clicks || 0))
       .slice(0, 5);
 
-    const topLinksRows = topLinks.map(l =>
-      `<tr>
-        <td style="padding:8px 12px;border-bottom:1px solid #2a2a4a;">${l.product_name || l.short_code || '—'}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #2a2a4a;text-align:center;">${l.clicks || 0}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #2a2a4a;text-align:center;">${l.conversions || 0}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #2a2a4a;text-align:center;color:#10b981;">$${(l.earnings || 0).toFixed(2)}</td>
-      </tr>`
-    ).join('');
+    const topLinksRows = topLinks.map((link) => {
+      const label = escapeHtml(link.product_name || link.short_code || '—');
+      const clicks = Number(link.clicks) || 0;
+      const conversions = Number(link.conversions) || 0;
+      const earnings = Number(link.earnings) || 0;
+      return `<tr>
+        <td style="padding:8px 12px;border-bottom:1px solid #2a2a4a;">${label}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #2a2a4a;text-align:center;">${clicks}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #2a2a4a;text-align:center;">${conversions}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #2a2a4a;text-align:center;color:#10b981;">$${earnings.toFixed(2)}</td>
+      </tr>`;
+    }).join('');
 
     const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
