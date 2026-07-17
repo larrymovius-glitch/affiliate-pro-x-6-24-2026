@@ -1,0 +1,83 @@
+{
+  "name": "User",
+  "type": "object",
+  "properties": {
+    "role": {
+      "type": "string",
+      "description": "The role of the user in the app",
+      "enum": [
+        "admin",
+        "user"
+      ]
+    },
+    "veteran_status": {
+      "type": "string",
+      "description": "Veteran verification status for free access",
+      "enum": [
+        "regular",
+        "verified_veteran",
+        "disabled_vet",
+        "homeless_vet",
+        "pending_verification"
+      ],
+      "default": "regular"
+    },
+    "veteran_notes": {
+      "type": "string",
+      "description": "Admin notes about veteran status"
+    },
+    "stripeAccountId": {
+      "type": "string",
+      "description": "User's Stripe account ID for commission payouts (starts with acct_)"
+    },
+    "paymentEmail": {
+      "type": "string",
+      "description": "Email address for payment notifications"
+    },
+    "payoutReady": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether user has complete payment info"
+    },
+    "voice_tier": {
+      "type": "string",
+      "description": "AI voice system tier. 'standard' = Base44 built-in voices (free). 'premium' = OpenAI voices once OPENAI_API_KEY secret is set \u2014 falls back to standard automatically if not.",
+      "enum": [
+        "standard",
+        "premium"
+      ],
+      "default": "standard"
+    },
+    "tax_set_aside_pct": {
+      "type": "number",
+      "description": "User-chosen percentage of paid earnings to set aside for taxes. A tracking tool, not tax advice."
+    },
+    "tax_saved_amount": {
+      "type": "number",
+      "default": 0,
+      "description": "Running total the user has logged as set aside for taxes."
+    },
+    "referral_code": {
+      "type": "string",
+      "description": "Unique code this user shares to refer other veterans."
+    },
+    "referred_by_code": {
+      "type": "string",
+      "description": "The referral code this user signed up under, if any."
+    },
+    "clickbank_nickname": {
+      "type": "string",
+      "description": "User's own ClickBank account nickname, asked once, used to auto-build all their hoplinks."
+    }
+  },
+  "required": [
+    "role"
+  ],
+  "rls": {
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
