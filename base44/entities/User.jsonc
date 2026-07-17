@@ -64,6 +64,10 @@
     "referred_by_code": {
       "type": "string",
       "description": "The referral code this user signed up under, if any."
+    },
+    "clickbank_nickname": {
+      "type": "string",
+      "description": "User's own ClickBank account nickname, asked once, used to auto-build all their hoplinks."
     }
   },
   "required": [
