@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import AffiliateDisclosure from "@/components/AffiliateDisclosure";
+import EasyClickBank from "@/components/products/EasyClickBank";
 
 function sanitizeShortCode(value) {
   return String(value || "link")
@@ -268,6 +269,8 @@ export default function Links() {
           <h1 className="text-2xl font-display font-bold tracking-tight">Links</h1>
           <p className="text-muted-foreground text-sm mt-1">Create and manage your affiliate tracking links</p>
         </div>
+
+      <EasyClickBank />
       </div>
 
       <AffiliateDisclosure />

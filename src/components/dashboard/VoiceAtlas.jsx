@@ -9,6 +9,17 @@ import { withTimeout } from "@/lib/withTimeout";
 const ATLAS_DEFAULT = "https://media.base44.com/images/public/6a2a72a46235784f879b968c/a6cbd43e5_generated_image.png";
 const MAYA_DEFAULT = "https://media.base44.com/images/public/6a2a72a46235784f879b968c/c0640056e_generated_image.png";
 
+
+// Render URLs in assistant replies as real, tappable links.
+function Linkify({ text }) {
+  const parts = String(text || "").split(/(https?:\/\/[^\s]+)/g);
+  return parts.map((p, i) =>
+    /^https?:\/\//.test(p)
+      ? <a key={i} href={p} target="_blank" rel="noreferrer" className="underline text-primary break-all">{p}</a>
+      : p
+  );
+}
+
 const VOICE_OPTIONS = [
   { id: "echo", label: "Echo", note: "Warm male guide", assistant: "atlas" },
   { id: "onyx", label: "Onyx", note: "Deep male mentor", assistant: "atlas" },
@@ -478,7 +489,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
                 </button>
               )}
             </div>
-            <p className="text-base text-[color:var(--voice-text)] leading-relaxed whitespace-pre-wrap">{reply}</p>
+            <p className="text-base text-[color:var(--voice-text)] leading-relaxed whitespace-pre-wrap"><Linkify text={reply} /></p>
             {needsTapToSpeak && (
               <button onClick={playBlockedVoice} className="mt-3 w-full rounded-xl px-4 py-3 text-sm font-bold transition-all active:scale-95" style={{ background: "linear-gradient(135deg, #7c3aed, #c026d3)", color: "#fff" }}>
                 Tap to hear {name}
