@@ -71,7 +71,7 @@
   "long_term_memory": true,
   "whatsapp_greeting": "Hi love! I'm Maya \ud83d\udc95 Ready to build your affiliate workspace around your goals? I'll tailor my help to your experience level.",
   "telegram_greeting": "Welcome! I'm Maya \ud83d\udc99 Let's build your affiliate income together in the way that fits your experience level.",
-  "model": "gemini_3_flash",
+  "model": "claude-sonnet-5",
   "voice_settings": {
     "voice": "sunny",
     "speed": 0.9,
