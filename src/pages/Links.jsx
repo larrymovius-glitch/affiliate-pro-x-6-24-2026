@@ -16,6 +16,8 @@ import { format } from "date-fns";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import AffiliateDisclosure from "@/components/AffiliateDisclosure";
 import EasyClickBank from "@/components/products/EasyClickBank";
+import { useAuth } from "@/lib/AuthContext";
+import { applyClickBankAffiliateId, getClickBankAffiliateId } from "@/lib/affiliate-id";
 
 function sanitizeShortCode(value) {
   return String(value || "link")
@@ -51,10 +53,11 @@ function buildTrackingUrl(link) {
 }
 
 export default function Links() {
+  const { user } = useAuth();
+  const affiliateId = getClickBankAffiliateId(user);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [cbDialogOpen, setCbDialogOpen] = useState(false);
   const [cbVendor, setCbVendor] = useState("");
-  const [cbNickname] = useState("amxalaska");
   const [dsDialogOpen, setDsDialogOpen] = useState(false);
   const [dsProductId, setDsProductId] = useState("");
   const [dsProductName, setDsProductName] = useState("");
@@ -83,7 +86,7 @@ export default function Links() {
       return base44.entities.AffiliateLink.create({
         product_id: product.id,
         product_name: product.name,
-        destination_url: product.url,
+        destination_url: applyClickBankAffiliateId(product.url, affiliateId),
         short_code: generateShortCode(links),
         clicks: 0,
         conversions: 0,
@@ -137,12 +140,12 @@ export default function Links() {
     },
   });
 
-  const cbHopLink = cbVendor ? `https://${cbNickname}.${cbVendor.trim().toLowerCase()}.hop.clickbank.net` : "";
+  const cbHopLink = cbVendor ? `https://${affiliateId}.${cbVendor.trim().toLowerCase()}.hop.clickbank.net` : "";
 
   const addClickBankMutation = useMutation({
     mutationFn: async () => {
       const vendor = cbVendor.trim().toLowerCase();
-      const hopLink = `https://${cbNickname}.${vendor}.hop.clickbank.net`;
+      const hopLink = `https://${affiliateId}.${vendor}.hop.clickbank.net`;
       // Create product if not exists
       const existing = await base44.entities.Product.filter({ name: vendor });
       let productId;

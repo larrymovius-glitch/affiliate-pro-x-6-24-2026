@@ -9,6 +9,8 @@ import ProductPick from "@/components/make-money/ProductPick";
 import SharePostBox from "@/components/make-money/SharePostBox";
 import NicheAutopilot from "@/components/make-money/NicheAutopilot";
 import { ArrowRight, Loader2, Sparkles } from "lucide-react";
+import { useAuth } from "@/lib/AuthContext";
+import { applyClickBankAffiliateId, getClickBankAffiliateId } from "@/lib/affiliate-id";
 
 function cleanCode(value) {
   return String(value || "product").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 18) || "product";
@@ -35,6 +37,8 @@ function buildPost(product, url) {
 }
 
 export default function MakeMoney() {
+  const { user } = useAuth();
+  const affiliateId = getClickBankAffiliateId(user);
   const queryClient = useQueryClient();
   const [selectedNiche, setSelectedNiche] = useState("all");
   const [selectedId, setSelectedId] = useState("");
@@ -85,7 +89,7 @@ export default function MakeMoney() {
         link = await base44.entities.AffiliateLink.create({
           product_id: selectedProduct.id,
           product_name: selectedProduct.name,
-          destination_url: selectedProduct.url,
+          destination_url: applyClickBankAffiliateId(selectedProduct.url, affiliateId),
           short_code: uniqueCode(selectedProduct, links),
           clicks: 0,
           conversions: 0,

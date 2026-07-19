@@ -16,6 +16,25 @@ function uniqueCode(baseValue, existingCodes) {
   return code;
 }
 
+function applyClickBankAffiliateId(value, affiliateId) {
+  try {
+    const url = new URL(value);
+    if (url.hostname === 'hop.clickbank.net') {
+      url.searchParams.set('affiliate', affiliateId);
+      return url.toString();
+    }
+    if (url.hostname.endsWith('.hop.clickbank.net')) {
+      const parts = url.hostname.split('.');
+      parts[0] = affiliateId;
+      url.hostname = parts.join('.');
+      return url.toString();
+    }
+  } catch (_) {
+    return value;
+  }
+  return value;
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -38,6 +57,7 @@ Deno.serve(async (req) => {
 
     const existingLinks = await base44.entities.AffiliateLink.list('-created_date', 500);
     const existingCodes = new Set(existingLinks.map((link) => link.short_code).filter(Boolean));
+    const affiliateId = String(user.clickbank_nickname || 'amxalaska').trim() || 'amxalaska';
     const trustedAppOrigin = 'https://apx.amhere4utoday.com';
     const weekStartsAt = new Date().toISOString();
     const linkByKey = {};
@@ -50,7 +70,7 @@ Deno.serve(async (req) => {
           link = await base44.entities.AffiliateLink.create({
             product_id: product.id,
             product_name: product.name,
-            destination_url: product.url,
+            destination_url: applyClickBankAffiliateId(product.url, affiliateId),
             short_code: uniqueCode(`${product.name}_${variant}`, existingCodes),
             campaign_id: campaignId,
             clicks: 0,

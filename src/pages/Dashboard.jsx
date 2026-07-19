@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { buildPerformanceChartData, buildPerformanceMetrics } from "@/lib/performance-calculations";
 import { RefreshCw } from "lucide-react";
 import DashboardHero from "@/components/dashboard/DashboardHero";
 import ViewModeToggle from "@/components/dashboard/ViewModeToggle";
-import ModeOnboardingChoice from "@/components/dashboard/ModeOnboardingChoice";
 import StandardDashboard from "@/components/dashboard/StandardDashboard";
 import ProDashboard from "@/components/dashboard/ProDashboard";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
@@ -13,16 +12,11 @@ import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 export default function Dashboard() {
   const queryClient = useQueryClient();
   const [viewMode, setViewMode] = useState(() => localStorage.getItem("affiliateProViewMode") || "standard");
-  const [hasChosenMode, setHasChosenMode] = useState(() => Boolean(localStorage.getItem("affiliateProViewMode")));
 
   const chooseMode = (mode) => {
     setViewMode(mode);
-    setHasChosenMode(true);
+    localStorage.setItem("affiliateProViewMode", mode);
   };
-
-  useEffect(() => {
-    if (hasChosenMode) localStorage.setItem("affiliateProViewMode", viewMode);
-  }, [viewMode, hasChosenMode]);
 
   const { data: links = [] } = useQuery({
     queryKey: ["links"],
@@ -71,8 +65,6 @@ export default function Dashboard() {
         </div>
         <ViewModeToggle mode={viewMode} onChange={chooseMode} />
       </div>
-
-      {!hasChosenMode && <ModeOnboardingChoice onChoose={chooseMode} />}
 
       {viewMode === "standard" ? (
         <StandardDashboard metrics={metrics} links={links} posts={posts} />
