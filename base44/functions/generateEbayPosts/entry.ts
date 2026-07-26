@@ -90,6 +90,7 @@ Return one item per product/platform pair. Use the exact product_index from the 
         if (!product || !allowedPlatforms.has(item.platform) || !item.content) return null;
 
         return {
+          created_by_id: user.id,
           link_id: linkByProduct[product.id] || "",
           product_name: product.name,
           platform: item.platform,
