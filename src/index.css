@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Sora:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -105,6 +105,23 @@
 @keyframes slideInLeft {
   from { transform: translateX(-100%); opacity: 0; }
   to   { transform: translateX(0);     opacity: 1; }
+}
+
+@keyframes dashPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .35; }
+}
+@keyframes dashShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.dash-shimmer {
+  background: linear-gradient(90deg, #16324B 25%, #102539 50%, #16324B 75%);
+  background-size: 200% 100%;
+  animation: dashShimmer 1.4s infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dash-shimmer { animation: none; }
 }
 .page-enter {
   animation: slideInRight 0.22s ease-out both;
