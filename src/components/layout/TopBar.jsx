@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { withTimeout } from "@/lib/withTimeout";
 import { format } from "date-fns";
@@ -37,6 +37,12 @@ export default function TopBar({ onMenuClick }) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmEmail, setDeleteConfirmEmail] = useState("");
   const [atlasOpen, setAtlasOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = () => setAtlasOpen(true);
+    window.addEventListener("open-maya-assistant", handler);
+    return () => window.removeEventListener("open-maya-assistant", handler);
+  }, []);
   const [themeMode, setThemeMode] = useState(() => localStorage.getItem("affiliateProThemeMode") || "light");
   const isMobile = useIsMobile();
   const isRoot = location.pathname === "/";
