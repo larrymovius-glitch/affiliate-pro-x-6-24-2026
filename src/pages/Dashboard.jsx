@@ -1,31 +1,23 @@
-import React, { useState } from "react";
+import React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { buildPerformanceChartData, buildPerformanceMetrics } from "@/lib/performance-calculations";
-import { RefreshCw } from "lucide-react";
-import DashboardHero from "@/components/dashboard/DashboardHero";
-import ViewModeToggle from "@/components/dashboard/ViewModeToggle";
-import StandardDashboard from "@/components/dashboard/StandardDashboard";
-import ProDashboard from "@/components/dashboard/ProDashboard";
+import {
+  buildPerformanceChartData,
+  buildPerformanceMetrics,
+  calculatePayoutBalance,
+} from "@/lib/performance-calculations";
+import { RefreshCw, MousePointerClick, Repeat, Wallet } from "lucide-react";
+import StatCard from "@/components/dashboard/StatCard";
+import EarningsHero from "@/components/dashboard/EarningsHero";
+import EarningsLineChart from "@/components/dashboard/EarningsLineChart";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 
 export default function Dashboard() {
   const queryClient = useQueryClient();
-  const [viewMode, setViewMode] = useState(() => localStorage.getItem("affiliateProViewMode") || "standard");
-
-  const chooseMode = (mode) => {
-    setViewMode(mode);
-    localStorage.setItem("affiliateProViewMode", mode);
-  };
 
   const { data: links = [] } = useQuery({
     queryKey: ["links"],
     queryFn: () => base44.entities.AffiliateLink.list("-created_date", 100),
-  });
-
-  const { data: posts = [] } = useQuery({
-    queryKey: ["generated-posts"],
-    queryFn: () => base44.entities.GeneratedPost.list("-created_date", 50),
   });
 
   const { data: clickEvents = [] } = useQuery({
@@ -38,9 +30,9 @@ export default function Dashboard() {
     queryFn: () => base44.entities.ConversionEvent.list("-created_date", 500),
   });
 
-  const { data: rules = [] } = useQuery({
-    queryKey: ["pro-automation-rules"],
-    queryFn: () => base44.entities.ProAutomationRule.list("-created_date", 50),
+  const { data: payouts = [] } = useQuery({
+    queryKey: ["payouts"],
+    queryFn: () => base44.entities.Payout.list("-created_date", 100),
   });
 
   const { onTouchStart, onTouchMove, onTouchEnd, pullDistance, pulling } = usePullToRefresh(() =>
@@ -48,29 +40,37 @@ export default function Dashboard() {
   );
 
   const metrics = buildPerformanceMetrics({ links, clickEvents, conversionEvents });
-  const chartData = buildPerformanceChartData(clickEvents, conversionEvents);
+  const sixtyDayData = buildPerformanceChartData(clickEvents, conversionEvents, 60);
+  const chartData = sixtyDayData.slice(30);
+  const previousEarnings = sixtyDayData.slice(0, 30).reduce((sum, row) => sum + row.earnings, 0);
+  const currentEarnings = chartData.reduce((sum, row) => sum + row.earnings, 0);
+  const percentChange =
+    previousEarnings > 0
+      ? ((currentEarnings - previousEarnings) / previousEarnings) * 100
+      : currentEarnings > 0
+      ? 100
+      : 0;
+
+  const payoutBalance = calculatePayoutBalance(links, payouts);
 
   return (
     <div className="space-y-6" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
       <div className="ptr-indicator" style={{ height: pullDistance }}>
-        <RefreshCw className={`w-5 h-5 text-violet-400 transition-transform ${pulling ? "animate-spin" : ""}`} style={{ transform: `rotate(${pullDistance * 2}deg)` }} />
+        <RefreshCw
+          className={`w-5 h-5 text-violet-400 transition-transform ${pulling ? "animate-spin" : ""}`}
+          style={{ transform: `rotate(${pullDistance * 2}deg)` }}
+        />
       </div>
 
-      <DashboardHero totalEarnings={metrics.totalEarnings} />
+      <EarningsHero totalEarnings={metrics.totalEarnings} percentChange={percentChange} />
 
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-primary">Adaptive experience</p>
-          <h1 className="font-display text-2xl font-bold text-foreground">Choose the dashboard that fits how you work.</h1>
-        </div>
-        <ViewModeToggle mode={viewMode} onChange={chooseMode} />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard label="Clicks" value={metrics.totalClicks.toLocaleString()} icon={MousePointerClick} />
+        <StatCard label="Conversions" value={metrics.totalConversions.toLocaleString()} icon={Repeat} />
+        <StatCard label="Pending Payout" value={`$${payoutBalance.totalPending.toFixed(2)}`} icon={Wallet} />
       </div>
 
-      {viewMode === "standard" ? (
-        <StandardDashboard metrics={metrics} links={links} posts={posts} />
-      ) : (
-        <ProDashboard metrics={metrics} links={links} posts={posts} chartData={chartData} clickEvents={clickEvents} rules={rules} />
-      )}
+      <EarningsLineChart data={chartData} />
     </div>
   );
 }
