@@ -5,7 +5,10 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
 
     // Admin or scheduled-run only (any user could previously trigger platform-wide deletions)
-    const CRON_TOKEN = Deno.env.get("CRON_SECRET") || "apx_cron_8c41f2d97ab34e6f902d5e1b7c3a6f48";
+    const CRON_TOKEN = Deno.env.get("CRON_SECRET");
+    if (!CRON_TOKEN) {
+      return Response.json({ error: 'Server misconfiguration: CRON_SECRET not set' }, { status: 500 });
+    }
     let payload = {};
     try { payload = await req.json(); } catch (_) { payload = {}; }
     const cronOk = payload.cron_secret === CRON_TOKEN || req.headers.get('x-cron-secret') === CRON_TOKEN;

@@ -7,6 +7,9 @@ Deno.serve(async (req) => {
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    if (user.role !== 'admin') {
+      return Response.json({ error: 'Forbidden: Admin access required to publish to the shared Instagram account' }, { status: 403 });
+    }
 
     // Get Instagram connection
     const { accessToken } = await base44.asServiceRole.connectors.getConnection("instagram");
