@@ -17,6 +17,15 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import AvatarUploader from "@/components/admin/AvatarUploader";
+import MobileSelect from "@/components/ui/MobileSelect";
+
+const VETERAN_STATUS_OPTIONS = [
+  { value: "regular", label: "Regular User" },
+  { value: "verified_veteran", label: "Verified Veteran" },
+  { value: "disabled_vet", label: "Disabled Veteran" },
+  { value: "homeless_vet", label: "Homeless Veteran" },
+  { value: "pending_verification", label: "Pending Verification" },
+];
 
 const ROLE_COLORS = {
   admin: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
@@ -564,17 +573,12 @@ export default function Admin() {
             </div>
             <div className="space-y-2">
               <Label className="text-slate-300">Veteran Status</Label>
-              <select
+              <MobileSelect
                 value={editVeteranStatus?.veteranStatus || "regular"}
-                onChange={(e) => setEditVeteranStatus(prev => ({ ...prev, veteranStatus: e.target.value }))}
-                className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
-              >
-                <option value="regular">Regular User</option>
-                <option value="verified_veteran">Verified Veteran</option>
-                <option value="disabled_vet">Disabled Veteran</option>
-                <option value="homeless_vet">Homeless Veteran</option>
-                <option value="pending_verification">Pending Verification</option>
-              </select>
+                onValueChange={(val) => setEditVeteranStatus(prev => ({ ...prev, veteranStatus: val }))}
+                options={VETERAN_STATUS_OPTIONS}
+                className="bg-white/5 border-white/10 text-white"
+              />
             </div>
             <div className="space-y-2">
               <Label className="text-slate-300">Admin Notes</Label>

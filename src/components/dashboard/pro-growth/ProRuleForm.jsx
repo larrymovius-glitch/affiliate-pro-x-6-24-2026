@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { actionOptions, metricOptions } from "@/components/dashboard/pro-growth/rule-options";
+import MobileSelect from "@/components/ui/MobileSelect";
 
 export default function ProRuleForm({ onCreate, isSaving }) {
   const [form, setForm] = useState({ name: "Scale winning ad", trigger_metric: "epc", trigger_value: 1, action: "promote_winner" });
@@ -23,9 +24,7 @@ export default function ProRuleForm({ onCreate, isSaving }) {
         </div>
         <div className="space-y-2">
           <Label htmlFor="rule-metric">When</Label>
-          <select id="rule-metric" value={form.trigger_metric} onChange={(e) => update("trigger_metric", e.target.value)} className="h-10 w-full rounded-md border bg-background px-3 text-sm">
-            {metricOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
+          <MobileSelect value={form.trigger_metric} onValueChange={(val) => update("trigger_metric", val)} options={metricOptions} className="h-10" />
         </div>
         <div className="space-y-2">
           <Label htmlFor="rule-value">Reaches</Label>
@@ -35,9 +34,7 @@ export default function ProRuleForm({ onCreate, isSaving }) {
       <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-end">
         <div className="space-y-2 md:flex-1">
           <Label htmlFor="rule-action">Then</Label>
-          <select id="rule-action" value={form.action} onChange={(e) => update("action", e.target.value)} className="h-10 w-full rounded-md border bg-background px-3 text-sm">
-            {actionOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
+          <MobileSelect value={form.action} onValueChange={(val) => update("action", val)} options={actionOptions} className="h-10" />
         </div>
         <Button type="submit" disabled={isSaving || !form.name} className="h-10">Save rule</Button>
       </div>
