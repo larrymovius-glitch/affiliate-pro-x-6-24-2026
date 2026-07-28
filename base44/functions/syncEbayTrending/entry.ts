@@ -73,7 +73,7 @@ Return ONLY real, verified products that are currently trending on eBay. Do NOT 
       }
     });
 
-    const cbNickname = "amxalaska";
+    const cbNickname = "apxalaska";
     const added = [];
     const removed = [];
 

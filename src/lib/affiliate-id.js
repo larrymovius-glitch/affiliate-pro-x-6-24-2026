@@ -1,4 +1,4 @@
-export const DEFAULT_CLICKBANK_AFFILIATE_ID = "amxalaska";
+export const DEFAULT_CLICKBANK_AFFILIATE_ID = "apxalaska";
 
 export function getClickBankAffiliateId(user) {
   return user?.clickbank_nickname?.trim() || DEFAULT_CLICKBANK_AFFILIATE_ID;

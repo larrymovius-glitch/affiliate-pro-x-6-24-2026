@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
 
     const existingLinks = await base44.entities.AffiliateLink.list('-created_date', 500);
     const existingCodes = new Set(existingLinks.map((link) => link.short_code).filter(Boolean));
-    const affiliateId = String(user.clickbank_nickname || 'amxalaska').trim() || 'amxalaska';
+    const affiliateId = String(user.clickbank_nickname || 'apxalaska').trim() || 'apxalaska';
     const trustedAppOrigin = 'https://apx.amhere4utoday.com';
     const weekStartsAt = new Date().toISOString();
     const linkByKey = {};
