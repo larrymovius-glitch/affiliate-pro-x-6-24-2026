@@ -19,7 +19,8 @@ export default function Login() {
     setError("");
     setLoading(true);
     try {
-     await base44.auth.loginViaEmailPassword(email, password);
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) throw signInError;
       window.location.href = "/";
     } catch (err) {
       setError(err.message || "Invalid email or password");
