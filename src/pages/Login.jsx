@@ -28,7 +28,6 @@ export default function Login() {
       setLoading(false);
     }
   };
-
   const handleGoogle = () => {
     base44.auth.loginWithProvider("google", "/");
   };
