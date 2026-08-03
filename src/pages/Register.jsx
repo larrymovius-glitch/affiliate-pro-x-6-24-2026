@@ -1,30 +1,4 @@
-import React, { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
-import { Button } from "@/components/ui/button";
-import { UserPlus } from "lucide-react";
-import AuthLayout from "@/components/AuthLayout";
-import GoogleIcon from "@/components/GoogleIcon";
-import EmailRegistrationForm from "@/components/auth/EmailRegistrationForm";
-import OtpVerificationForm from "@/components/auth/OtpVerificationForm";
 
-export default function Register() {
-  const [searchParams] = useSearchParams();
-  const [step, setStep] = useState("register");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [otp, setOtp] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [resending, setResending] = useState(false);
-
-  useEffect(() => {
-    const ref = searchParams.get("ref");
-    if (ref) sessionStorage.setItem("pending_referral_code", ref);
-  }, [searchParams]);
-
-  const handleRegister = async (event) => {
-    event.preventDefault();
     setError("");
     setLoading(true);
     try {
