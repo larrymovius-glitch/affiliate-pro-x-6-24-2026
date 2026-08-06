@@ -1,0 +1,64 @@
+{
+  "name": "ConversionEvent",
+  "type": "object",
+  "properties": {
+    "owner_user_id": {
+      "type": "string",
+      "description": "Affiliate user who owns the converted link"
+    },
+    "link_id": {
+      "type": "string",
+      "description": "Affiliate link credited for the conversion"
+    },
+    "short_code": {
+      "type": "string",
+      "description": "Tracking short code used"
+    },
+    "product_name": {
+      "type": "string",
+      "description": "Cached product name"
+    },
+    "amount": {
+      "type": "number",
+      "default": 0,
+      "description": "Commission amount earned"
+    },
+    "converted_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the conversion was received"
+    }
+  },
+  "required": [
+    "link_id",
+    "short_code",
+    "converted_at"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "data.owner_user_id": "{{user.id}}"
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "name": "GoogleReviewer",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Reviewer display name"
+    },
+    "email": {
+      "type": "string",
+      "description": "Google account email for Play Store reviewing"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Optional admin notes about this reviewer"
+    }
+  },
+  "required": [
+    "email"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "name": "ClickEvent",
+  "type": "object",
+  "properties": {
+    "owner_user_id": {
+      "type": "string",
+      "description": "Affiliate user who owns the tracked link"
+    },
+    "link_id": {
+      "type": "string",
+      "description": "Affiliate link that received the click"
+    },
+    "short_code": {
+      "type": "string",
+      "description": "Tracking short code used"
+    },
+    "product_name": {
+      "type": "string",
+      "description": "Cached product name"
+    },
+    "clicked_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the click happened"
+    },
+    "referrer": {
+      "type": "string",
+      "description": "Referring page or platform when available"
+    },
+    "source": {
+      "type": "string",
+      "description": "Optional source label"
+    }
+  },
+  "required": [
+    "link_id",
+    "short_code",
+    "clicked_at"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "data.owner_user_id": "{{user.id}}"
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

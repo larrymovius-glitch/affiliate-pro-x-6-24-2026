@@ -1,0 +1,88 @@
+{
+  "name": "Subscription",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "description": "User this subscription belongs to"
+    },
+    "user_email": {
+      "type": "string",
+      "description": "User email for reference"
+    },
+    "stripe_subscription_id": {
+      "type": "string",
+      "description": "Stripe subscription ID"
+    },
+    "stripe_customer_id": {
+      "type": "string",
+      "description": "Stripe customer ID"
+    },
+    "plan_type": {
+      "type": "string",
+      "enum": [
+        "monthly",
+        "yearly",
+        "lifetime",
+        "veteran_free"
+      ],
+      "description": "Subscription plan type"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "past_due",
+        "canceled",
+        "incomplete",
+        "trialing",
+        "unpaid"
+      ],
+      "default": "active",
+      "description": "Stripe subscription status"
+    },
+    "current_period_end": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the current billing period ends"
+    },
+    "canceled_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the subscription was canceled"
+    }
+  },
+  "required": [
+    "stripe_subscription_id",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "data.user_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
