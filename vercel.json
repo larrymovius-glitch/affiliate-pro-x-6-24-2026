@@ -3,7 +3,8 @@
     { "source": "/functions/trackClick", "destination": "/api/trackClick" },
     { "source": "/functions/trackConversion", "destination": "/api/trackConversion" },
     { "source": "/functions/ebayAccountDeletion", "destination": "/api/ebayAccountDeletion" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/api/:path*", "destination": "/api/:path*" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "crons": [
     { "path": "/api/processAutoPayouts", "schedule": "0 13 * * *" },
