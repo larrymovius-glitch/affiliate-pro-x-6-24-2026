@@ -1,6 +1,13 @@
-
 {
   "rewrites": [
+    { "source": "/functions/trackClick", "destination": "/api/trackClick" },
+    { "source": "/functions/trackConversion", "destination": "/api/trackConversion" },
+    { "source": "/functions/ebayAccountDeletion", "destination": "/api/ebayAccountDeletion" },
     { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    { "path": "/api/processAutoPayouts", "schedule": "0 13 * * *" },
+    { "path": "/api/dailyPerformanceSummary", "schedule": "0 12 * * *" },
+    { "path": "/api/syncTrendingLinks", "schedule": "0 6 * * *" }
   ]
 }
