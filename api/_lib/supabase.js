@@ -16,7 +16,16 @@ export async function getAuthedUser(req) {
 
   const admin = adminClient();
   const { data, error } = await admin.auth.getUser(token);
-  if (error || !data?.user) return { user: null, token };
+  if (error || !data?.user) {
+    console.error("getAuthedUser: admin.auth.getUser failed", {
+      message: error?.message,
+      status: error?.status,
+      name: error?.name,
+      hasUrl: !!process.env.SUPABASE_URL,
+      keyLength: (process.env.SUPABASE_SERVICE_ROLE_KEY || "").length,
+    });
+    return { user: null, token };
+  }
 
   const { data: profile } = await admin.from("profiles").select("*").eq("id", data.user.id).single();
   return { user: { id: data.user.id, email: data.user.email, ...(profile || {}) }, token };
