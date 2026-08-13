@@ -187,5 +187,44 @@ const integrations = {
   },
 };
 
-export const base44 = { entities, auth, functions, integrations };
+// ---------------------------------------------------------------------------
+// Agents — backs the Maya/Atlas voice assistants. Conversations are held
+// client-side (Anthropic's API is stateless, so there's no server-side
+// session to create); each turn round-trips the full history through
+// /api/agentChat. There's no server push channel, so subscribeToConversation
+// is a no-op — the reply is delivered through addMessage's resolved promise.
+// ---------------------------------------------------------------------------
+const agents = {
+  async createConversation({ agent_name, metadata } = {}) {
+    return { id: crypto.randomUUID(), agent_name, metadata, messages: [] };
+  },
+
+  subscribeToConversation(_conversationId, _onUpdate) {
+    return () => {};
+  },
+
+  async addMessage(conversation, message) {
+    const messages = [...(conversation?.messages || []), message];
+    const result = await functions.invoke("agentChat", {
+      agent_name: conversation?.agent_name,
+      messages,
+    });
+    return { ...conversation, messages: result.data.messages };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Connectors — Social Connect's Instagram/LinkedIn buttons call this, but
+// there's no OAuth connect flow implemented server-side yet (see the notes
+// in api/postToInstagram.js and api/postToLinkedIn.js). Throwing here turns
+// today's crash (calling into an undefined namespace) into the same caught,
+// logged error those buttons already handle.
+// ---------------------------------------------------------------------------
+const connectors = {
+  async connectAppUser(_appId) {
+    throw new Error("Social account connections aren't configured yet — check back soon.");
+  },
+};
+
+export const base44 = { entities, auth, functions, integrations, agents, connectors };
 export default base44;

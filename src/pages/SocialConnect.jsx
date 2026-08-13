@@ -244,7 +244,7 @@ export default function SocialConnect() {
                 className="bg-white/5 border-white/10 text-white placeholder:text-slate-500 font-mono"
               />
               <p className="text-xs text-slate-500">
-                Don't have Stripe? Tell Phil "I need to set up payments" and we'll help you!
+                Don't have Stripe? Tell Atlas "I need to set up payments" and we'll help you!
               </p>
             </div>
 

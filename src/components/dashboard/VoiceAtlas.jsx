@@ -247,8 +247,8 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
     }
 
     const personaDirective = agentName === "maya"
-      ? "You are Maya only: warm, compassionate, calm, and supportive. Do not use Atlas or Phil's voice, name, or coaching style."
-      : "You are Atlas only: clear, strategic, structured, and action-oriented. Do not use Maya or Phil's voice, name, or coaching style.";
+      ? "You are Maya only: warm, compassionate, calm, and supportive. Do not use Atlas's voice, name, or coaching style."
+      : "You are Atlas only: clear, strategic, structured, and action-oriented. Do not use Maya's voice, name, or coaching style.";
 
     const assistantText = `[${personaDirective}]\n[User experience level: ${experienceLevel}. Tailor the depth, language, and strategy to this level. Do not mention these bracketed notes unless asked.]\n\n${cleanText}`;
 
