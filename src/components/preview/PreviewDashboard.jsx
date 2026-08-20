@@ -8,7 +8,6 @@ import {
   Wrench,
   Settings,
   ChevronsLeft,
-  ChevronDown,
   MoreVertical,
   TrendingUp,
 } from "lucide-react";
@@ -54,7 +53,7 @@ const C = {
   gold: "#F5B942",
   goldDeep: "#E09A2C",
   cyan: "#38D9E8",
-  teal: "#2A9FC4",
+  teal: "#34D399",
   text: "#EAF3FF",
   muted: "#8FAECE",
   dim: "#5C87B8",
@@ -319,9 +318,9 @@ function TrafficCard({ data }) {
             <Line
               type="monotone"
               dataKey="v"
-              stroke={C.cyan}
+              stroke={C.gold}
               strokeWidth={2}
-              dot={{ r: 1.6, fill: C.cyan, strokeWidth: 0 }}
+              dot={{ r: 1.6, fill: C.gold, strokeWidth: 0 }}
               isAnimationActive={false}
             />
           </LineChart>
@@ -434,6 +433,37 @@ function GrowthCard({ data }) {
   );
 }
 
+const RADIAN = Math.PI / 180;
+
+function renderOuterLabel({ cx, cy, midAngle, outerRadius, name, fill }) {
+  const cos = Math.cos(-RADIAN * midAngle);
+  const sin = Math.sin(-RADIAN * midAngle);
+  const sx = cx + (outerRadius + 4) * cos;
+  const sy = cy + (outerRadius + 4) * sin;
+  const mx = cx + (outerRadius + 16) * cos;
+  const my = cy + (outerRadius + 16) * sin;
+  const ex = mx + (cos >= 0 ? 1 : -1) * 12;
+  const ey = my;
+  const textAnchor = cos >= 0 ? "start" : "end";
+
+  return (
+    <g key={name}>
+      <path d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke={fill} fill="none" strokeWidth={1} />
+      <circle cx={sx} cy={sy} r={2} fill={fill} stroke="none" />
+      <text
+        x={ex + (cos >= 0 ? 4 : -4)}
+        y={ey}
+        textAnchor={textAnchor}
+        dominantBaseline="central"
+        fill={C.muted}
+        fontSize={11}
+      >
+        {name}
+      </text>
+    </g>
+  );
+}
+
 function SourcesCard({ data }) {
   return (
     <Card title="Traffic Source Breakout" tall>
@@ -444,11 +474,13 @@ function SourcesCard({ data }) {
               data={data}
               dataKey="value"
               nameKey="name"
-              innerRadius="58%"
-              outerRadius="86%"
+              innerRadius={44}
+              outerRadius={66}
               paddingAngle={2}
               stroke="none"
               isAnimationActive={false}
+              label={renderOuterLabel}
+              labelLine={false}
             >
               {data.map((s) => (
                 <Cell key={s.name} fill={s.fill} />
