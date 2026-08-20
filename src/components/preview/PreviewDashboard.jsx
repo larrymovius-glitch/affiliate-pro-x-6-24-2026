@@ -1,4 +1,5 @@
 import { useState } from "react";
+import BrandEmblem from "@/components/preview/BrandEmblem";
 import {
   LayoutGrid,
   Megaphone,
@@ -120,12 +121,7 @@ function Rail({ active, onSelect }) {
       style={{ background: C.panel, borderColor: C.line }}
     >
       <div className="hidden md:mb-3 md:block" aria-hidden="true">
-        <span
-          className="grid h-9 w-9 place-items-center rounded-xl text-[15px] font-bold text-[#07182E]"
-          style={{ background: `linear-gradient(135deg, ${C.gold}, ${C.goldDeep})` }}
-        >
-          A
-        </span>
+        <BrandEmblem ringId="railEmblem" className="h-9 w-9" />
       </div>
 
       {NAV.map(({ id, label, Icon }) => {
@@ -175,13 +171,7 @@ function TopBar() {
   return (
     <header className="mb-5 flex items-center gap-3">
       <div className="flex items-center gap-2.5">
-        <span
-          className="grid h-8 w-8 place-items-center rounded-lg text-[14px] font-bold text-[#07182E] md:hidden"
-          style={{ background: `linear-gradient(135deg, ${C.gold}, ${C.goldDeep})` }}
-          aria-hidden="true"
-        >
-          A
-        </span>
+        <BrandEmblem ringId="topbarEmblem" className="h-9 w-9 shrink-0 md:hidden" />
         <h1 className="text-[17px] font-semibold tracking-tight" style={{ color: C.text }}>
           Affiliate Pro X
         </h1>
@@ -192,13 +182,6 @@ function TopBar() {
         style={{ background: `linear-gradient(135deg, ${C.gold}, ${C.goldDeep})` }}
       >
         Velocity
-      </span>
-
-      <span
-        className="ml-auto rounded-full border px-3 py-1.5 text-[11px] font-medium"
-        style={{ borderColor: C.lineBright, background: C.card, color: C.muted }}
-      >
-        Preview — placeholder data
       </span>
     </header>
   );
