@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useLayoutEffect } from "react";
 import { MessageSquare, Minus, X, Send, GripHorizontal, Loader2 } from "lucide-react";
+import { base44 } from "@/api/base44Client";
 
 /**
  * AgentDock — floating, draggable chat panel for the APX agents. PREVIEW build.
@@ -9,9 +10,10 @@ import { MessageSquare, Minus, X, Send, GripHorizontal, Loader2 } from "lucide-r
  * Palette is hard-coded hex on purpose, matching PreviewDashboard's blue/gold —
  * it does not read dash-theme.js tokens (those are violet/indigo).
  *
- * Talks to POST /api/agentChat. Expected body:
- *   { agent: "maya" | "atlas", message: string, history: [{role, content}] }
- * Reads the reply from data.reply | data.message | data.content.
+ * Talks to /api/agentChat via base44.functions.invoke("agentChat", ...), the
+ * same auth'd-fetch wrapper the rest of the app uses. Expected body:
+ *   { agent_name: "maya" | "atlas", messages: [{role, content}] }
+ * Response is { messages: [...messages, {role: "assistant", content}] }.
  */
 
 const AGENTS = {
@@ -150,21 +152,15 @@ function useIsMobile() {
 }
 
 async function sendToAgent({ agentId, message, history }) {
-  const res = await fetch("/api/agentChat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ agent: agentId, message, history }),
+  const messages = [...history, { role: "user", content: message }];
+  const { data } = await base44.functions.invoke("agentChat", {
+    agent_name: agentId,
+    messages,
   });
 
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(detail || `Agent request failed (${res.status})`);
-  }
-
-  const data = await res.json();
-  const reply = data.reply ?? data.message ?? data.content;
-  if (!reply) throw new Error("Agent returned an empty response.");
-  return typeof reply === "string" ? reply : String(reply);
+  const reply = data?.messages?.[data.messages.length - 1];
+  if (!reply?.content) throw new Error("Agent returned an empty response.");
+  return reply.content;
 }
 
 function Avatar({ agent, size = 32 }) {
