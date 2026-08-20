@@ -45,19 +45,23 @@ import {
 /* ------------------------------------------------------------------ */
 
 const C = {
-  bg: "#071A35",
-  panel: "#0B2244",
-  card: "#0E2C55",
-  cardTop: "#12356A",
-  line: "#17406F",
-  lineBright: "#1E4C86",
+  // Bright royal blue, per the reference mock — not near-black navy.
+  bgGradient: "linear-gradient(150deg, #0C356F 0%, #10439A 42%, #0A2B66 100%)",
+  panel: "#0A2A5F",
+  card: "#0B2F68",
+  cardTop: "#104084",
+  line: "#1D4E9C",
+  lineBright: "#2E63B8",
+  goldBorder: "rgba(245,185,66,0.45)",
   gold: "#F5B942",
+  goldSoft: "#FFD873",
   goldDeep: "#E09A2C",
-  cyan: "#38D9E8",
-  teal: "#34D399",
-  text: "#EAF3FF",
-  muted: "#8FAECE",
-  dim: "#5C87B8",
+  bronze: "#B47327",
+  cyan: "#45DCEC",
+  teal: "#2A9FC4",
+  text: "#F2F7FF",
+  muted: "#B7CFF0",
+  dim: "#86A9DA",
   up: "#5FD69A",
 };
 
@@ -78,7 +82,7 @@ function useOverviewData() {
     conversions: {
       value: "342",
       delta: "+12%",
-      series: [3, 5, 4, 7, 6, 9, 7, 11, 9, 13, 11, 15].map((v, i) => ({ i, v })),
+      series: [8, 10, 9, 11, 10, 12, 11, 14, 12, 15, 13, 16].map((v, i) => ({ i, v })),
     },
     traffic: {
       value: "21,560",
@@ -88,16 +92,65 @@ function useOverviewData() {
     epc: { value: "$0.85", pct: 0.68 },
     growth: Array.from({ length: 30 }, (_, i) => ({
       day: i + 1,
-      visitors: Math.round(180 + i * 21 + Math.sin(i / 2.4) * 95),
-      conversions: Math.round(120 + i * 16 + Math.sin(i / 3.1) * 70),
+      visitors: Math.round(150 + i * 24 + Math.sin(i / 2.2) * 70),
+      conversions: Math.round(85 + i * 18 + Math.sin(i / 2.8) * 55),
     })),
+    // Order matters: clockwise from 12 o'clock, so the callout labels land
+    // where the reference mock puts them (Email right, Search bottom-right,
+    // Social bottom-left, Payouts left/top-left).
     sources: [
-      { name: "Payouts", value: 38, fill: C.gold },
-      { name: "Email", value: 27, fill: C.cyan },
-      { name: "Search", value: 21, fill: C.teal },
-      { name: "Social", value: 14, fill: C.goldDeep },
+      { name: "Email", value: 27, fill: "url(#segCyan)", dot: C.cyan },
+      { name: "Search", value: 21, fill: "url(#segTeal)", dot: C.teal },
+      { name: "Social", value: 14, fill: "url(#segBronze)", dot: C.bronze },
+      { name: "Payouts", value: 38, fill: "url(#segGold)", dot: C.gold },
     ],
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Backdrop — glow + sparkles, per the reference mock                  */
+/* ------------------------------------------------------------------ */
+
+const SPARKLES = [
+  { top: "12%", left: "58%", size: 3, opacity: 0.9 },
+  { top: "22%", left: "83%", size: 2, opacity: 0.7 },
+  { top: "38%", left: "70%", size: 2, opacity: 0.5 },
+  { top: "55%", left: "88%", size: 3, opacity: 0.8 },
+  { top: "68%", left: "62%", size: 2, opacity: 0.6 },
+  { top: "78%", left: "80%", size: 2, opacity: 0.75 },
+  { top: "84%", left: "38%", size: 2, opacity: 0.5 },
+  { top: "30%", left: "30%", size: 2, opacity: 0.45 },
+];
+
+function Backdrop() {
+  return (
+    <div aria-hidden="true" className="pointer-events-none fixed inset-0 overflow-hidden">
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(900px 600px at 78% 18%, rgba(69,156,255,0.28), transparent 65%)," +
+            "radial-gradient(700px 500px at 15% 85%, rgba(38,99,196,0.35), transparent 70%)," +
+            "radial-gradient(500px 340px at 90% 75%, rgba(245,185,66,0.10), transparent 70%)",
+        }}
+      />
+      {SPARKLES.map((s, i) => (
+        <span
+          key={i}
+          className="absolute rounded-full"
+          style={{
+            top: s.top,
+            left: s.left,
+            width: s.size,
+            height: s.size,
+            opacity: s.opacity,
+            background: "#EAF4FF",
+            boxShadow: "0 0 6px 1px rgba(234,244,255,0.8)",
+          }}
+        />
+      ))}
+    </div>
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -118,7 +171,7 @@ function Rail({ active, onSelect }) {
     <nav
       aria-label="Sections"
       className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around border-t px-1 py-1.5 md:inset-y-0 md:right-auto md:left-0 md:w-[76px] md:flex-col md:justify-start md:gap-1 md:border-r md:border-t-0 md:px-2 md:py-3"
-      style={{ background: C.panel, borderColor: C.line }}
+      style={{ background: C.panel, borderColor: "rgba(245,185,66,0.25)" }}
     >
       <div className="hidden md:mb-3 md:block" aria-hidden="true">
         <BrandEmblem ringId="railEmblem" className="h-9 w-9" />
@@ -134,13 +187,21 @@ function Rail({ active, onSelect }) {
             aria-current={on ? "page" : undefined}
             className="relative flex w-full flex-col items-center gap-1 rounded-xl px-1 py-2 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"
             style={{
-              background: on ? "rgba(245,185,66,0.12)" : "transparent",
-              color: on ? C.gold : C.dim,
+              background: on ? "rgba(245,185,66,0.16)" : "transparent",
               "--tw-ring-color": C.gold,
             }}
           >
-            <Icon size={19} strokeWidth={on ? 2.2 : 1.8} />
-            <span className="text-[10px] font-medium leading-none">{label}</span>
+            <Icon
+              size={19}
+              strokeWidth={on ? 2.2 : 1.8}
+              style={{ color: on ? C.gold : C.goldDeep }}
+            />
+            <span
+              className="text-[10px] font-medium leading-none"
+              style={{ color: on ? C.text : C.muted }}
+            >
+              {label}
+            </span>
           </button>
         );
       })}
@@ -150,7 +211,7 @@ function Rail({ active, onSelect }) {
           type="button"
           aria-label="Settings"
           className="grid h-8 w-8 place-items-center rounded-lg transition-colors hover:bg-[#17406F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5B942] motion-reduce:transition-none"
-          style={{ color: C.dim }}
+          style={{ color: C.goldDeep }}
         >
           <Settings size={16} />
         </button>
@@ -158,7 +219,7 @@ function Rail({ active, onSelect }) {
           type="button"
           aria-label="Collapse navigation"
           className="grid h-8 w-8 place-items-center rounded-lg transition-colors hover:bg-[#17406F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5B942] motion-reduce:transition-none"
-          style={{ color: C.dim }}
+          style={{ color: C.goldDeep }}
         >
           <ChevronsLeft size={16} />
         </button>
@@ -196,9 +257,12 @@ function Card({ title, children, className = "", tall = false }) {
     <section
       className={`relative overflow-hidden rounded-2xl border p-4 ${className}`}
       style={{
-        borderColor: C.lineBright,
+        // Reference mock: stat cards carry a visible gold edge; the two big
+        // chart cards read slightly cooler.
+        borderColor: tall ? "rgba(245,185,66,0.28)" : C.goldBorder,
         background: `linear-gradient(160deg, ${C.cardTop} 0%, ${C.card} 100%)`,
-        boxShadow: "0 12px 28px -18px rgba(0,0,0,0.8)",
+        boxShadow:
+          "0 12px 28px -18px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.06)",
       }}
     >
       <div className="mb-2 flex items-start justify-between gap-2">
@@ -303,7 +367,7 @@ function TrafficCard({ data }) {
               dataKey="v"
               stroke={C.gold}
               strokeWidth={2}
-              dot={{ r: 1.6, fill: C.gold, strokeWidth: 0 }}
+              dot={{ r: 1.8, fill: C.goldSoft, strokeWidth: 0 }}
               isAnimationActive={false}
             />
           </LineChart>
@@ -332,7 +396,7 @@ function EpcCard({ data }) {
           <path
             d="M 11 55 A 44 44 0 0 1 99 55"
             fill="none"
-            stroke={C.lineBright}
+            stroke="rgba(234,244,255,0.18)"
             strokeWidth="9"
             strokeLinecap="round"
           />
@@ -345,7 +409,7 @@ function EpcCard({ data }) {
             strokeDasharray={`${filled} ${CIRC}`}
           />
         </svg>
-        <p className="-mt-3 text-[24px] font-bold tracking-tight" style={{ color: C.text }}>
+        <p className="-mt-5 text-[24px] font-bold tracking-tight" style={{ color: C.text }}>
           {data.value}
         </p>
       </div>
@@ -374,37 +438,59 @@ function GrowthCard({ data }) {
     <Card title="Campaign Growth — Last 30 Days" tall>
       <div className="h-[212px]">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 6, bottom: 0, left: -20 }}>
+          <AreaChart data={data} margin={{ top: 8, right: 6, bottom: 10, left: 0 }}>
+            <defs>
+              <linearGradient id="growthVisitors" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={C.goldSoft} stopOpacity={0.28} />
+                <stop offset="100%" stopColor={C.goldSoft} stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="growthConversions" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={C.goldDeep} stopOpacity={0.2} />
+                <stop offset="100%" stopColor={C.goldDeep} stopOpacity={0} />
+              </linearGradient>
+            </defs>
             <CartesianGrid stroke={C.line} strokeDasharray="3 5" vertical={false} />
-            <XAxis dataKey="day" tick={{ fill: C.dim, fontSize: 10 }} tickLine={false} axisLine={false} />
-            <YAxis tick={{ fill: C.dim, fontSize: 10 }} tickLine={false} axisLine={false} width={44} />
+            {/* Reference mock: no per-day tick labels along the bottom. */}
+            <XAxis dataKey="day" hide />
+            {/* Reference mock: exactly 0 / 500 / 1,000 on the y-axis. */}
+            <YAxis
+              domain={[0, 1000]}
+              ticks={[0, 500, 1000]}
+              tickFormatter={(v) => v.toLocaleString("en-US")}
+              tick={{ fill: C.dim, fontSize: 11 }}
+              tickLine={false}
+              axisLine={false}
+              width={42}
+            />
             <Tooltip {...tooltipStyle} labelFormatter={(d) => `Day ${d}`} cursor={{ stroke: C.lineBright }} />
-            <Line
+            <Area
               type="monotone"
               dataKey="visitors"
               name="Visitors"
-              stroke={C.cyan}
-              strokeWidth={2.2}
+              stroke={C.goldSoft}
+              strokeWidth={2.4}
+              fill="url(#growthVisitors)"
               dot={false}
               isAnimationActive={false}
             />
-            <Line
+            <Area
               type="monotone"
               dataKey="conversions"
               name="Conversions"
-              stroke={C.gold}
-              strokeWidth={2.2}
+              stroke={C.goldDeep}
+              strokeWidth={2.4}
+              fill="url(#growthConversions)"
               dot={false}
               isAnimationActive={false}
             />
-          </LineChart>
+          </AreaChart>
         </ResponsiveContainer>
       </div>
 
       <ul className="mt-2 flex justify-center gap-5">
         {[
-          ["Visitors", C.cyan],
-          ["Conversions", C.gold],
+          ["Visitors", C.goldSoft],
+          ["Conversions", C.goldDeep],
         ].map(([label, color]) => (
           <li key={label} className="flex items-center gap-1.5 text-[11px]" style={{ color: C.muted }}>
             <span className="h-0.5 w-4 rounded-full" style={{ background: color }} />
@@ -418,32 +504,21 @@ function GrowthCard({ data }) {
 
 const RADIAN = Math.PI / 180;
 
-function renderOuterLabel({ cx, cy, midAngle, outerRadius, name, fill }) {
-  const cos = Math.cos(-RADIAN * midAngle);
-  const sin = Math.sin(-RADIAN * midAngle);
-  const sx = cx + (outerRadius + 4) * cos;
-  const sy = cy + (outerRadius + 4) * sin;
-  const mx = cx + (outerRadius + 16) * cos;
-  const my = cy + (outerRadius + 16) * sin;
-  const ex = mx + (cos >= 0 ? 1 : -1) * 12;
-  const ey = my;
-  const textAnchor = cos >= 0 ? "start" : "end";
-
+function renderSourceLabel({ cx, cy, midAngle, outerRadius, name }) {
+  const r = outerRadius + 16;
+  const x = cx + r * Math.cos(-midAngle * RADIAN);
+  const y = cy + r * Math.sin(-midAngle * RADIAN);
   return (
-    <g key={name}>
-      <path d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke={fill} fill="none" strokeWidth={1} />
-      <circle cx={sx} cy={sy} r={2} fill={fill} stroke="none" />
-      <text
-        x={ex + (cos >= 0 ? 4 : -4)}
-        y={ey}
-        textAnchor={textAnchor}
-        dominantBaseline="central"
-        fill={C.muted}
-        fontSize={11}
-      >
-        {name}
-      </text>
-    </g>
+    <text
+      x={x}
+      y={y}
+      fill={C.muted}
+      fontSize={11}
+      textAnchor={x > cx ? "start" : "end"}
+      dominantBaseline="central"
+    >
+      {name}
+    </text>
   );
 }
 
@@ -452,18 +527,39 @@ function SourcesCard({ data }) {
     <Card title="Traffic Source Breakout" tall>
       <div className="h-[212px]">
         <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
+          <PieChart margin={{ top: 8, right: 24, bottom: 8, left: 24 }}>
+            <defs>
+              <linearGradient id="segGold" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor={C.goldSoft} />
+                <stop offset="100%" stopColor={C.goldDeep} />
+              </linearGradient>
+              <linearGradient id="segBronze" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor={C.goldDeep} />
+                <stop offset="100%" stopColor="#8A5217" />
+              </linearGradient>
+              <linearGradient id="segCyan" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#7FE9F4" />
+                <stop offset="100%" stopColor={C.cyan} />
+              </linearGradient>
+              <linearGradient id="segTeal" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={C.cyan} />
+                <stop offset="100%" stopColor="#1C7DA6" />
+              </linearGradient>
+            </defs>
             <Pie
               data={data}
               dataKey="value"
               nameKey="name"
-              innerRadius={44}
-              outerRadius={66}
-              paddingAngle={2}
-              stroke="none"
+              startAngle={90}
+              endAngle={-270}
+              innerRadius="48%"
+              outerRadius="74%"
+              paddingAngle={1.5}
+              stroke={C.card}
+              strokeWidth={2}
+              label={renderSourceLabel}
+              labelLine={{ stroke: "rgba(183,207,240,0.55)", strokeWidth: 1 }}
               isAnimationActive={false}
-              label={renderOuterLabel}
-              labelLine={false}
             >
               {data.map((s) => (
                 <Cell key={s.name} fill={s.fill} />
@@ -477,7 +573,7 @@ function SourcesCard({ data }) {
       <ul className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1.5">
         {data.map((s) => (
           <li key={s.name} className="flex items-center gap-1.5 text-[11px]" style={{ color: C.muted }}>
-            <span className="h-2 w-2 rounded-full" style={{ background: s.fill }} />
+            <span className="h-2 w-2 rounded-full" style={{ background: s.dot }} />
             {s.name}
           </li>
         ))}
@@ -495,10 +591,11 @@ export default function PreviewDashboard() {
   const d = useOverviewData();
 
   return (
-    <div className="min-h-screen" style={{ background: C.bg }}>
+    <div className="relative min-h-screen" style={{ background: C.bgGradient }}>
+      <Backdrop />
       <Rail active={section} onSelect={setSection} />
 
-      <main className="px-4 pb-24 pt-5 md:pb-8 md:pl-[92px] md:pr-6">
+      <main className="relative px-4 pb-24 pt-5 md:pb-8 md:pl-[92px] md:pr-6">
         <TopBar />
 
         <h2 className="mb-3 text-[15px] font-semibold tracking-tight" style={{ color: C.text }}>
