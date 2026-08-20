@@ -20,7 +20,6 @@ import AppLayout from '@/components/layout/AppLayout';
 
 // Pages
 import Splash from '@/pages/Splash.jsx';
-import Dashboard from '@/pages/Dashboard';
 import MakeMoney from '@/pages/MakeMoney';
 import Products from '@/pages/Products';
 import Links from '@/pages/Links';
@@ -35,6 +34,7 @@ import TermsOfService from '@/pages/TermsOfService';
 import Admin from '@/pages/Admin';
 import Pricing from '@/pages/Pricing';
 import PaymentSuccess from '@/pages/PaymentSuccess';
+import DashboardPreview from '@/pages/DashboardPreview';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -72,8 +72,8 @@ const AuthenticatedApp = () => {
       <Route path="/payment-success" element={<PaymentSuccess />} />
 
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
+        <Route path="/" element={<DashboardPreview />} />
         <Route element={<AppLayout />}>
-          <Route path="/" element={<Dashboard />} />
           <Route path="/make-money" element={<MakeMoney />} />
           <Route path="/products" element={<Products />} />
           <Route path="/links" element={<Links />} />
@@ -85,6 +85,7 @@ const AuthenticatedApp = () => {
           <Route path="/admin" element={<Admin />} />
           <Route path="/pricing" element={<Pricing />} />
         </Route>
+        <Route path="/dashboard-preview" element={<DashboardPreview />} />
       </Route>
 
       <Route path="*" element={<PageNotFound />} />
