@@ -35,6 +35,7 @@ import TermsOfService from '@/pages/TermsOfService';
 import Admin from '@/pages/Admin';
 import Pricing from '@/pages/Pricing';
 import PaymentSuccess from '@/pages/PaymentSuccess';
+import DashboardPreview from '@/pages/DashboardPreview';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -85,6 +86,7 @@ const AuthenticatedApp = () => {
           <Route path="/admin" element={<Admin />} />
           <Route path="/pricing" element={<Pricing />} />
         </Route>
+        <Route path="/dashboard-preview" element={<DashboardPreview />} />
       </Route>
 
       <Route path="*" element={<PageNotFound />} />
