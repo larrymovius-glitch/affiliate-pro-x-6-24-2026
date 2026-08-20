@@ -20,7 +20,6 @@ import AppLayout from '@/components/layout/AppLayout';
 
 // Pages
 import Splash from '@/pages/Splash.jsx';
-import Dashboard from '@/pages/Dashboard';
 import MakeMoney from '@/pages/MakeMoney';
 import Products from '@/pages/Products';
 import Links from '@/pages/Links';
@@ -73,8 +72,8 @@ const AuthenticatedApp = () => {
       <Route path="/payment-success" element={<PaymentSuccess />} />
 
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
+        <Route path="/" element={<DashboardPreview />} />
         <Route element={<AppLayout />}>
-          <Route path="/" element={<Dashboard />} />
           <Route path="/make-money" element={<MakeMoney />} />
           <Route path="/products" element={<Products />} />
           <Route path="/links" element={<Links />} />
