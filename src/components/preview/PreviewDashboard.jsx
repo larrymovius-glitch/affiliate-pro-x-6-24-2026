@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import BrandEmblem from "@/components/preview/BrandEmblem";
 import { base44 } from "@/api/base44Client";
 import { buildPerformanceChartData, buildPerformanceMetrics } from "@/lib/performance-calculations";
 import {
@@ -78,6 +77,16 @@ function pctChange(curr, prev) {
 }
 
 const SOURCE_COLORS = [C.gold, C.cyan, C.teal, C.goldDeep];
+
+function BrandMark({ className = "" }) {
+  return (
+    <img
+      src="/brand/logo-256.png"
+      alt="amhere4utoday.com"
+      className={`rounded-full object-cover ${className}`}
+    />
+  );
+}
 
 function useOverviewData() {
   const linksQ = useQuery({ queryKey: ["links"], queryFn: () => base44.entities.AffiliateLink.list("-created_date", 200) });
@@ -167,7 +176,7 @@ function Rail({ active, onSelect }) {
       style={{ background: C.panel, borderColor: C.line }}
     >
       <div className="hidden md:mb-3 md:block" aria-hidden="true">
-        <BrandEmblem ringId="railEmblem" className="h-9 w-9" />
+        <BrandMark className="h-9 w-9" />
       </div>
 
       {NAV.map(({ id, label, Icon }) => {
@@ -217,7 +226,7 @@ function TopBar() {
   return (
     <header className="mb-5 flex items-center gap-3">
       <div className="flex items-center gap-2.5">
-        <BrandEmblem ringId="topbarEmblem" className="h-9 w-9 shrink-0 md:hidden" />
+        <BrandMark className="h-9 w-9 shrink-0 md:hidden" />
         <h1 className="text-[17px] font-semibold tracking-tight" style={{ color: C.text }}>
           Affiliate Pro X
         </h1>
@@ -583,8 +592,14 @@ export default function PreviewDashboard() {
           <SourcesCard data={d.sources} />
         </div>
 
-        <footer className="pt-6 pb-2 text-center text-[11px]" style={{ color: C.dim }}>
-          Affiliate Pro X · amhere4utoday.com · Movius
+        <footer className="pt-6 pb-2 text-center">
+          <p className="text-[11px]" style={{ color: C.dim }}>
+            Affiliate Pro X · amhere4utoday.com
+          </p>
+          <p className="mt-1 text-[13px]" style={{ color: C.dim }}>
+            Another development by{" "}
+            <span className="movius-signature text-[19px] font-medium">Movius</span>
+          </p>
         </footer>
       </main>
     </div>
