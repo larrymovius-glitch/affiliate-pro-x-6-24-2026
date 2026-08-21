@@ -56,6 +56,11 @@ export default function AuthLayout({ icon: Icon, title, subtitle, footer, childr
         {footer && (
           <p className="text-center text-sm text-slate-400 mt-2 font-medium">{footer}</p>
         )}
+
+        <p className="text-center text-sm text-slate-400 mt-5">
+          Another development by{" "}
+          <span className="movius-signature text-3xl font-bold">Movius</span>
+        </p>
       </div>
     </div>
   );

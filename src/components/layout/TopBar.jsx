@@ -30,6 +30,23 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 
+// The `notifications` table was set up with a `created_at` timestamp column
+// instead of the `created_date` name every other migrated entity uses, so
+// sorting by "-created_date" 400s ("column notifications.created_date does
+// not exist" — Postgres code 42703). Try the app-wide convention first and
+// fall back to "-created_at" so this keeps working either way until the
+// column is renamed for consistency on the Supabase side.
+async function fetchNotifications(userId) {
+  try {
+    return await base44.entities.Notification.filter({ user_id: userId }, "-created_date", 20);
+  } catch (error) {
+    if (error?.code === "42703") {
+      return base44.entities.Notification.filter({ user_id: userId }, "-created_at", 20);
+    }
+    throw error;
+  }
+}
+
 export default function TopBar({ onMenuClick }) {
   const { user } = useAuth();
   const location = useLocation();
@@ -61,10 +78,7 @@ export default function TopBar({ onMenuClick }) {
   const queryClient = useQueryClient();
   const { data: notifications = [] } = useQuery({
     queryKey: ["notifications"],
-    queryFn: () => withTimeout(
-      base44.entities.Notification.filter({ user_id: user?.id }, "-created_date", 20),
-      15000, "Loading notifications"
-    ),
+    queryFn: () => withTimeout(fetchNotifications(user?.id), 15000, "Loading notifications"),
     enabled: Boolean(user?.id),
     refetchInterval: 60000,
   });
@@ -167,7 +181,7 @@ export default function TopBar({ onMenuClick }) {
                         <p className="text-sm font-medium truncate">{n.title}</p>
                       </div>
                       {n.body && <p className="text-xs text-muted-foreground pl-3.5">{n.body}</p>}
-                      {n.created_date && <p className="text-[10px] text-muted-foreground/70 pl-3.5">{format(new Date(n.created_date), "MMM d, h:mm a")}</p>}
+                      {(n.created_date || n.created_at) && <p className="text-[10px] text-muted-foreground/70 pl-3.5">{format(new Date(n.created_date || n.created_at), "MMM d, h:mm a")}</p>}
                     </DropdownMenuItem>
                   ))}
                 </div>
