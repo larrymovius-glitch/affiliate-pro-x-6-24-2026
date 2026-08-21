@@ -63,6 +63,17 @@ const C = {
   up: "#5FD69A",
 };
 
+// Soft atmospheric glow over the navy background — pure CSS, no images, so
+// it costs nothing in load time or performance on mobile.
+const BG_GLOW = {
+  backgroundColor: C.bg,
+  backgroundImage: [
+    "radial-gradient(ellipse 70% 40% at 20% -10%, rgba(56,217,232,0.10), transparent 60%)",
+    "radial-gradient(ellipse 55% 35% at 85% 5%, rgba(245,185,66,0.09), transparent 60%)",
+    "radial-gradient(ellipse 70% 50% at 50% 115%, rgba(52,211,153,0.07), transparent 60%)",
+  ].join(", "),
+};
+
 /* ------------------------------------------------------------------ */
 /* Live data                                                           */
 /* ------------------------------------------------------------------ */
@@ -555,7 +566,7 @@ export default function PreviewDashboard() {
 
   if (d.loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center" style={{ background: C.bg }}>
+      <div className="flex min-h-screen items-center justify-center" style={BG_GLOW}>
         <div className="flex flex-col items-center gap-3">
           <div
             className="h-8 w-8 animate-spin rounded-full border-[3px]"
@@ -570,7 +581,7 @@ export default function PreviewDashboard() {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: C.bg }}>
+    <div className="min-h-screen" style={BG_GLOW}>
       <Rail active={section} onSelect={setSection} />
 
       <main className="px-4 pb-24 pt-5 md:pb-8 md:pl-[92px] md:pr-6">
