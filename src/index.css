@@ -142,3 +142,28 @@ button, a, [role="button"] {
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* "Another development by Movius" signature — gold sparkle sweep */
+@keyframes moviusSparkle {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.movius-signature {
+  font-family: "Great Vibes", cursive;
+  background: linear-gradient(
+    100deg,
+    #E09A2C 20%,
+    #F5B942 35%,
+    #FFE9A8 48%,
+    #F5B942 61%,
+    #E09A2C 80%
+  );
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: moviusSparkle 3.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .movius-signature { animation: none; }
+}

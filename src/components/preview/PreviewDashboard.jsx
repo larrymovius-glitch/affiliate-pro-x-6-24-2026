@@ -1,5 +1,7 @@
 import { useState } from "react";
-import BrandEmblem from "@/components/preview/BrandEmblem";
+import { useQuery } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
+import { buildPerformanceChartData, buildPerformanceMetrics } from "@/lib/performance-calculations";
 import {
   LayoutGrid,
   Megaphone,
@@ -11,6 +13,7 @@ import {
   ChevronsLeft,
   MoreVertical,
   TrendingUp,
+  TrendingDown,
 } from "lucide-react";
 import {
   Area,
@@ -30,12 +33,11 @@ import {
 } from "recharts";
 
 /**
- * PreviewDashboard — blue/gold mockup, PREVIEW ONLY.
+ * PreviewDashboard — blue/gold dashboard, live at "/".
  *
- * This is not wired to Supabase — every number here is placeholder data from
- * `useOverviewData` below. It exists so the blue/gold look can be judged
- * side-by-side with the live (violet/indigo) dashboard before any real
- * component gets restyled.
+ * Wired to real Supabase data via `useOverviewData` below (AffiliateLink,
+ * ClickEvent, ConversionEvent), using the same calculations as the rest of
+ * the app (`src/lib/performance-calculations.js`).
  *
  * Requires: recharts, lucide-react (both already in package.json).
  */
@@ -61,42 +63,106 @@ const C = {
   up: "#5FD69A",
 };
 
+// Soft atmospheric glow over the navy background — pure CSS, no images, so
+// it costs nothing in load time or performance on mobile.
+const BG_GLOW = {
+  backgroundColor: C.bg,
+  backgroundImage: [
+    "radial-gradient(ellipse 70% 40% at 20% -10%, rgba(56,217,232,0.10), transparent 60%)",
+    "radial-gradient(ellipse 55% 35% at 85% 5%, rgba(245,185,66,0.09), transparent 60%)",
+    "radial-gradient(ellipse 70% 50% at 50% 115%, rgba(52,211,153,0.07), transparent 60%)",
+  ].join(", "),
+};
+
 /* ------------------------------------------------------------------ */
-/* Placeholder data                                                    */
+/* Live data                                                           */
 /* ------------------------------------------------------------------ */
 
+function formatDelta(pct) {
+  return `${pct >= 0 ? "+" : ""}${pct.toFixed(0)}%`;
+}
+
+function pctChange(curr, prev) {
+  if (prev > 0) return ((curr - prev) / prev) * 100;
+  return curr > 0 ? 100 : 0;
+}
+
+const SOURCE_COLORS = [C.gold, C.cyan, C.teal, C.goldDeep];
+
+function BrandMark({ className = "" }) {
+  return (
+    <img
+      src="/brand/logo-256.png"
+      alt="amhere4utoday.com"
+      className={`rounded-full object-cover ${className}`}
+    />
+  );
+}
+
 function useOverviewData() {
+  const linksQ = useQuery({ queryKey: ["links"], queryFn: () => base44.entities.AffiliateLink.list("-created_date", 200) });
+  const clicksQ = useQuery({ queryKey: ["click-events"], queryFn: () => base44.entities.ClickEvent.list("-created_date", 1000) });
+  const convQ = useQuery({ queryKey: ["conversion-events"], queryFn: () => base44.entities.ConversionEvent.list("-created_date", 1000) });
+
+  const links = linksQ.data || [];
+  const clickEvents = clicksQ.data || [];
+  const conversionEvents = convQ.data || [];
+  const loading = linksQ.isLoading || clicksQ.isLoading || convQ.isLoading;
+
+  const metrics = buildPerformanceMetrics({ links, clickEvents, conversionEvents });
+  const sixty = buildPerformanceChartData(clickEvents, conversionEvents, 60);
+  const last12 = sixty.slice(-12);
+  const thisWeek = sixty.slice(-7);
+  const prevWeek = sixty.slice(-14, -7);
+
+  const earningsThisWeek = thisWeek.reduce((s, r) => s + r.earnings, 0);
+  const earningsLastWeek = prevWeek.reduce((s, r) => s + r.earnings, 0);
+  const convThisWeek = thisWeek.reduce((s, r) => s + r.conversions, 0);
+  const convLastWeek = prevWeek.reduce((s, r) => s + r.conversions, 0);
+
+  const growth = buildPerformanceChartData(clickEvents, conversionEvents, 30).map((row, i) => ({
+    day: i + 1,
+    visitors: row.clicks,
+    conversions: row.conversions,
+  }));
+
+  const sourceCounts = clickEvents.reduce((acc, click) => {
+    const label = click.source || click.referrer || "Direct";
+    acc[label] = (acc[label] || 0) + 1;
+    return acc;
+  }, {});
+  const totalSourceClicks = Object.values(sourceCounts).reduce((s, v) => s + v, 0);
+  const sources = Object.entries(sourceCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([name, count], i) => ({
+      name,
+      value: totalSourceClicks > 0 ? Math.round((count / totalSourceClicks) * 100) : 0,
+      fill: SOURCE_COLORS[i % SOURCE_COLORS.length],
+    }));
+
   return {
+    loading,
     earnings: {
-      value: "$4,895.12",
-      delta: "+18%",
-      series: [2.1, 3.4, 2.8, 4.2, 3.6, 5.1, 4.4, 6.2, 5.5, 7.1, 6.4, 8.2].map((v, i) => ({
-        i,
-        v,
-      })),
+      value: `$${metrics.totalEarnings.toFixed(2)}`,
+      delta: formatDelta(pctChange(earningsThisWeek, earningsLastWeek)),
+      series: last12.map((r, i) => ({ i, v: r.earnings })),
     },
     conversions: {
-      value: "342",
-      delta: "+12%",
-      series: [3, 5, 4, 7, 6, 9, 7, 11, 9, 13, 11, 15].map((v, i) => ({ i, v })),
+      value: metrics.totalConversions.toLocaleString(),
+      delta: formatDelta(pctChange(convThisWeek, convLastWeek)),
+      series: last12.map((r, i) => ({ i, v: r.conversions })),
     },
     traffic: {
-      value: "21,560",
+      value: metrics.uniqueClicks.toLocaleString(),
       label: "Visitors",
-      series: [12, 18, 15, 24, 20, 29, 26, 34, 30, 41, 37, 46].map((v, i) => ({ i, v })),
+      series: last12.map((r, i) => ({ i, v: r.clicks })),
     },
-    epc: { value: "$0.85", pct: 0.68 },
-    growth: Array.from({ length: 30 }, (_, i) => ({
-      day: i + 1,
-      visitors: Math.round(180 + i * 21 + Math.sin(i / 2.4) * 95),
-      conversions: Math.round(120 + i * 16 + Math.sin(i / 3.1) * 70),
-    })),
-    sources: [
-      { name: "Payouts", value: 38, fill: C.gold },
-      { name: "Email", value: 27, fill: C.cyan },
-      { name: "Search", value: 21, fill: C.teal },
-      { name: "Social", value: 14, fill: C.goldDeep },
-    ],
+    // No fixed EPC target exists yet, so the gauge reads relative to a $2 EPC
+    // ceiling — a reasonable placeholder scale until product defines a real one.
+    epc: { value: `$${metrics.epc.toFixed(2)}`, pct: Math.min(metrics.epc / 2, 1) },
+    growth,
+    sources: sources.length > 0 ? sources : [{ name: "No traffic yet", value: 100, fill: C.lineBright }],
   };
 }
 
@@ -121,7 +187,7 @@ function Rail({ active, onSelect }) {
       style={{ background: C.panel, borderColor: C.line }}
     >
       <div className="hidden md:mb-3 md:block" aria-hidden="true">
-        <BrandEmblem ringId="railEmblem" className="h-9 w-9" />
+        <BrandMark className="h-9 w-9" />
       </div>
 
       {NAV.map(({ id, label, Icon }) => {
@@ -171,7 +237,7 @@ function TopBar() {
   return (
     <header className="mb-5 flex items-center gap-3">
       <div className="flex items-center gap-2.5">
-        <BrandEmblem ringId="topbarEmblem" className="h-9 w-9 shrink-0 md:hidden" />
+        <BrandMark className="h-9 w-9 shrink-0 md:hidden" />
         <h1 className="text-[17px] font-semibold tracking-tight" style={{ color: C.text }}>
           Affiliate Pro X
         </h1>
@@ -222,10 +288,14 @@ function Card({ title, children, className = "", tall = false }) {
   );
 }
 
+const DOWN_COLOR = "#F0806B";
+
 function Delta({ value }) {
+  const isDown = typeof value === "string" && value.trim().startsWith("-");
+  const Icon = isDown ? TrendingDown : TrendingUp;
   return (
-    <span className="inline-flex items-center gap-0.5 text-[12px] font-semibold" style={{ color: C.up }}>
-      <TrendingUp size={12} strokeWidth={2.5} />
+    <span className="inline-flex items-center gap-0.5 text-[12px] font-semibold" style={{ color: isDown ? DOWN_COLOR : C.up }}>
+      <Icon size={12} strokeWidth={2.5} />
       {value}
     </span>
   );
@@ -494,8 +564,24 @@ export default function PreviewDashboard() {
   const [section, setSection] = useState("overview");
   const d = useOverviewData();
 
+  if (d.loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center" style={BG_GLOW}>
+        <div className="flex flex-col items-center gap-3">
+          <div
+            className="h-8 w-8 animate-spin rounded-full border-[3px]"
+            style={{ borderColor: `${C.gold} transparent transparent transparent` }}
+          />
+          <p className="text-sm font-medium" style={{ color: C.muted }}>
+            Loading your dashboard…
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen" style={{ background: C.bg }}>
+    <div className="min-h-screen" style={BG_GLOW}>
       <Rail active={section} onSelect={setSection} />
 
       <main className="px-4 pb-24 pt-5 md:pb-8 md:pl-[92px] md:pr-6">
@@ -517,8 +603,14 @@ export default function PreviewDashboard() {
           <SourcesCard data={d.sources} />
         </div>
 
-        <footer className="pt-6 pb-2 text-center text-[11px]" style={{ color: C.dim }}>
-          Affiliate Pro X · amhere4utoday.com
+        <footer className="pt-6 pb-2 text-center">
+          <p className="text-[11px]" style={{ color: C.dim }}>
+            Affiliate Pro X · amhere4utoday.com
+          </p>
+          <p className="mt-1 text-[13px]" style={{ color: C.dim }}>
+            Another development by{" "}
+            <span className="movius-signature text-[19px] font-medium">Movius</span>
+          </p>
         </footer>
       </main>
     </div>
