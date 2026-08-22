@@ -34,6 +34,7 @@ import TermsOfService from '@/pages/TermsOfService';
 import Admin from '@/pages/Admin';
 import Pricing from '@/pages/Pricing';
 import PaymentSuccess from '@/pages/PaymentSuccess';
+import AdTracker from '@/pages/AdTracker';
 import PreviewDashboard from '@/components/preview/PreviewDashboard';
 
 const AuthenticatedApp = () => {
@@ -81,6 +82,7 @@ const AuthenticatedApp = () => {
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/payouts" element={<Payouts />} />
           <Route path="/autopilot" element={<AutoPilot />} />
+          <Route path="/ad-tracker" element={<AdTracker />} />
           <Route path="/social" element={<SocialConnect />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/pricing" element={<Pricing />} />
