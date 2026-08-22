@@ -1,20 +1,7 @@
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { buildPerformanceChartData, buildPerformanceMetrics } from "@/lib/performance-calculations";
-import {
-  LayoutGrid,
-  Megaphone,
-  Shuffle,
-  Wallet,
-  BarChart3,
-  Wrench,
-  Settings,
-  ChevronsLeft,
-  MoreVertical,
-  TrendingUp,
-  TrendingDown,
-} from "lucide-react";
+import { MoreVertical, TrendingUp, TrendingDown } from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -33,7 +20,9 @@ import {
 } from "recharts";
 
 /**
- * PreviewDashboard — blue/gold dashboard, live at "/".
+ * PreviewDashboard — blue/gold dashboard content, live at "/" inside the
+ * app's normal AppLayout shell (Sidebar/TopBar/BottomNav) — same navigation,
+ * "Ask Maya" chat, and Admin Panel access as every other page.
  *
  * Wired to real Supabase data via `useOverviewData` below (AffiliateLink,
  * ClickEvent, ConversionEvent), using the same calculations as the rest of
@@ -88,16 +77,6 @@ function pctChange(curr, prev) {
 }
 
 const SOURCE_COLORS = [C.gold, C.cyan, C.teal, C.goldDeep];
-
-function BrandMark({ className = "" }) {
-  return (
-    <img
-      src="/brand/logo-256.png"
-      alt="amhere4utoday.com"
-      className={`rounded-full object-cover ${className}`}
-    />
-  );
-}
 
 function useOverviewData() {
   const linksQ = useQuery({ queryKey: ["links"], queryFn: () => base44.entities.AffiliateLink.list("-created_date", 200) });
@@ -164,93 +143,6 @@ function useOverviewData() {
     growth,
     sources: sources.length > 0 ? sources : [{ name: "No traffic yet", value: 100, fill: C.lineBright }],
   };
-}
-
-/* ------------------------------------------------------------------ */
-/* Shell                                                               */
-/* ------------------------------------------------------------------ */
-
-const NAV = [
-  { id: "overview", label: "Overview", Icon: LayoutGrid },
-  { id: "campaigns", label: "Campaigns", Icon: Megaphone },
-  { id: "traffic", label: "Traffic", Icon: Shuffle },
-  { id: "payouts", label: "Payouts", Icon: Wallet },
-  { id: "reports", label: "Reports", Icon: BarChart3 },
-  { id: "tools", label: "Tools", Icon: Wrench },
-];
-
-function Rail({ active, onSelect }) {
-  return (
-    <nav
-      aria-label="Sections"
-      className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around border-t px-1 py-1.5 md:inset-y-0 md:right-auto md:left-0 md:w-[76px] md:flex-col md:justify-start md:gap-1 md:border-r md:border-t-0 md:px-2 md:py-3"
-      style={{ background: C.panel, borderColor: C.line }}
-    >
-      <div className="hidden md:mb-3 md:block" aria-hidden="true">
-        <BrandMark className="h-9 w-9" />
-      </div>
-
-      {NAV.map(({ id, label, Icon }) => {
-        const on = id === active;
-        return (
-          <button
-            key={id}
-            type="button"
-            onClick={() => onSelect(id)}
-            aria-current={on ? "page" : undefined}
-            className="relative flex w-full flex-col items-center gap-1 rounded-xl px-1 py-2 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"
-            style={{
-              background: on ? "rgba(245,185,66,0.12)" : "transparent",
-              color: on ? C.gold : C.dim,
-              "--tw-ring-color": C.gold,
-            }}
-          >
-            <Icon size={19} strokeWidth={on ? 2.2 : 1.8} />
-            <span className="text-[10px] font-medium leading-none">{label}</span>
-          </button>
-        );
-      })}
-
-      <div className="hidden md:mt-auto md:flex md:w-full md:items-center md:justify-between md:px-1.5">
-        <button
-          type="button"
-          aria-label="Settings"
-          className="grid h-8 w-8 place-items-center rounded-lg transition-colors hover:bg-[#17406F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5B942] motion-reduce:transition-none"
-          style={{ color: C.dim }}
-        >
-          <Settings size={16} />
-        </button>
-        <button
-          type="button"
-          aria-label="Collapse navigation"
-          className="grid h-8 w-8 place-items-center rounded-lg transition-colors hover:bg-[#17406F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5B942] motion-reduce:transition-none"
-          style={{ color: C.dim }}
-        >
-          <ChevronsLeft size={16} />
-        </button>
-      </div>
-    </nav>
-  );
-}
-
-function TopBar() {
-  return (
-    <header className="mb-5 flex items-center gap-3">
-      <div className="flex items-center gap-2.5">
-        <BrandMark className="h-9 w-9 shrink-0 md:hidden" />
-        <h1 className="text-[17px] font-semibold tracking-tight" style={{ color: C.text }}>
-          Affiliate Pro X
-        </h1>
-      </div>
-
-      <span
-        className="ml-1 hidden rounded-full px-3 py-1 text-[11px] font-semibold text-[#07182E] sm:inline-block"
-        style={{ background: `linear-gradient(135deg, ${C.gold}, ${C.goldDeep})` }}
-      >
-        Velocity
-      </span>
-    </header>
-  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -561,12 +453,14 @@ function SourcesCard({ data }) {
 /* ------------------------------------------------------------------ */
 
 export default function PreviewDashboard() {
-  const [section, setSection] = useState("overview");
   const d = useOverviewData();
 
   if (d.loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center" style={BG_GLOW}>
+      <div
+        className="-mx-4 lg:-mx-6 -mt-4 lg:-mt-6 flex min-h-[calc(100vh-56px)] items-center justify-center"
+        style={BG_GLOW}
+      >
         <div className="flex flex-col items-center gap-3">
           <div
             className="h-8 w-8 animate-spin rounded-full border-[3px]"
@@ -581,12 +475,11 @@ export default function PreviewDashboard() {
   }
 
   return (
-    <div className="min-h-screen" style={BG_GLOW}>
-      <Rail active={section} onSelect={setSection} />
-
-      <main className="px-4 pb-24 pt-5 md:pb-8 md:pl-[92px] md:pr-6">
-        <TopBar />
-
+    <div
+      className="-mx-4 lg:-mx-6 -mt-4 lg:-mt-6 px-4 lg:px-6 pt-5 pb-10 min-h-[calc(100vh-56px)]"
+      style={BG_GLOW}
+    >
+      <div className="mx-auto max-w-[1200px]">
         <h2 className="mb-3 text-[15px] font-semibold tracking-tight" style={{ color: C.text }}>
           Today's Performance
         </h2>
@@ -612,7 +505,7 @@ export default function PreviewDashboard() {
             <span className="movius-signature text-[19px] font-medium">Movius</span>
           </p>
         </footer>
-      </main>
+      </div>
     </div>
   );
 }

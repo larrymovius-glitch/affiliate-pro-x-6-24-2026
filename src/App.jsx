@@ -34,7 +34,8 @@ import TermsOfService from '@/pages/TermsOfService';
 import Admin from '@/pages/Admin';
 import Pricing from '@/pages/Pricing';
 import PaymentSuccess from '@/pages/PaymentSuccess';
-import DashboardPreview from '@/pages/DashboardPreview';
+import AdTracker from '@/pages/AdTracker';
+import PreviewDashboard from '@/components/preview/PreviewDashboard';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -72,8 +73,8 @@ const AuthenticatedApp = () => {
       <Route path="/payment-success" element={<PaymentSuccess />} />
 
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
-        <Route path="/" element={<DashboardPreview />} />
         <Route element={<AppLayout />}>
+          <Route path="/" element={<PreviewDashboard />} />
           <Route path="/make-money" element={<MakeMoney />} />
           <Route path="/products" element={<Products />} />
           <Route path="/links" element={<Links />} />
@@ -81,11 +82,11 @@ const AuthenticatedApp = () => {
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/payouts" element={<Payouts />} />
           <Route path="/autopilot" element={<AutoPilot />} />
+          <Route path="/ad-tracker" element={<AdTracker />} />
           <Route path="/social" element={<SocialConnect />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/pricing" element={<Pricing />} />
         </Route>
-        <Route path="/dashboard-preview" element={<DashboardPreview />} />
       </Route>
 
       <Route path="*" element={<PageNotFound />} />
