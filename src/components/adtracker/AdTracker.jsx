@@ -591,7 +591,7 @@ export function AdTracker({ ads, channels, staleHours = 48, linkFor, onRefresh }
                 <div style={statBox}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: detail.aiFeedback ? 6 : 0 }}>
                     <span style={capLabel}>AI quality score</span>
-                    <span style={{ fontSize: 15, fontWeight: 700, color: detail.aiScore >= 6 ? "#8fe0bd" : "#ff9d8f" }}>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: detail.aiScore >= 6 ? "#6fd0a2" : "#ff9d8f" }}>
                       {detail.aiScore}/10
                     </span>
                   </div>
@@ -612,7 +612,7 @@ export function AdTracker({ ads, channels, staleHours = 48, linkFor, onRefresh }
                         padding: "3px 8px",
                         borderRadius: 999,
                         color: detail.moderationStatus === "flagged" ? "#ffd9d4" : "#08243f",
-                        background: detail.moderationStatus === "flagged" ? "rgba(226,53,42,0.25)" : `${GLOSS}, ${MODERATION_DOT[detail.moderationStatus]}`,
+                        background: detail.moderationStatus === "flagged" ? "rgba(226,53,42,0.18)" : `${GLOSS}, ${MODERATION_DOT[detail.moderationStatus]}`,
                       }}
                     >
                       {detail.moderationStatus}
