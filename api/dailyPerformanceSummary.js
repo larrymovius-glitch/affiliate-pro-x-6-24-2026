@@ -17,9 +17,9 @@ export default async function handler(req, res) {
     if (!user && !cronOk) return res.status(401).json({ error: "Unauthorized" });
 
     const D = db();
-    const links = await D.AffiliateLink.list("-created_date", 200);
-    const clickEvents = await D.ClickEvent.list("-created_date", 1000);
-    const conversionEvents = await D.ConversionEvent.list("-created_date", 1000);
+    const links = await D.AffiliateLink.list("-created_at", 200);
+    const clickEvents = await D.ClickEvent.list("-created_at", 1000);
+    const conversionEvents = await D.ConversionEvent.list("-created_at", 1000);
 
     if (!links.length) return res.status(200).json({ message: "No links found, skipping email." });
 

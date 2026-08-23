@@ -24,11 +24,7 @@ export default function PostGenerator() {
 
   const { data: links = [] } = useQuery({
     queryKey: ["links"],
-    queryFn: async () => {
-      const res = await base44.integrations.custom.call("affiliate-pro-api", "get:/api/links");
-      const result = res.data?.links || res.data;
-      return Array.isArray(result) ? result : [];
-    }
+    queryFn: () => base44.entities.AffiliateLink.list("-created_at")
   });
 
   // Get top performing posts to learn from

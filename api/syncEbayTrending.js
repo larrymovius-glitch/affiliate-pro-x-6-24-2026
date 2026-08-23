@@ -44,7 +44,7 @@ Return ONLY real, verified products that are currently trending on eBay. Do NOT 
     const added = [];
     const removed = [];
 
-    const allLinks = await D.AffiliateLink.list("-created_date", 1000);
+    const allLinks = await D.AffiliateLink.list("-created_at", 1000);
     const existingLinks = allLinks.filter((l) => (l.short_code || "").startsWith("ebay_trend_"));
 
     const newTrendingUrls = new Set();

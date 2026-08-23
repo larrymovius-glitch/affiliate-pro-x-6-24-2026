@@ -18,7 +18,7 @@ export default async function handler(req, res) {
     const backup = { exported_at: new Date().toISOString(), exported_by: user.email };
     for (const name of entities) {
       try {
-        backup[name] = await D[name].list("-created_date", 10000);
+        backup[name] = await D[name].list("-created_at", 10000);
       } catch (e) {
         backup[name] = { error: `Could not export: ${e.message}` };
       }

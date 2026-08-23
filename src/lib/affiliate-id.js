@@ -1,4 +1,8 @@
-export const DEFAULT_CLICKBANK_AFFILIATE_ID = "apxalaska";
+import { CLICKBANK_AFFILIATE_ID } from "../../api/_lib/affiliates.js";
+
+// Re-exported under the name the frontend already uses. The value itself lives
+// in api/_lib/affiliates.js so the cron job and the UI cannot drift apart.
+export const DEFAULT_CLICKBANK_AFFILIATE_ID = CLICKBANK_AFFILIATE_ID;
 
 export function getClickBankAffiliateId(user) {
   return user?.clickbank_nickname?.trim() || DEFAULT_CLICKBANK_AFFILIATE_ID;

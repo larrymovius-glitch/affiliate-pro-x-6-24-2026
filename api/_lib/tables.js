@@ -1,4 +1,12 @@
-// Entity name -> Postgres table name. Keep in sync with src/api/base44Client.js.
+// Entity name -> Postgres table name. Single source of truth for both halves
+// of the app: the Vercel functions here in `api/`, and the browser client
+// (`src/api/base44Client.js`), which imports this same object. It used to be
+// copy-pasted into both, which is how `Payment` and `Subscription` ended up
+// missing from the frontend copy. Add new entities here and nowhere else.
+//
+// Deliberately dependency-free and kept inside `api/` so the serverless
+// bundler never has to trace an import out of this directory. Vite inlines it
+// into the browser bundle at build time.
 export const TABLES = {
   AdAsset: "ad_assets",
   AdReview: "ad_reviews",
@@ -11,11 +19,11 @@ export const TABLES = {
   GeneratedPost: "generated_posts",
   GoogleReviewer: "google_reviewers",
   Notification: "notifications",
+  Payment: "payments",
   Payout: "payouts",
   PayoutSchedule: "payout_schedules",
   ProAutomationRule: "pro_automation_rules",
   Product: "products",
-  User: "profiles",
-  Payment: "payments",
   Subscription: "subscriptions",
+  User: "profiles",
 };

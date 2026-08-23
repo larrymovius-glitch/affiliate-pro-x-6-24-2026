@@ -79,9 +79,9 @@ function pctChange(curr, prev) {
 const SOURCE_COLORS = [C.gold, C.cyan, C.teal, C.goldDeep];
 
 function useOverviewData() {
-  const linksQ = useQuery({ queryKey: ["links"], queryFn: () => base44.entities.AffiliateLink.list("-created_date", 200) });
-  const clicksQ = useQuery({ queryKey: ["click-events"], queryFn: () => base44.entities.ClickEvent.list("-created_date", 1000) });
-  const convQ = useQuery({ queryKey: ["conversion-events"], queryFn: () => base44.entities.ConversionEvent.list("-created_date", 1000) });
+  const linksQ = useQuery({ queryKey: ["links"], queryFn: () => base44.entities.AffiliateLink.list("-created_at", 200) });
+  const clicksQ = useQuery({ queryKey: ["click-events"], queryFn: () => base44.entities.ClickEvent.list("-created_at", 1000) });
+  const convQ = useQuery({ queryKey: ["conversion-events"], queryFn: () => base44.entities.ConversionEvent.list("-created_at", 1000) });
 
   const links = linksQ.data || [];
   const clickEvents = clicksQ.data || [];

@@ -17,7 +17,7 @@ export default function AdAssetUploader() {
 
   const { data: assets = [] } = useQuery({
     queryKey: ["ad-assets"],
-    queryFn: () => base44.entities.AdAsset.list("-created_date", 50)
+    queryFn: () => base44.entities.AdAsset.list("-created_at", 50)
   });
 
   const deleteMutation = useMutation({

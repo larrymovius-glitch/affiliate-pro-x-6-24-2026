@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
+import { TABLES as ENTITY_TABLES } from "../../api/_lib/tables.js";
 
 // ---------------------------------------------------------------------------
 // Drop-in replacement for the old @base44/sdk client. Same call shapes
@@ -8,25 +9,6 @@ import { supabase } from "@/lib/supabaseClient";
 // change — only this file's internals moved from Base44 to Supabase + Vercel.
 // ---------------------------------------------------------------------------
 
-const ENTITY_TABLE_MAP = {
-  AdAsset: "ad_assets",
-  AdReview: "ad_reviews",
-  AffiliateLink: "affiliate_links",
-  AssistantAvatar: "assistant_avatars",
-  Campaign: "campaigns",
-  ClickEvent: "click_events",
-  ConversionEvent: "conversion_events",
-  EbayToken: "ebay_tokens",
-  GeneratedPost: "generated_posts",
-  GoogleReviewer: "google_reviewers",
-  Notification: "notifications",
-  Payout: "payouts",
-  PayoutSchedule: "payout_schedules",
-  ProAutomationRule: "pro_automation_rules",
-  Product: "products",
-  User: "profiles",
-};
-
 function parseSort(sortStr) {
   if (!sortStr || typeof sortStr !== "string") return null;
   const descending = sortStr.startsWith("-");
@@ -34,7 +16,7 @@ function parseSort(sortStr) {
 }
 
 function makeEntityClient(entityName) {
-  const table = ENTITY_TABLE_MAP[entityName] || entityName;
+  const table = ENTITY_TABLES[entityName] || entityName;
 
   return {
     async list(sort, limit) {
@@ -86,6 +68,21 @@ function makeEntityClient(entityName) {
   };
 }
 
+/**
+ * What `makeEntityClient` hands back. The Proxy below returns one of these for
+ * any entity name, which TypeScript can't infer from `new Proxy({}, ...)` — so
+ * the Record annotation is what lets `base44.entities.<Anything>` type-check.
+ *
+ * @typedef {object} EntityClient
+ * @property {(sort?: string, limit?: number) => Promise<any[]>} list
+ * @property {(query?: Record<string, any>, sort?: string, limit?: number) => Promise<any[]>} filter
+ * @property {(id: string) => Promise<any>} get
+ * @property {(payload: Record<string, any>) => Promise<any>} create
+ * @property {(id: string, payload: Record<string, any>) => Promise<any>} update
+ * @property {(id: string) => Promise<boolean>} delete
+ */
+
+/** @type {Record<string, EntityClient>} */
 const entities = new Proxy(
   {},
   {
@@ -146,8 +143,7 @@ const functions = {
 // ---------------------------------------------------------------------------
 // Integrations — file upload goes straight to Supabase Storage. LLM/speech
 // need a server-side API key, so they proxy through Vercel routes just like
-// functions.invoke. `custom.call` only ever gets used for one legacy path
-// (fetching affiliate links); routed straight to the real table.
+// functions.invoke.
 // ---------------------------------------------------------------------------
 const UPLOAD_BUCKET = "uploads";
 
@@ -171,20 +167,6 @@ const integrations = {
       return result.data;
     },
   },
-
-  custom: {
-    async call(slug, path) {
-      if (slug === "affiliate-pro-api" && path === "get:/api/links") {
-        const { data, error } = await supabase
-          .from("affiliate_links")
-          .select("*")
-          .order("created_date", { ascending: false });
-        if (error) throw error;
-        return { data: { links: data || [] } };
-      }
-      throw new Error(`Unsupported custom integration call: ${slug} ${path}`);
-    },
-  },
 };
 
 // ---------------------------------------------------------------------------
@@ -195,6 +177,7 @@ const integrations = {
 // is a no-op — the reply is delivered through addMessage's resolved promise.
 // ---------------------------------------------------------------------------
 const agents = {
+  /** @param {{ agent_name?: string, metadata?: Record<string, any> }} [options] */
   async createConversation({ agent_name, metadata } = {}) {
     return { id: crypto.randomUUID(), agent_name, metadata, messages: [] };
   },
