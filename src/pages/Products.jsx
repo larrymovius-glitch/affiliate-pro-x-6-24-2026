@@ -99,7 +99,7 @@ export default function Products() {
     onMutate: async (data) => {
       await queryClient.cancelQueries({ queryKey: ["products"] });
       const previous = queryClient.getQueryData(["products"]);
-      const optimistic = { id: `optimistic-${Date.now()}`, ...data, created_date: new Date().toISOString(), _optimistic: true };
+      const optimistic = { id: `optimistic-${Date.now()}`, ...data, created_at: new Date().toISOString(), _optimistic: true };
       queryClient.setQueryData(["products"], old => [optimistic, ...(old || [])]);
       return { previous };
     },

@@ -17,7 +17,7 @@ export default async function handler(req, res) {
 
     const D = db();
     const filters = selfOnly ? { autopilot_enabled: true, created_by_id: user.id } : { autopilot_enabled: true };
-    const posts = await D.GeneratedPost.filter(filters, "-created_date", 500);
+    const posts = await D.GeneratedPost.filter(filters, "-created_at", 500);
     const groups = {};
 
     for (const post of posts) {

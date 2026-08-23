@@ -11,7 +11,7 @@ export default async function handler(req, res) {
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
 
-    let allProducts = await db().Product.filter({ created_by_id: user.id }, "-created_date");
+    let allProducts = await db().Product.filter({ created_by_id: user.id }, "-created_at");
 
     if (search) {
       const s = search.toLowerCase();

@@ -31,12 +31,12 @@ export function buildPerformanceChartData(clickEvents = [], conversionEvents = [
   const byKey = Object.fromEntries(rows.map((row) => [row.key, row]));
 
   clickEvents.forEach((click) => {
-    const row = byKey[eventDay(click.clicked_at || click.created_date)];
+    const row = byKey[eventDay(click.clicked_at || click.created_at)];
     if (row) row.clicks += 1;
   });
 
   conversionEvents.forEach((conversion) => {
-    const row = byKey[eventDay(conversion.converted_at || conversion.created_date)];
+    const row = byKey[eventDay(conversion.converted_at || conversion.created_at)];
     if (row) {
       row.conversions += 1;
       row.earningsCents += moneyToCents(conversion.amount);
@@ -49,7 +49,7 @@ export function buildPerformanceChartData(clickEvents = [], conversionEvents = [
 
 export function uniqueClickSignals(clickEvents = []) {
   return new Set(clickEvents.map((click) => {
-    const day = eventDay(click.clicked_at || click.created_date);
+    const day = eventDay(click.clicked_at || click.created_at);
     return `${click.short_code || "unknown"}-${click.source || click.referrer || "direct"}-${day}`;
   })).size;
 }

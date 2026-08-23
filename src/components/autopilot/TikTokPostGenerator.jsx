@@ -22,7 +22,7 @@ export default function TikTokPostGenerator() {
 
   const { data: links = [] } = useQuery({
     queryKey: ["links"],
-    queryFn: () => base44.entities.AffiliateLink.list("-created_date")
+    queryFn: () => base44.entities.AffiliateLink.list("-created_at")
   });
 
   const handleGenerate = async () => {

@@ -28,11 +28,11 @@ export default function AdTrackerPage() {
 
   const postsQ = useQuery({
     queryKey: ["generated-posts", "ad-tracker"],
-    queryFn: () => base44.entities.GeneratedPost.list("-created_date", 300),
+    queryFn: () => base44.entities.GeneratedPost.list("-created_at", 300),
   });
   const linksQ = useQuery({
     queryKey: ["links", "ad-tracker"],
-    queryFn: () => base44.entities.AffiliateLink.list("-created_date", 300),
+    queryFn: () => base44.entities.AffiliateLink.list("-created_at", 300),
   });
 
   const loading = postsQ.isLoading || linksQ.isLoading;
@@ -49,7 +49,7 @@ export default function AdTrackerPage() {
         channel: p.platform || "general",
         clicks: p.clicks || 0,
         conversions: p.conversions || 0,
-        hoursSinceActive: hoursSince(p.last_selected_at || p.updated_date || p.created_date),
+        hoursSinceActive: hoursSince(p.last_selected_at || p.updated_at || p.created_at),
         moderationStatus: p.moderation_status,
         moderationNotes: p.moderation_notes,
         aiScore: p.ai_score,

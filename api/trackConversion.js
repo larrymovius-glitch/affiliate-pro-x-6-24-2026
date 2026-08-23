@@ -1,4 +1,5 @@
 import { db } from "./_lib/db.js";
+import { normalizeTrackingCode } from "./_lib/tracking.js";
 
 // Secure conversion postback: /api/trackConversion?secret=...&code=...&amount=...
 // Networks (ClickBank, Digistore24, etc.) call this when a sale happens.
@@ -19,18 +20,46 @@ export default async function handler(req, res) {
       return res.status(200).send("OK");
     }
 
+    // Networks name the sale differently; any of these identifies it uniquely.
+    const orderId =
+      req.query?.order_id || body.order_id ||
+      req.query?.orderid || body.orderid ||
+      req.query?.transaction_id || body.transaction_id ||
+      req.query?.txn_id || body.txn_id ||
+      req.query?.receipt || body.receipt || "";
+    const network = req.query?.network || body.network || "";
+
     const rawAmount = req.query?.amount || body.amount || 0;
     const amount = Number(rawAmount);
     const safeAmount = Number.isNaN(amount) || amount < 0 ? 0 : amount;
 
     const D = db();
-    const links = await D.AffiliateLink.filter({ short_code: code });
+    let links = await D.AffiliateLink.filter({ short_code: code });
+    if (!links.length) {
+      // Some networks strip punctuation from the tracking id before echoing it
+      // back, so "cb_acme" can return as "cbacme". Fall back to a normalized
+      // comparison rather than dropping a real sale.
+      const wanted = normalizeTrackingCode(code);
+      const all = await D.AffiliateLink.list();
+      links = all.filter((l) => normalizeTrackingCode(l.short_code) === wanted);
+    }
     if (!links.length) {
       console.warn("Conversion received for unknown code:", code);
       return res.status(200).send("OK");
     }
 
     const link = links[0];
+
+    // Networks retry postbacks, and a retry must not pay twice: this figure
+    // feeds AffiliateLink.earnings, which is what requestPayout treats as a
+    // withdrawable balance.
+    if (orderId) {
+      const seen = await D.ConversionEvent.filter({ order_id: String(orderId) });
+      if (seen.length) {
+        console.log("Duplicate conversion ignored for order:", orderId);
+        return res.status(200).send("OK");
+      }
+    }
     const now = new Date().toISOString();
     await D.AffiliateLink.update(link.id, {
       conversions: (link.conversions || 0) + 1,
@@ -45,6 +74,8 @@ export default async function handler(req, res) {
       product_name: link.product_name || "",
       amount: safeAmount,
       converted_at: now,
+      order_id: orderId ? String(orderId) : null,
+      network: network || link.network || null,
     });
 
     res.status(200).send("OK");

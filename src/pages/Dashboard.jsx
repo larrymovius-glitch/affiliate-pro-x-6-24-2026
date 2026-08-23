@@ -27,11 +27,11 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
-  const linksQ = useQuery({ queryKey: ["links"], queryFn: () => base44.entities.AffiliateLink.list("-created_date", 100) });
-  const clicksQ = useQuery({ queryKey: ["click-events"], queryFn: () => base44.entities.ClickEvent.list("-created_date", 500) });
-  const convQ = useQuery({ queryKey: ["conversion-events"], queryFn: () => base44.entities.ConversionEvent.list("-created_date", 500) });
-  const payoutsQ = useQuery({ queryKey: ["payouts"], queryFn: () => base44.entities.Payout.list("-created_date", 100) });
-  const scheduleQ = useQuery({ queryKey: ["payout-schedule"], queryFn: () => base44.entities.PayoutSchedule.list("-created_date", 5) });
+  const linksQ = useQuery({ queryKey: ["links"], queryFn: () => base44.entities.AffiliateLink.list("-created_at", 100) });
+  const clicksQ = useQuery({ queryKey: ["click-events"], queryFn: () => base44.entities.ClickEvent.list("-created_at", 500) });
+  const convQ = useQuery({ queryKey: ["conversion-events"], queryFn: () => base44.entities.ConversionEvent.list("-created_at", 500) });
+  const payoutsQ = useQuery({ queryKey: ["payouts"], queryFn: () => base44.entities.Payout.list("-created_at", 100) });
+  const scheduleQ = useQuery({ queryKey: ["payout-schedule"], queryFn: () => base44.entities.PayoutSchedule.list("-created_at", 5) });
 
   const { onTouchStart, onTouchMove, onTouchEnd, pullDistance, pulling } = usePullToRefresh(() =>
     queryClient.invalidateQueries()
@@ -58,11 +58,11 @@ export default function Dashboard() {
 
   const todayKey = dayKey(Date.now());
   const yestKey = dayKey(Date.now() - 86400000);
-  const clicksToday = clickEvents.filter((c) => dayKey(c.clicked_at || c.created_date) === todayKey).length;
-  const clicksYest = clickEvents.filter((c) => dayKey(c.clicked_at || c.created_date) === yestKey).length;
+  const clicksToday = clickEvents.filter((c) => dayKey(c.clicked_at || c.created_at) === todayKey).length;
+  const clicksYest = clickEvents.filter((c) => dayKey(c.clicked_at || c.created_at) === yestKey).length;
   const clicksPct = clicksYest > 0 ? ((clicksToday - clicksYest) / clicksYest) * 100 : (clicksToday > 0 ? 100 : 0);
 
-  const convToday = conversionEvents.filter((c) => dayKey(c.converted_at || c.created_date) === todayKey).length;
+  const convToday = conversionEvents.filter((c) => dayKey(c.converted_at || c.created_at) === todayKey).length;
   const convThisWeek = thisWeek.reduce((s, r) => s + r.conversions, 0);
   const convLastWeek = prevWeek.reduce((s, r) => s + r.conversions, 0);
   const convChange = convThisWeek - convLastWeek;

@@ -24,7 +24,7 @@ export default function PostGenerator() {
 
   const { data: links = [] } = useQuery({
     queryKey: ["links"],
-    queryFn: () => base44.entities.AffiliateLink.list("-created_date")
+    queryFn: () => base44.entities.AffiliateLink.list("-created_at")
   });
 
   // Get top performing posts to learn from
