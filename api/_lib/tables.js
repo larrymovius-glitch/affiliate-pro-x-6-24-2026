@@ -1,21 +1,4 @@
-// Entity name -> Postgres table name. Keep in sync with src/api/base44Client.js.
-export const TABLES = {
-  AdAsset: "ad_assets",
-  AdReview: "ad_reviews",
-  AffiliateLink: "affiliate_links",
-  AssistantAvatar: "assistant_avatars",
-  Campaign: "campaigns",
-  ClickEvent: "click_events",
-  ConversionEvent: "conversion_events",
-  EbayToken: "ebay_tokens",
-  GeneratedPost: "generated_posts",
-  GoogleReviewer: "google_reviewers",
-  Notification: "notifications",
-  Payout: "payouts",
-  PayoutSchedule: "payout_schedules",
-  ProAutomationRule: "pro_automation_rules",
-  Product: "products",
-  User: "profiles",
-  Payment: "payments",
-  Subscription: "subscriptions",
-};
+// Entity name -> Postgres table name.
+// Defined once in shared/entity-tables.js and re-exported here under the name
+// the api/ handlers already import.
+export { ENTITY_TABLES as TABLES } from "../../shared/entity-tables.js";

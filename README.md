@@ -1,39 +1,58 @@
-**Welcome to your Base44 project** 
+# Affiliate Pro X
 
-**About**
+Your affiliate marketing command center — a React PWA for creating trackable
+affiliate links, generating compliant social posts, tracking clicks and
+conversions, and paying out earnings.
 
-View and Edit  your app on [Base44.com](http://Base44.com) 
+## Stack
 
-This project contains everything you need to run your app locally.
+| Layer    | What runs                                                                 |
+| -------- | ------------------------------------------------------------------------- |
+| Frontend | Vite + React 18 SPA (React Router, TanStack Query, Tailwind + shadcn/ui)  |
+| Backend  | Vercel serverless functions in `api/` (Node, one file per route)          |
+| Data     | Supabase — Postgres + Auth + Storage                                      |
+| AI       | Anthropic (Maya/Atlas assistants, post generation), OpenAI (text-to-speech) |
+| Payments | Stripe (subscription checkout, webhooks, Connect payouts)                 |
+| Email    | Resend                                                                    |
 
-**Edit the code in your local development environment**
+This app began on Base44 and was migrated to the stack above. `base44/` still
+holds the original project definition (entity schemas, agent configs, and the
+Deno cloud functions) as reference — **it is not what runs in production**. See
+`CLAUDE.md` for the full architecture and the rules for keeping the two sides in
+sync.
 
-Any change pushed to the repo will also be reflected in the Base44 Builder.
+## Local development
 
-**Prerequisites:** 
+```bash
+npm install
+npm run dev
+```
 
-1. Clone the repository using the project's Git URL 
-2. Navigate to the project directory
-3. Install dependencies: `npm install`
-4. Create an `.env.local` file and set the right environment variables
+Create `.env.local` (gitignored) with your Supabase project's public values:
 
 ```
-VITE_BASE44_APP_ID=your_app_id
-VITE_BASE44_APP_BASE_URL=your_backend_url
-
-e.g.
-VITE_BASE44_APP_ID=cbef744a8545c389ef439ea6
-VITE_BASE44_APP_BASE_URL=https://my-to-do-list-81bfaad7.base44.app
+VITE_SUPABASE_URL=https://<project-ref>.supabase.co
+VITE_SUPABASE_ANON_KEY=<anon key>
 ```
 
-Run the app: `npm run dev`
+Server-side secrets are **not** read from `.env.local` — the functions in `api/`
+read `process.env` and are configured in the Vercel project settings. The full
+list is in `CLAUDE.md` under "Environment variables".
 
-**Publish your changes**
+## Scripts
 
-Open [Base44.com](http://Base44.com) and click on Publish.
+| Command             | Does                                                            |
+| ------------------- | --------------------------------------------------------------- |
+| `npm run dev`       | Vite dev server                                                 |
+| `npm run build`     | Production build to `./dist`                                    |
+| `npm run lint`      | ESLint (`src/components`, `src/pages`, `src/Layout.jsx`)         |
+| `npm run typecheck` | `tsc -p ./jsconfig.json` — JS type-checking via `checkJs`        |
 
-**Docs & Support**
+There is no test suite configured yet.
 
-Documentation: [https://docs.base44.com/Integrations/Using-GitHub](https://docs.base44.com/Integrations/Using-GitHub)
+## Deployment
 
-Support: [https://app.base44.com/support](https://app.base44.com/support)
+Vercel builds `dist/` and serves `api/*` as serverless functions. `vercel.json`
+rewrites the legacy `/functions/<name>` paths to `/api/<name>` and defines three
+cron jobs (auto-payouts, daily performance summary, trending-link sync), which
+authenticate with `CRON_SECRET` rather than a user token.
