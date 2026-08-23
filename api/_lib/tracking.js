@@ -28,12 +28,23 @@ export function normalizeTrackingCode(code) {
   return String(code || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+// Match the domain itself or a subdomain of it -- never a bare suffix.
+// `host.endsWith("digistore24.com")` would also accept "eviIdigistore24.com",
+// which is a different registrable domain owned by someone else.
+function hostMatches(host, domain) {
+  return host === domain || host.endsWith(`.${domain}`);
+}
+
 function isClickBank(host, network) {
-  return network === "clickbank" || host === "hop.clickbank.net" || host.endsWith(".hop.clickbank.net");
+  return network === "clickbank" || hostMatches(host, "hop.clickbank.net");
 }
 
 function isDigistore(host, network) {
-  return network === "digistore24" || host.endsWith("digistore24.com") || host.endsWith("checkout-ds24.com");
+  return (
+    network === "digistore24" ||
+    hostMatches(host, "digistore24.com") ||
+    hostMatches(host, "checkout-ds24.com")
+  );
 }
 
 // Digistore24 promolinks look like /redir/<productId>/<affiliate>/<campaignKey>.
