@@ -31,7 +31,7 @@ export default function Payouts() {
 
   const { data: payouts = [], isLoading, refetch } = useQuery({
     queryKey: ["payouts"],
-    queryFn: () => base44.entities.Payout.list("-created_date", 100),
+    queryFn: () => base44.entities.Payout.list("-created_at", 100),
   });
   const { onTouchStart, onTouchMove, onTouchEnd, pullDistance, pulling } = usePullToRefresh(() => refetch());
 
@@ -149,7 +149,7 @@ export default function Payouts() {
                   <TableRow key={payout.id}>
                     <TableCell className="font-semibold font-display">${(payout.amount || 0).toFixed(2)}</TableCell>
                     <TableCell><Badge variant="outline" className={statusStyles[payout.status] || ""}>{payout.status}</Badge></TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{payout.created_date ? format(new Date(payout.created_date), "MMM d, yyyy") : "—"}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{payout.created_at ? format(new Date(payout.created_at), "MMM d, yyyy") : "—"}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{payout.paid_at ? format(new Date(payout.paid_at), "MMM d, yyyy") : "—"}</TableCell>
                   </TableRow>
                 ))}

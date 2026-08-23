@@ -34,13 +34,13 @@ export default async function handler(req, res) {
     const niche = String(payload.niche || "all").trim().slice(0, 80) || "all";
     const allProducts =
       niche === "all"
-        ? await D.Product.filter({ created_by_id: user.id }, "-created_date", 200)
-        : await D.Product.filter({ created_by_id: user.id, category: niche }, "-created_date", 200);
+        ? await D.Product.filter({ created_by_id: user.id }, "-created_at", 200)
+        : await D.Product.filter({ created_by_id: user.id, category: niche }, "-created_at", 200);
 
     const topProducts = [...allProducts].sort((a, b) => (b.commission_rate || 0) - (a.commission_rate || 0)).slice(0, 3);
     if (topProducts.length === 0) return res.status(400).json({ error: "No products found for that niche" });
 
-    const existingLinks = await D.AffiliateLink.filter({ created_by_id: user.id }, "-created_date", 500);
+    const existingLinks = await D.AffiliateLink.filter({ created_by_id: user.id }, "-created_at", 500);
     const existingCodes = new Set(existingLinks.map((l) => l.short_code).filter(Boolean));
     const affiliateId = String(user.clickbank_nickname || "apxalaska").trim() || "apxalaska";
     const trustedAppOrigin = `https://${req.headers.host}`;

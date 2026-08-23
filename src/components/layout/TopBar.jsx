@@ -30,21 +30,12 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 
-// The `notifications` table was set up with a `created_at` timestamp column
-// instead of the `created_date` name every other migrated entity uses, so
-// sorting by "-created_date" 400s ("column notifications.created_date does
-// not exist" — Postgres code 42703). Try the app-wide convention first and
-// fall back to "-created_at" so this keeps working either way until the
-// column is renamed for consistency on the Supabase side.
-async function fetchNotifications(userId) {
-  try {
-    return await base44.entities.Notification.filter({ user_id: userId }, "-created_date", 20);
-  } catch (error) {
-    if (error?.code === "42703") {
-      return base44.entities.Notification.filter({ user_id: userId }, "-created_at", 20);
-    }
-    throw error;
-  }
+// Every table in this schema timestamps with `created_at`; nothing has a
+// `created_date` column. This used to try "-created_at" first and fall back
+// on Postgres 42703, on the assumption that `notifications` was the odd one
+// out — it wasn't, it was the only one doing it right.
+function fetchNotifications(userId) {
+  return base44.entities.Notification.filter({ user_id: userId }, "-created_at", 20);
 }
 
 export default function TopBar({ onMenuClick }) {
@@ -181,7 +172,7 @@ export default function TopBar({ onMenuClick }) {
                         <p className="text-sm font-medium truncate">{n.title}</p>
                       </div>
                       {n.body && <p className="text-xs text-muted-foreground pl-3.5">{n.body}</p>}
-                      {(n.created_date || n.created_at) && <p className="text-[10px] text-muted-foreground/70 pl-3.5">{format(new Date(n.created_date || n.created_at), "MMM d, h:mm a")}</p>}
+                      {(n.created_at) && <p className="text-[10px] text-muted-foreground/70 pl-3.5">{format(new Date(n.created_at), "MMM d, h:mm a")}</p>}
                     </DropdownMenuItem>
                   ))}
                 </div>

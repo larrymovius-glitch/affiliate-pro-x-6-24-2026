@@ -50,12 +50,12 @@ export default function MakeMoney() {
 
   const { data: products = [], isLoading: productsLoading } = useQuery({
     queryKey: ["products-make-money"],
-    queryFn: () => base44.entities.Product.list("-created_date", 50),
+    queryFn: () => base44.entities.Product.list("-created_at", 50),
   });
 
   const { data: links = [] } = useQuery({
     queryKey: ["links"],
-    queryFn: () => base44.entities.AffiliateLink.list("-created_date", 100),
+    queryFn: () => base44.entities.AffiliateLink.list("-created_at", 100),
   });
 
   const niches = useMemo(() => [...new Set(products.map(product => product.category).filter(Boolean))].slice(0, 8), [products]);

@@ -81,7 +81,7 @@ export default function Campaigns() {
 
   const { data: campaigns = [], isLoading, refetch } = useQuery({
     queryKey: ["campaigns"],
-    queryFn: () => base44.entities.Campaign.list("-created_date", 100),
+    queryFn: () => base44.entities.Campaign.list("-created_at", 100),
   });
   const { onTouchStart, onTouchMove, onTouchEnd, pullDistance, pulling } = usePullToRefresh(() => refetch());
 

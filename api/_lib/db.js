@@ -12,6 +12,8 @@ function applyFilters(query, filters = {}) {
   for (const [key, value] of Object.entries(filters || {})) {
     if (value && typeof value === "object" && "$in" in value) {
       q = q.in(key, value.$in);
+    } else if (value && typeof value === "object" && "$gt" in value) {
+      q = q.gt(key, value.$gt);
     } else if (value && typeof value === "object" && "$regex" in value) {
       // Only ever used for simple "^prefix_" checks in this codebase.
       const prefix = String(value.$regex).replace(/^\^/, "").replace(/\\_/g, "_");
@@ -32,6 +34,11 @@ export function db() {
   function entity(name) {
     const table = TABLES[name] || name;
     return {
+      // Note: Supabase caps a bare select at ~1000 rows. A caller that must see
+      // every row pages with a keyset cursor -- filter({ id: { $gt: lastId } })
+      // ordered by id -- not OFFSET. OFFSET paging over a non-unique sort skips
+      // rows at page boundaries on ties or concurrent writes, which is why no
+      // offset option is offered here.
       async list(sort, limit) {
         let q = supabase.from(table).select("*");
         const s = parseSort(sort);

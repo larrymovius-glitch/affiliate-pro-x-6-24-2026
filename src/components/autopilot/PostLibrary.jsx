@@ -22,7 +22,7 @@ export default function PostLibrary() {
 
   const { data: posts = [], isLoading } = useQuery({
     queryKey: ["generated-posts"],
-    queryFn: () => base44.entities.GeneratedPost.list("-created_date", 50)
+    queryFn: () => base44.entities.GeneratedPost.list("-created_at", 50)
   });
 
   const deleteMutation = useMutation({

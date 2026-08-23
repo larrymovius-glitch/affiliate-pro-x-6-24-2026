@@ -18,6 +18,8 @@ import AffiliateDisclosure from "@/components/AffiliateDisclosure";
 import EasyClickBank from "@/components/products/EasyClickBank";
 import { useAuth } from "@/lib/AuthContext";
 import { applyClickBankAffiliateId, getClickBankAffiliateId } from "@/lib/affiliate-id";
+import { getTrackableUrl as buildTrackingUrl } from "@/lib/links";
+import { DIGISTORE_AFFILIATE_ID, digistorePromoLink } from "../../api/_lib/affiliates.js";
 
 function sanitizeShortCode(value) {
   return String(value || "link")
@@ -48,9 +50,7 @@ function generateShortCode(links = []) {
   return code;
 }
 
-function buildTrackingUrl(link) {
-  return `${window.location.origin}/functions/trackClick?code=${encodeURIComponent(link.short_code)}`;
-}
+
 
 export default function Links() {
   const { user } = useAuth();
@@ -69,14 +69,14 @@ export default function Links() {
 
   const { data: links = [], isLoading, refetch } = useQuery({
     queryKey: ["links"],
-    queryFn: () => base44.entities.AffiliateLink.list("-created_date", 100),
+    queryFn: () => base44.entities.AffiliateLink.list("-created_at", 100),
   });
 
   const { onTouchStart, onTouchMove, onTouchEnd, pullDistance, pulling } = usePullToRefresh(() => refetch());
 
   const { data: products = [] } = useQuery({
     queryKey: ["products"],
-    queryFn: () => base44.entities.Product.list("-created_date", 100),
+    queryFn: () => base44.entities.Product.list("-created_at", 100),
   });
 
   const createMutation = useMutation({
@@ -104,7 +104,7 @@ export default function Links() {
         destination_url: product?.url || "",
         short_code: "------",
         clicks: 0, conversions: 0, earnings: 0,
-        created_date: new Date().toISOString(),
+        created_at: new Date().toISOString(),
         _optimistic: true,
       };
       queryClient.setQueryData(["links"], old => [optimistic, ...(old || [])]);
@@ -182,7 +182,7 @@ export default function Links() {
     mutationFn: async () => {
       const productId = dsProductId.trim();
       const name = dsProductName.trim() || `DS24 Product ${productId}`;
-      const url = `https://www.digistore24.com/redir/${productId}/Here_4you/`;
+      const url = digistorePromoLink(productId);
       const existing = await base44.entities.Product.filter({ url });
       let productEntityId;
       if (existing.length > 0) {
@@ -351,7 +351,7 @@ export default function Links() {
               {dsProductId.trim() && (
                 <div className="p-3 rounded-lg bg-muted text-xs">
                   <p className="text-muted-foreground">Your affiliate link will be:</p>
-                  <p className="font-mono text-foreground break-all mt-1">https://www.digistore24.com/redir/{dsProductId}/Here_4you/</p>
+                  <p className="font-mono text-foreground break-all mt-1">https://www.digistore24.com/redir/{dsProductId}/{DIGISTORE_AFFILIATE_ID}/</p>
                 </div>
               )}
               <div className="flex justify-end gap-2 pt-2">
@@ -451,7 +451,7 @@ export default function Links() {
                       <span className="text-emerald-500 font-medium text-sm">${(link.earnings || 0).toFixed(2)}</span>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {link.created_date ? format(new Date(link.created_date), "MMM d, yyyy") : "—"}
+                      {link.created_at ? format(new Date(link.created_at), "MMM d, yyyy") : "—"}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">

@@ -13,22 +13,22 @@ const COLORS = ["hsl(258, 80%, 65%)", "hsl(210, 90%, 60%)", "hsl(160, 84%, 39%)"
 export default function Analytics() {
   const { data: links = [], isLoading: loadingLinks } = useQuery({
     queryKey: ["links"],
-    queryFn: () => base44.entities.AffiliateLink.list("-created_date", 100),
+    queryFn: () => base44.entities.AffiliateLink.list("-created_at", 100),
   });
 
   const { data: payouts = [], isLoading: loadingPayouts } = useQuery({
     queryKey: ["payouts"],
-    queryFn: () => base44.entities.Payout.list("-created_date", 100),
+    queryFn: () => base44.entities.Payout.list("-created_at", 100),
   });
 
   const { data: clickEvents = [], isLoading: loadingClicks } = useQuery({
     queryKey: ["click-events"],
-    queryFn: () => base44.entities.ClickEvent.list("-created_date", 500),
+    queryFn: () => base44.entities.ClickEvent.list("-created_at", 500),
   });
 
   const { data: conversionEvents = [], isLoading: loadingConversions } = useQuery({
     queryKey: ["conversion-events"],
-    queryFn: () => base44.entities.ConversionEvent.list("-created_date", 500),
+    queryFn: () => base44.entities.ConversionEvent.list("-created_at", 500),
   });
 
   const isLoading = loadingLinks || loadingPayouts || loadingClicks || loadingConversions;

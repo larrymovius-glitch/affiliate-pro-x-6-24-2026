@@ -1,7 +1,13 @@
 import { db } from "./_lib/db.js";
+import { applyTrackingCode } from "./_lib/tracking.js";
 
-// Public click tracker: /api/trackClick?code=<short_code> (also reachable at
-// the legacy /functions/trackClick path via vercel.json rewrite).
+// Public click tracker. Reachable at /r/<short_code> (the link we ask people
+// to share), and at /api/trackClick?code=<short_code> and the legacy
+// /functions/trackClick path, both via vercel.json rewrites.
+//
+// The redirect carries the short code onward as the network's tracking id --
+// that is what lets the network name this link when it posts a sale back to
+// /api/trackConversion.
 export default async function handler(req, res) {
   try {
     let code = req.query?.code;
@@ -28,7 +34,8 @@ export default async function handler(req, res) {
       source: req.query?.source || "",
     });
 
-    res.writeHead(302, { Location: link.destination_url });
+    const destination = applyTrackingCode(link.destination_url, link.short_code, link.network);
+    res.writeHead(302, { Location: destination });
     res.end();
   } catch (error) {
     console.error("trackClick error:", error);
