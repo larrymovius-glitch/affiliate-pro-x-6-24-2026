@@ -10,8 +10,15 @@ import { normalizeTrackingCode } from "./_lib/tracking.js";
 //
 // Pages explicitly instead of one bare list(): Supabase caps a select at ~1000
 // rows, so a single call would silently miss links past the cap and drop a real
-// sale -- the exact failure this whole handler exists to prevent. Above the
-// ceiling we log loudly rather than return a wrong answer quietly.
+// sale -- the exact failure this whole handler exists to prevent.
+//
+// Pages by keyset on the primary key (id > lastSeen, ordered by id), not by
+// OFFSET. `id` is unique, so there are no ties to straddle, and each page
+// resumes strictly after the last row seen -- a concurrent insert or delete
+// cannot shift a later page and skip a link. Ordering by a non-unique column
+// like created_at with .range() has exactly that hole.
+//
+// Above the ceiling we log loudly rather than quietly return a wrong answer.
 const PAGE_SIZE = 1000;
 const MAX_PAGES = 25;
 
@@ -19,12 +26,17 @@ export async function findByNormalizedCode(D, code) {
   const wanted = normalizeTrackingCode(code);
   if (!wanted) return null;
 
+  let after = null;
   for (let page = 0; page < MAX_PAGES; page += 1) {
-    const rows = await D.AffiliateLink.list("created_at", PAGE_SIZE, page * PAGE_SIZE);
+    const filters = after ? { id: { $gt: after } } : {};
+    const rows = await D.AffiliateLink.filter(filters, "id", PAGE_SIZE);
     if (!rows.length) return null;
+
     const hit = rows.find((l) => normalizeTrackingCode(l.short_code) === wanted);
     if (hit) return hit;
+
     if (rows.length < PAGE_SIZE) return null;
+    after = rows[rows.length - 1].id;
   }
 
   console.error(
