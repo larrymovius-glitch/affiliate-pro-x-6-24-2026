@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
-import { ENTITY_TABLES } from "../../shared/entity-tables.js";
+import { TABLES as ENTITY_TABLES } from "../../api/_lib/tables.js";
 
 // ---------------------------------------------------------------------------
 // Drop-in replacement for the old @base44/sdk client. Same call shapes
