@@ -122,7 +122,12 @@ export default async function handler(req, res) {
           content: ad.content,
           hashtags: ad.hashtags || "#HelpfulDeals #AffiliateProX",
           tone: "casual",
-          status: variant === 1 ? "posted" : "draft",
+          // `status` tracks whether a human actually published this;
+          // `autopilot_status` tracks whether the rotation has it live. They
+          // used to be conflated -- variant 1 was written straight to "posted"
+          // although nothing had posted it -- which would tell the rotation a
+          // never-published ad had failed and get its copy thrown away.
+          status: "draft",
           clicks: 0,
           conversions: 0,
           ai_score: ad.ai_score || 8,
@@ -131,12 +136,17 @@ export default async function handler(req, res) {
           moderation_status: "passed",
           moderation_notes: JSON.stringify({ source: "createAutopilotPack", autopilot: true }),
           autopilot_enabled: true,
-          autopilot_status: variant === 1 ? "running" : "queued",
+          // All three variants run side by side for the cycle, then each is
+          // judged on its own interaction -- they are not staggered one per
+          // day, so none of them starts out queued.
+          autopilot_status: "running",
           niche,
           variant_number: variant,
           scheduled_day: variant,
-          last_selected_at: variant === 1 ? weekStartsAt : null,
+          last_selected_at: weekStartsAt,
+          cycle_starts_at: weekStartsAt,
           week_starts_at: weekStartsAt,
+          regenerations: 0,
         };
       })
       .filter(Boolean)
