@@ -3,6 +3,36 @@ import { normalizeTrackingCode } from "./_lib/tracking.js";
 
 // Secure conversion postback: /api/trackConversion?secret=...&code=...&amount=...
 // Networks (ClickBank, Digistore24, etc.) call this when a sale happens.
+
+// Some networks strip punctuation from the tracking id before echoing it back,
+// so a link stored as "cb_acme" can return as "cbacme". Only reached when the
+// exact short_code lookup misses.
+//
+// Pages explicitly instead of one bare list(): Supabase caps a select at ~1000
+// rows, so a single call would silently miss links past the cap and drop a real
+// sale -- the exact failure this whole handler exists to prevent. Above the
+// ceiling we log loudly rather than return a wrong answer quietly.
+const PAGE_SIZE = 1000;
+const MAX_PAGES = 25;
+
+export async function findByNormalizedCode(D, code) {
+  const wanted = normalizeTrackingCode(code);
+  if (!wanted) return null;
+
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const rows = await D.AffiliateLink.list("created_at", PAGE_SIZE, page * PAGE_SIZE);
+    if (!rows.length) return null;
+    const hit = rows.find((l) => normalizeTrackingCode(l.short_code) === wanted);
+    if (hit) return hit;
+    if (rows.length < PAGE_SIZE) return null;
+  }
+
+  console.error(
+    `Normalized code lookup gave up after ${MAX_PAGES * PAGE_SIZE} links (code: ${code}). ` +
+      "Add an indexed normalized column before the table grows further."
+  );
+  return null;
+}
 export default async function handler(req, res) {
   try {
     const body = req.body || {};
@@ -36,12 +66,8 @@ export default async function handler(req, res) {
     const D = db();
     let links = await D.AffiliateLink.filter({ short_code: code });
     if (!links.length) {
-      // Some networks strip punctuation from the tracking id before echoing it
-      // back, so "cb_acme" can return as "cbacme". Fall back to a normalized
-      // comparison rather than dropping a real sale.
-      const wanted = normalizeTrackingCode(code);
-      const all = await D.AffiliateLink.list();
-      links = all.filter((l) => normalizeTrackingCode(l.short_code) === wanted);
+      const match = await findByNormalizedCode(D, code);
+      links = match ? [match] : [];
     }
     if (!links.length) {
       console.warn("Conversion received for unknown code:", code);

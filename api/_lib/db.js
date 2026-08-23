@@ -32,11 +32,15 @@ export function db() {
   function entity(name) {
     const table = TABLES[name] || name;
     return {
-      async list(sort, limit) {
+      // `offset` is opt-in: Supabase caps a bare select at ~1000 rows, so any
+      // caller that must see every row has to page through them explicitly
+      // rather than assume one call returned everything.
+      async list(sort, limit, offset) {
         let q = supabase.from(table).select("*");
         const s = parseSort(sort);
         if (s) q = q.order(s.field, { ascending: s.ascending });
-        if (limit) q = q.limit(limit);
+        if (offset != null && limit) q = q.range(offset, offset + limit - 1);
+        else if (limit) q = q.limit(limit);
         const { data, error } = await q;
         if (error) throw error;
         return data || [];
