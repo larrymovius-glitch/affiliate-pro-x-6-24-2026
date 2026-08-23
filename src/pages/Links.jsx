@@ -19,6 +19,7 @@ import EasyClickBank from "@/components/products/EasyClickBank";
 import { useAuth } from "@/lib/AuthContext";
 import { applyClickBankAffiliateId, getClickBankAffiliateId } from "@/lib/affiliate-id";
 import { getTrackableUrl as buildTrackingUrl } from "@/lib/links";
+import { DIGISTORE_AFFILIATE_ID, digistorePromoLink } from "../../api/_lib/affiliates.js";
 
 function sanitizeShortCode(value) {
   return String(value || "link")
@@ -181,7 +182,7 @@ export default function Links() {
     mutationFn: async () => {
       const productId = dsProductId.trim();
       const name = dsProductName.trim() || `DS24 Product ${productId}`;
-      const url = `https://www.digistore24.com/redir/${productId}/Here_4you/`;
+      const url = digistorePromoLink(productId);
       const existing = await base44.entities.Product.filter({ url });
       let productEntityId;
       if (existing.length > 0) {
@@ -350,7 +351,7 @@ export default function Links() {
               {dsProductId.trim() && (
                 <div className="p-3 rounded-lg bg-muted text-xs">
                   <p className="text-muted-foreground">Your affiliate link will be:</p>
-                  <p className="font-mono text-foreground break-all mt-1">https://www.digistore24.com/redir/{dsProductId}/Here_4you/</p>
+                  <p className="font-mono text-foreground break-all mt-1">https://www.digistore24.com/redir/{dsProductId}/{DIGISTORE_AFFILIATE_ID}/</p>
                 </div>
               )}
               <div className="flex justify-end gap-2 pt-2">

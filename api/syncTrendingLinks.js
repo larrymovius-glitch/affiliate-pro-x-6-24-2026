@@ -1,6 +1,11 @@
 import { db } from "./_lib/db.js";
 import { getAuthedUser, isCronRequest } from "./_lib/supabase.js";
 import { invokeLLM } from "./_lib/llm.js";
+import {
+  CLICKBANK_AFFILIATE_ID,
+  DIGISTORE_AFFILIATE_ID,
+  digistorePromoLink,
+} from "./_lib/affiliates.js";
 
 export default async function handler(req, res) {
   try {
@@ -21,7 +26,7 @@ export default async function handler(req, res) {
 
 For ClickBank: Find products with the highest gravity scores and best conversions right now. Return the vendor nickname (the part used in HopLinks like https://affiliate.vendor.hop.clickbank.net).
 
-For Digistore24: Find the top converting / best-selling products right now. Return the product ID (the numeric ID used in affiliate links like https://www.digistore24.com/redir/PRODUCTID/Here_4you/).
+For Digistore24: Find the top converting / best-selling products right now. Return the product ID (the numeric ID used in affiliate links like https://www.digistore24.com/redir/PRODUCTID/${DIGISTORE_AFFILIATE_ID}/).
 
 Return ONLY real, verified products that are currently trending. Do NOT make up vendor names or product IDs.`,
       add_context_from_internet: true,
@@ -34,8 +39,7 @@ Return ONLY real, verified products that are currently trending. Do NOT make up 
       },
     });
 
-    const cbNickname = "apxalaska";
-    const ds24Affiliate = "Here_4you";
+    const cbNickname = CLICKBANK_AFFILIATE_ID;
     const added = [];
     const removed = [];
 
@@ -46,7 +50,7 @@ Return ONLY real, verified products that are currently trending. Do NOT make up 
     }
     for (const item of trendingResult.digistore24 || []) {
       if (!item.product_id) continue;
-      newTrendingUrls.add(`https://www.digistore24.com/redir/${item.product_id}/Here_4you/`);
+      newTrendingUrls.add(digistorePromoLink(item.product_id));
     }
 
     const existingLinks = await D.AffiliateLink.filter({ short_code: { $regex: "^trend_" } });
@@ -82,7 +86,7 @@ Return ONLY real, verified products that are currently trending. Do NOT make up 
 
     for (const item of trendingResult.digistore24 || []) {
       if (!item.product_id) continue;
-      const dsUrl = `https://www.digistore24.com/redir/${item.product_id}/${ds24Affiliate}/`;
+      const dsUrl = digistorePromoLink(item.product_id);
       if (existingLinkUrls.has(dsUrl)) continue;
 
       const existing = await D.Product.filter({ url: dsUrl });
