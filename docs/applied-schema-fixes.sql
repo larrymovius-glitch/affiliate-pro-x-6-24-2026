@@ -1,16 +1,21 @@
--- Schema drift: columns the serverless functions write that do not exist yet.
+-- Schema drift: columns the serverless functions write that did not exist.
 --
--- NOT APPLIED. Review, then run in the Supabase SQL editor if you agree.
+-- APPLIED 2026-08-23 to project edamfapqpoceywqnjvun, as migration
+-- `add_missing_columns_for_payouts_payments_profiles`. Kept here as the record
+-- of what changed and why. Re-running is harmless -- every statement is
+-- idempotent (`if not exists`).
+--
+-- Verified after applying: all 14 columns present, all 3 indexes created.
+--
 -- Deliberately not placed under `supabase/` -- the Supabase GitHub integration
 -- watches that directory, and creating it would change how future PRs behave.
 --
--- Found by diffing api/*.js payloads against the live schema of project
--- edamfapqpoceywqnjvun on 2026-08-23. Every statement is additive: it adds
--- nullable columns only, drops nothing, and rewrites no existing rows.
+-- Found by diffing api/*.js payloads against the live schema. Every statement
+-- is additive: nullable columns only, drops nothing, rewrites no rows.
 --
--- Each block below is one broken write path. Until it is applied, PostgREST
--- rejects the insert (PGRST204, "column ... does not exist") and the whole
--- request fails.
+-- Each block below was one broken write path. Before this ran, PostgREST
+-- rejected the insert (PGRST204, "column ... does not exist") and the whole
+-- request failed.
 
 -- 1. Payout requests. api/requestPayout.js and api/processAutoPayouts.js both
 --    insert `source` and `requested_at`; api/processStripePayout.js sets
