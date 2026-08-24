@@ -24,32 +24,36 @@ function applyClickBankAffiliateId(value, affiliateId) {
   return value;
 }
 
-export default async function handler(req, res) {
-  try {
-    const { user } = await getAuthedUser(req);
-    if (!user) return res.status(401).json({ error: "Unauthorized" });
-
+export async function createAutopilotPack({ user, payload = {}, origin }) {
     const D = db();
-    const payload = req.body || {};
     const niche = String(payload.niche || "all").trim().slice(0, 80) || "all";
     const allProducts =
       niche === "all"
         ? await D.Product.filter({ created_by_id: user.id }, "-created_at", 200)
         : await D.Product.filter({ created_by_id: user.id, category: niche }, "-created_at", 200);
 
-    const topProducts = [...allProducts].sort((a, b) => (b.commission_rate || 0) - (a.commission_rate || 0)).slice(0, 3);
-    if (topProducts.length === 0) return res.status(400).json({ error: "No products found for that niche" });
+    const requestedProductIds = Array.isArray(payload.product_ids) ? new Set(payload.product_ids.map(String)) : null;
+    const topProducts = [...allProducts]
+      .filter((product) => !requestedProductIds || requestedProductIds.has(String(product.id)))
+      .sort((a, b) => (b.commission_rate || 0) - (a.commission_rate || 0))
+      .slice(0, requestedProductIds ? requestedProductIds.size : 3);
+    if (topProducts.length === 0) throw new Error("No products found for that niche");
 
     const existingLinks = await D.AffiliateLink.filter({ created_by_id: user.id }, "-created_at", 500);
     const existingCodes = new Set(existingLinks.map((l) => l.short_code).filter(Boolean));
     const affiliateId = String(user.clickbank_nickname || "apxalaska").trim() || "apxalaska";
-    const trustedAppOrigin = `https://${req.headers.host}`;
+    const trustedAppOrigin = origin;
+    if (!trustedAppOrigin) throw new Error("Missing application origin");
+    const regeneration = Math.max(0, Number(payload.regeneration) || 0);
+    const archiveExisting = payload.archive_existing !== false;
     const weekStartsAt = new Date().toISOString();
     const linkByKey = {};
 
     for (const product of topProducts) {
       for (let variant = 1; variant <= 3; variant += 1) {
-        const campaignId = `autopilot:${product.id}:v${variant}`;
+        const campaignId = regeneration > 0
+          ? `autopilot:${product.id}:r${regeneration}:v${variant}`
+          : `autopilot:${product.id}:v${variant}`;
         let link = existingLinks.find((l) => l.product_id === product.id && l.campaign_id === campaignId);
         if (!link) {
           link = await D.AffiliateLink.create({
@@ -66,9 +70,11 @@ export default async function handler(req, res) {
         linkByKey[`${product.id}:${variant}`] = link;
       }
 
-      const oldAutopilotPosts = await D.GeneratedPost.filter({ created_by_id: user.id, autopilot_enabled: true, product_id: product.id, niche });
-      for (const oldPost of oldAutopilotPosts) {
-        await D.GeneratedPost.update(oldPost.id, { status: "archived", autopilot_status: "paused" });
+      if (archiveExisting) {
+        const oldAutopilotPosts = await D.GeneratedPost.filter({ created_by_id: user.id, autopilot_enabled: true, product_id: product.id, niche });
+        for (const oldPost of oldAutopilotPosts) {
+          await D.GeneratedPost.update(oldPost.id, { status: "archived", autopilot_status: "paused" });
+        }
       }
     }
 
@@ -146,16 +152,28 @@ export default async function handler(req, res) {
           last_selected_at: weekStartsAt,
           cycle_starts_at: weekStartsAt,
           week_starts_at: weekStartsAt,
-          regenerations: 0,
+          regenerations: regeneration,
         };
       })
       .filter(Boolean)
       .slice(0, topProducts.length * 3);
 
-    if (records.length === 0) return res.status(500).json({ error: "No ads were generated. Please try again." });
+    if (records.length === 0) throw new Error("No ads were generated. Please try again.");
 
     const created = await D.GeneratedPost.bulkCreate(records);
-    res.status(200).json({ success: true, products: topProducts, posts: created, message: `Built autopilot ads for ${topProducts.length} products.` });
+    return { success: true, products: topProducts, posts: created, message: `Built autopilot ads for ${topProducts.length} products.` };
+}
+
+export default async function handler(req, res) {
+  try {
+    const { user } = await getAuthedUser(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const result = await createAutopilotPack({
+      user,
+      payload: req.body || {},
+      origin: `https://${req.headers.host}`,
+    });
+    res.status(200).json(result);
   } catch (error) {
     console.error("createAutopilotPack failed:", error);
     res.status(500).json({ error: error.message });

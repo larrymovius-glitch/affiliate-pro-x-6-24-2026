@@ -1,5 +1,6 @@
 import { db } from "./_lib/db.js";
 import { getAuthedUser, isCronRequest } from "./_lib/supabase.js";
+import { createAutopilotPack } from "./createAutopilotPack.js";
 
 // Autopilot rotation.
 //
@@ -138,6 +139,20 @@ export default async function handler(req, res) {
         });
         if (surviving) summary.kept += 1;
         else summary.archived += 1;
+      }
+
+      if (outcome === "needs_new_creative") {
+        const owner = await D.User.get(first.created_by_id);
+        await createAutopilotPack({
+          user: owner,
+          payload: {
+            niche: first.niche || "all",
+            product_ids: [first.product_id],
+            regeneration: bumped,
+            archive_existing: false,
+          },
+          origin: `https://${req.headers.host}`,
+        });
       }
     }
 
