@@ -10,7 +10,7 @@
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc -p ./jsconfig.json",
     "preview": "vite preview",
-    "test:autopilot": "node --experimental-vm-modules --test tests/autopilot-regeneration.test.mjs"
+    "test:autopilot": "node --experimental-vm-modules --test tests/*.test.mjs"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^17.0.0",

@@ -81,7 +81,11 @@ export async function createAutopilotPack({ user, payload = {}, origin }) {
     const productList = topProducts
       .map((product, index) => {
         const links = [1, 2, 3]
-          .map((variant) => `Variant ${variant} link: ${trustedAppOrigin}/functions/trackClick?code=${encodeURIComponent(linkByKey[`${product.id}:${variant}`].short_code)}`)
+          // The /r/<code> short link, not the older
+          // /functions/trackClick?code= form. These URLs go straight into the
+          // ad copy, and the long form reads as an open redirect to social
+          // platforms, which throttle it.
+          .map((variant) => `Variant ${variant} link: ${trustedAppOrigin}/r/${encodeURIComponent(linkByKey[`${product.id}:${variant}`].short_code)}`)
           .join("\n");
         return `${index}. ${product.name}\nNiche: ${product.category || niche}\nDescription: ${product.description || "Useful product for everyday shoppers."}\n${links}`;
       })
@@ -171,7 +175,9 @@ export default async function handler(req, res) {
     const result = await createAutopilotPack({
       user,
       payload: req.body || {},
-      origin: `https://${req.headers.host}`,
+      // Resolved to null when absent so the origin guard can fire --
+      // `https://${undefined}` is the truthy string "https://undefined".
+      origin: req.headers?.host ? `https://${req.headers.host}` : null,
     });
     res.status(200).json(result);
   } catch (error) {
