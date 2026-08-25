@@ -37,6 +37,10 @@
     {
       "path": "/api/syncTrendingLinks",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/optimizeAutopilotPosts",
+      "schedule": "0 9 * * *"
     }
   ]
 }
