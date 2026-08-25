@@ -1,0 +1,258 @@
+import { db } from "./db.js";
+import { getClickBankAffiliateId, applyClickBankAffiliateId } from "./affiliates.js";
+
+// Tools Maya and Atlas can actually call.
+//
+// SECURITY MODEL, in one line: the model never supplies an owner. Every query
+// and every insert here has `created_by_id: user.id` stamped on it by this
+// file, from the session that `getAuthedUser` verified -- not from anything the
+// model said. db() runs as the service role and bypasses Postgres RLS, so this
+// is the only thing standing between one user's assistant and another user's
+// rows. Never add a tool that takes a user id, an owner, or a raw filter object
+// as a parameter.
+//
+// Read tools are cheap and safe. Write tools are deliberately few: creating a
+// link or a product is recoverable, and request_payout only files a claim that
+// an admin still reviews before any money moves (processStripePayout).
+//
+// Deliberately NOT exposed:
+//   savePaymentInfo   -- writes payout routing; an LLM should not be able to
+//                        redirect where commissions land from a chat message.
+//   syncEbayTrending  -- admin/cron only, and writes rows for every user.
+//   postToInstagram   -- admin-only, posts publicly under a shared account.
+//   deleteAccount     -- irreversible.
+// For those the assistant should link the user to the page instead.
+
+const MAX_ROWS = 25;
+
+/** Trim a row down to what is useful in a conversation, and keep tokens sane. */
+function linkSummary(l) {
+  return {
+    id: l.id,
+    product_name: l.product_name,
+    short_code: l.short_code,
+    clicks: l.clicks || 0,
+    conversions: l.conversions || 0,
+    earnings: Number(l.earnings) || 0,
+  };
+}
+
+function productSummary(p) {
+  return { id: p.id, name: p.name, category: p.category, commission_rate: p.commission_rate, url: p.url };
+}
+
+export const TOOL_DEFINITIONS = [
+  {
+    name: "get_my_stats",
+    description:
+      "Totals for the current user: number of links, total clicks, conversions, earnings, and the withdrawable balance after money already requested. Call this before answering anything about how the user is doing, what they have earned, or whether they can request a payout. Do not guess these numbers.",
+    input_schema: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "list_my_links",
+    description:
+      "The user's affiliate links with per-link clicks, conversions and earnings. Use when asked which links exist or which are performing.",
+    input_schema: {
+      type: "object",
+      properties: {
+        limit: { type: "number", description: `How many to return, 1-${MAX_ROWS}. Default 10.` },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "list_my_products",
+    description: "Products the user has added, which are what links and autopilot ads get built from.",
+    input_schema: {
+      type: "object",
+      properties: { limit: { type: "number", description: `1-${MAX_ROWS}. Default 10.` } },
+      required: [],
+    },
+  },
+  {
+    name: "create_product",
+    description:
+      "Add a product the user wants to promote. Ask for the destination URL first if you do not have one -- never invent it. For ClickBank, the vendor nickname must be one the user has confirmed exists.",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Short product name shown in the UI." },
+        url: { type: "string", description: "Destination URL, including scheme." },
+        category: { type: "string", description: "Optional niche, e.g. clickbank, health, home." },
+        description: { type: "string" },
+      },
+      required: ["name", "url"],
+    },
+  },
+  {
+    name: "create_affiliate_link",
+    description:
+      "Create a trackable link for one of the user's existing products. Returns the /r/<code> share URL, which is the URL the user should post -- never the raw destination. Call list_my_products first to get a product_id.",
+    input_schema: {
+      type: "object",
+      properties: {
+        product_id: { type: "string", description: "id from list_my_products." },
+      },
+      required: ["product_id"],
+    },
+  },
+  {
+    name: "request_payout",
+    description:
+      "File a payout request for the user. This creates a pending claim an admin reviews; it does not move money by itself. Always call get_my_stats first and tell the user their available balance before filing. Never file one the user did not explicitly ask for.",
+    input_schema: {
+      type: "object",
+      properties: {
+        amount: { type: "number", description: "US dollars. Must be greater than zero and within the available balance." },
+      },
+      required: ["amount"],
+    },
+  },
+];
+
+function clampLimit(v) {
+  const n = Number(v) || 10;
+  return Math.max(1, Math.min(Math.trunc(n), MAX_ROWS));
+}
+
+function money(v) {
+  return Math.round((Number(v) || 0) * 100) / 100;
+}
+
+/** Earnings minus everything already claimed. Mirrors api/requestPayout.js. */
+export async function availableBalance(D, userId) {
+  const links = await D.AffiliateLink.filter({ created_by_id: userId }, "-created_at", 500);
+  const earned = links.reduce((sum, l) => sum + (Number(l.earnings) || 0), 0);
+
+  // Payout rows have been written with either column over the app's history.
+  const byCreator = await D.Payout.filter({ created_by_id: userId });
+  const byUser = await D.Payout.filter({ user_id: userId });
+  const unique = [...new Map([...byCreator, ...byUser].map((p) => [p.id, p])).values()];
+  const reserved = unique
+    .filter((p) => ["pending", "approved", "paid"].includes(p.status))
+    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+  return { links, earned: money(earned), reserved: money(reserved), available: money(Math.max(0, earned - reserved)) };
+}
+
+/**
+ * Run one tool call on behalf of `user`.
+ *
+ * Returns a plain object that gets JSON-stringified into a tool_result. Errors
+ * are returned as `{ error }` rather than thrown: the model should see that a
+ * tool failed and be able to tell the user, instead of the whole turn 500ing.
+ *
+ * @param {string} name
+ * @param {Record<string, any>} input model-supplied, treat as untrusted
+ * @param {{ user: any, origin: string|null, D?: any }} ctx
+ *        `D` is injectable so the scoping rules can be tested without a
+ *        database. Production callers omit it.
+ */
+export async function executeTool(name, input = {}, ctx = {}) {
+  const { user, origin } = ctx;
+  if (!user?.id) return { error: "Not signed in." };
+  const D = ctx.D || db();
+
+  try {
+    switch (name) {
+      case "get_my_stats": {
+        const { links, earned, reserved, available } = await availableBalance(D, user.id);
+        return {
+          links: links.length,
+          clicks: links.reduce((s, l) => s + (Number(l.clicks) || 0), 0),
+          conversions: links.reduce((s, l) => s + (Number(l.conversions) || 0), 0),
+          earnings_total: earned,
+          already_requested: reserved,
+          available_to_request: available,
+        };
+      }
+
+      case "list_my_links": {
+        const rows = await D.AffiliateLink.filter({ created_by_id: user.id }, "-created_at", clampLimit(input.limit));
+        return { links: rows.map(linkSummary) };
+      }
+
+      case "list_my_products": {
+        const rows = await D.Product.filter({ created_by_id: user.id }, "-created_at", clampLimit(input.limit));
+        return { products: rows.map(productSummary) };
+      }
+
+      case "create_product": {
+        const name_ = String(input.name || "").trim().slice(0, 120);
+        const url = String(input.url || "").trim();
+        if (!name_) return { error: "A product name is required." };
+        try {
+          new URL(url);
+        } catch {
+          return { error: `"${url}" is not a valid URL. Ask the user for the full destination URL.` };
+        }
+        const created = await D.Product.create({
+          created_by_id: user.id,
+          name: name_,
+          url,
+          category: String(input.category || "other").trim().slice(0, 60),
+          description: String(input.description || "").slice(0, 500),
+        });
+        return { product: productSummary(created) };
+      }
+
+      case "create_affiliate_link": {
+        // Scoped fetch, not a bare .get(): this proves the product belongs to
+        // the caller before anything is created against it.
+        const owned = await D.Product.filter({ created_by_id: user.id, id: String(input.product_id || "") });
+        const product = owned[0];
+        if (!product) return { error: "No product of yours with that id. Call list_my_products first." };
+
+        const existing = await D.AffiliateLink.filter({ created_by_id: user.id }, "-created_at", 500);
+        const taken = new Set(existing.map((l) => l.short_code).filter(Boolean));
+        let code;
+        do {
+          code = Math.random().toString(36).slice(2, 8).toUpperCase();
+        } while (taken.has(code));
+
+        const link = await D.AffiliateLink.create({
+          created_by_id: user.id,
+          product_id: product.id,
+          product_name: product.name,
+          destination_url: applyClickBankAffiliateId(product.url, getClickBankAffiliateId(user)),
+          short_code: code,
+          clicks: 0,
+          conversions: 0,
+          earnings: 0,
+        });
+        return {
+          link: linkSummary(link),
+          share_url: origin ? `${origin}/r/${link.short_code}` : `/r/${link.short_code}`,
+        };
+      }
+
+      case "request_payout": {
+        const amount = money(input.amount);
+        if (!(amount > 0)) return { error: "Amount must be greater than zero." };
+        const { available } = await availableBalance(D, user.id);
+        if (amount > available) {
+          return { error: `Only $${available.toFixed(2)} is available to request right now.`, available };
+        }
+        const payout = await D.Payout.create({
+          created_by_id: user.id,
+          user_id: user.id,
+          amount,
+          status: "pending",
+          source: "assistant",
+          requested_at: new Date().toISOString(),
+          notes: `Requested through the assistant. Available at request: $${available.toFixed(2)}.`,
+        });
+        return {
+          payout: { id: payout.id, amount, status: "pending" },
+          message: "Filed as pending. An admin reviews it before any money moves.",
+        };
+      }
+
+      default:
+        return { error: `Unknown tool: ${name}` };
+    }
+  } catch (error) {
+    console.error(`Tool ${name} failed:`, error.message);
+    return { error: `That didn't work: ${error.message}` };
+  }
+}
