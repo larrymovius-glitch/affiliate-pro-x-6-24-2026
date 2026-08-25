@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import test from "node:test";
 import vm from "node:vm";
+import { applyClickBankAffiliateId } from "../api/_lib/affiliates.js";
 
 test("a regeneration creates isolated links and carries its round number", async () => {
   const calls = { links: [], posts: [] };
@@ -28,6 +29,11 @@ test("a regeneration creates isolated links and carries its round number", async
     if (specifier === "./_lib/db.js") return synthetic(["db"], { db: () => D });
     if (specifier === "./_lib/supabase.js") return synthetic(["getAuthedUser"], { getAuthedUser: async () => ({ user: null }) });
     if (specifier === "./_lib/llm.js") return synthetic(["invokeLLM"], { invokeLLM: async () => ({ ads: [1, 2, 3].map((variant_number) => ({ product_index: 0, variant_number, content: `ad ${variant_number}` })) }) });
+    // The real implementation, not a stub -- createAutopilotPack.js started
+    // importing this from api/_lib/affiliates.js once the duplicate local
+    // copy was consolidated there, and the module graph here needs updating
+    // to match every time that import list changes.
+    if (specifier === "./_lib/affiliates.js") return synthetic(["applyClickBankAffiliateId"], { applyClickBankAffiliateId });
     throw new Error(`Unexpected import ${specifier}`);
   });
   await module.evaluate();
