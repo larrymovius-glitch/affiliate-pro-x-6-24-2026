@@ -24,3 +24,39 @@ export const CLICKBANK_AFFILIATE_ID = "apxalaska";
 export function digistorePromoLink(productId) {
   return `https://www.digistore24.com/redir/${productId}/${DIGISTORE_AFFILIATE_ID}/`;
 }
+
+// The two below moved here from src/lib/affiliate-id.js so the serverless side
+// can use them without importing out of api/. The frontend re-exports them
+// under the names it already used, and createAutopilotPack.js no longer keeps
+// its own copy -- there were two implementations of the rewrite, which is how
+// an affiliate id quietly goes wrong in one place and not the other.
+
+/** The user's own ClickBank nickname if they set one, else the house account. */
+export function getClickBankAffiliateId(user) {
+  return user?.clickbank_nickname?.trim() || CLICKBANK_AFFILIATE_ID;
+}
+
+/**
+ * Rewrite a ClickBank hoplink so the commission is credited to `affiliateId`.
+ * Handles both documented shapes -- `hop.clickbank.net/?affiliate=` and
+ * `<affiliate>.<vendor>.hop.clickbank.net`. Anything that is not a ClickBank
+ * URL, or not a URL at all, is returned untouched.
+ */
+export function applyClickBankAffiliateId(value, affiliateId) {
+  try {
+    const url = new URL(value);
+    if (url.hostname === "hop.clickbank.net") {
+      url.searchParams.set("affiliate", affiliateId);
+      return url.toString();
+    }
+    if (url.hostname.endsWith(".hop.clickbank.net")) {
+      const parts = url.hostname.split(".");
+      parts[0] = affiliateId;
+      url.hostname = parts.join(".");
+      return url.toString();
+    }
+  } catch (_) {
+    return value;
+  }
+  return value;
+}

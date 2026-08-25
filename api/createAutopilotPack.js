@@ -1,6 +1,7 @@
 import { db } from "./_lib/db.js";
 import { getAuthedUser } from "./_lib/supabase.js";
 import { invokeLLM } from "./_lib/llm.js";
+import { applyClickBankAffiliateId } from "./_lib/affiliates.js";
 
 function cleanCode(v) { return String(v || "product").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 18) || "product"; }
 function uniqueCode(base, existing) {
@@ -9,19 +10,6 @@ function uniqueCode(base, existing) {
   while (existing.has(code)) { code = `${b}_${count}`.slice(0, 28); count += 1; }
   existing.add(code);
   return code;
-}
-function applyClickBankAffiliateId(value, affiliateId) {
-  try {
-    const url = new URL(value);
-    if (url.hostname === "hop.clickbank.net") { url.searchParams.set("affiliate", affiliateId); return url.toString(); }
-    if (url.hostname.endsWith(".hop.clickbank.net")) {
-      const parts = url.hostname.split(".");
-      parts[0] = affiliateId;
-      url.hostname = parts.join(".");
-      return url.toString();
-    }
-  } catch (_) { return value; }
-  return value;
 }
 
 export default async function handler(req, res) {
