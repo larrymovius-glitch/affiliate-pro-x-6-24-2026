@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import ReactMarkdown from "react-markdown";
 import { useQuery } from "@tanstack/react-query";
 import { Mic, MicOff, Loader2, Volume2, Send, Settings2 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
@@ -10,13 +12,43 @@ const ATLAS_DEFAULT = "https://media.base44.com/images/public/6a2a72a46235784f87
 const MAYA_DEFAULT = "https://media.base44.com/images/public/6a2a72a46235784f879b968c/c0640056e_generated_image.png";
 
 
-// Render URLs in assistant replies as real, tappable links.
-function Linkify({ text }) {
-  const parts = String(text || "").split(/(https?:\/\/[^\s]+)/g);
-  return parts.map((p, i) =>
-    /^https?:\/\//.test(p)
-      ? <a key={i} href={p} target="_blank" rel="noreferrer" className="underline text-primary break-all">{p}</a>
-      : p
+// Assistant replies are short markdown. The reply used to render as one plain
+// <p>, so "**bold**" and "- " showed up as literal characters and the assistant
+// had no way to send anyone to a page in the app.
+//
+// Root-relative links (/links, /payouts) route in-app; external ones open in a
+// new tab. Anything that is not an http(s) or root-relative URL renders as
+// plain text rather than becoming a link -- an assistant reply is model output,
+// and javascript: or data: URLs have no business being clickable.
+function ReplyMarkdown({ text }) {
+  const navigate = useNavigate();
+
+  const Anchor = ({ href = "", children }) => {
+    if (href.startsWith("/")) {
+      return (
+        <a
+          href={href}
+          onClick={(e) => { e.preventDefault(); navigate(href); }}
+          className="underline text-primary"
+        >
+          {children}
+        </a>
+      );
+    }
+    if (/^https?:\/\//i.test(href)) {
+      return (
+        <a href={href} target="_blank" rel="noreferrer" className="underline text-primary break-all">
+          {children}
+        </a>
+      );
+    }
+    return <span>{children}</span>;
+  };
+
+  return (
+    <div className="text-base text-[color:var(--voice-text)] leading-relaxed space-y-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_strong]:font-semibold [&_code]:font-mono [&_code]:text-sm">
+      <ReactMarkdown components={{ a: Anchor }}>{String(text || "")}</ReactMarkdown>
+    </div>
   );
 }
 
@@ -52,7 +84,7 @@ const cleanSpeechForVoice = (text) => text
 function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, experienceLevel, themeMode }) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const supported = !!SpeechRecognition;
-  const { getOrInitConversation, subscribeToSession } = useAssistantSession();
+  const { getOrInitConversation, saveConversation, subscribeToSession } = useAssistantSession();
   const { user } = useAuth();
 
   const [listening, setListening] = useState(false);
@@ -219,33 +251,6 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
     const messageRunId = runIdRef.current + 1;
     runIdRef.current = messageRunId;
 
-    const isTrendingPostRequest = /generate\s+(social\s+media\s+)?posts?.*trending\s+products/i.test(cleanText);
-
-    if (agentName === "maya" && isTrendingPostRequest) {
-      try {
-        setWorkingStatus("Maya is creating draft posts…");
-        const response = await base44.functions.invoke("generateEbayPosts", {});
-        const data = response?.data || {};
-        const finalText = data.success
-          ? `Done — I created ${data.generated?.length || 0} safe draft posts and saved them in AutoPilot.`
-          : data.message || "I couldn't generate posts yet. Please sync trending products first.";
-        if (mountedRef.current) {
-          setReply(finalText);
-          setLoading(false);
-          setWorkingStatus("");
-          speakText(finalText);
-        }
-      } catch (err) {
-        console.error("Direct post generation failed:", err);
-        if (mountedRef.current) {
-          setReply("I couldn't generate those posts yet. Please try again from AutoPilot.");
-          setLoading(false);
-          setWorkingStatus("");
-        }
-      }
-      return;
-    }
-
     const personaDirective = agentName === "maya"
       ? "You are Maya only: warm, compassionate, calm, and supportive. Do not use Atlas's voice, name, or coaching style."
       : "You are Atlas only: clear, strategic, structured, and action-oriented. Do not use Maya's voice, name, or coaching style.";
@@ -319,6 +324,18 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
 
       base44.agents.addMessage(activeConversation, { role: "user", content: assistantText })
         .then((updatedConversation) => {
+          // Persist BEFORE the early return: the turn's history must be kept
+          // even when the subscription path already rendered the text, or the
+          // next turn re-sends a one-message conversation and the assistant's
+          // tool_use blocks are dropped.
+          if (updatedConversation?.id) {
+            conversationRef.current = updatedConversation;
+            saveConversation(agentName, {
+              name: `${name} Voice Session`,
+              assistant: agentName,
+              experience_level: experienceLevel,
+            }, updatedConversation);
+          }
           if (!mountedRef.current || latestAssistantText || messageRunId !== runIdRef.current) return;
           const textVal = readAssistantText(updatedConversation?.messages || updatedConversation?.data?.messages || [], baselineAssistantCount);
           if (textVal) {
@@ -344,7 +361,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
         setWorkingStatus("");
       }
     }
-  }, [agentName, experienceLevel, getOrInitConversation, isInitializing, name, speakText, stopSpeaking, subscribeToSession, clearResponseHandlers]);
+  }, [agentName, experienceLevel, getOrInitConversation, saveConversation, isInitializing, name, speakText, stopSpeaking, subscribeToSession, clearResponseHandlers]);
 
   const startListening = useCallback(() => {
     if (speaking) stopSpeaking();
@@ -489,7 +506,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
                 </button>
               )}
             </div>
-            <p className="text-base text-[color:var(--voice-text)] leading-relaxed whitespace-pre-wrap"><Linkify text={reply} /></p>
+            <ReplyMarkdown text={reply} />
             {needsTapToSpeak && (
               <button onClick={playBlockedVoice} className="mt-3 w-full rounded-xl px-4 py-3 text-sm font-bold transition-all active:scale-95" style={{ background: "linear-gradient(135deg, #7c3aed, #c026d3)", color: "#fff" }}>
                 Tap to hear {name}
