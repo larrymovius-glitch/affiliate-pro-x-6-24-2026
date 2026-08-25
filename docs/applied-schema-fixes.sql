@@ -64,3 +64,19 @@ create unique index if not exists conversion_events_order_id_key
 -- ('free' | 'pro' | 'veteran_free') and profiles.epn_campaign_id both exist in
 -- the database and are read by no code at all. subscription_tier is the
 -- natural place to hang the paywall this app does not yet have.
+
+-- ---------------------------------------------------------------------------
+-- APPLIED 2026-08-23, migration `add_autopilot_columns_to_generated_posts`.
+--
+-- generated_posts had 11 columns; the autopilot and Ad Tracker wrote 16 more
+-- that did not exist, so createAutopilotPack's insert failed outright and
+-- optimizeAutopilotPosts could not even filter on autopilot_enabled. The
+-- feature had never been able to run.
+--
+-- The status CHECK also allowed only draft/published/scheduled while the app
+-- writes 'posted' and 'archived'. Widening an allowed set cannot invalidate
+-- existing rows.
+--
+-- Verified after applying: 29 columns on generated_posts, CHECK now accepts
+-- posted and archived.
+-- ---------------------------------------------------------------------------
