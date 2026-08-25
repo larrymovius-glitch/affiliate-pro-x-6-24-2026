@@ -1,28 +1,13 @@
 -- Apply in the Supabase SQL Editor after reviewing on a staging project.
--- This migration intentionally removes all existing `profiles` policies. The
--- browser client must not be able to assign roles or veteran access directly.
+-- This migration intentionally rebuilds all existing `profiles` policies. The
+-- browser client must not be able to assign roles or veteran access directly,
+-- but admins still need row-level write access for the rest of the admin panel
+-- (role changes, user deletion) -- that access is restored explicitly below
+-- instead of being dropped and never replaced.
 
-create schema if not exists app;
-
-create or replace function app.is_veteran_reviewer()
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select exists (
-    select 1 from public.profiles
-    where id = auth.uid() and role = 'admin'
-  );
-$$;
-
-revoke all on function app.is_veteran_reviewer() from public;
-grant execute on function app.is_veteran_reviewer() to authenticated;
-
--- Require authenticated users to see only their own profile. Reviewers can see
--- profiles to perform review; decisions are still made only through a Vercel
--- Function using the service-role key.
+-- Require authenticated users to see only their own profile, or any profile if
+-- they're an admin. Veteran-status decisions are still made only through a
+-- Vercel Function using the service-role key, never through this read access.
 alter table public.profiles enable row level security;
 do $$
 declare policy_name text;
@@ -36,15 +21,25 @@ end $$;
 
 create policy profiles_read_own_or_reviewer
 on public.profiles for select to authenticated
-using (id = auth.uid() or app.is_veteran_reviewer());
+using (id = auth.uid() or public.is_admin());
 
 create policy profiles_update_own
 on public.profiles for update to authenticated
 using (id = auth.uid())
 with check (id = auth.uid());
 
+-- Restores the admin-wide row access this migration's policy rebuild above
+-- would otherwise remove -- the admin panel's role toggle and user deletion
+-- both write to other users' profile rows.
+create policy profiles_admin_write
+on public.profiles for all to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
 -- RLS controls rows; column privileges prevent browser clients from editing
--- authority-bearing columns on their own profile.
+-- authority-bearing columns on their own profile. Admin writes to these same
+-- columns still go through the service-role-backed review endpoint, which
+-- bypasses RLS and column grants alike.
 revoke update (role, veteran_status, veteran_notes) on public.profiles from authenticated;
 
 create table if not exists public.veteran_status_audit (
