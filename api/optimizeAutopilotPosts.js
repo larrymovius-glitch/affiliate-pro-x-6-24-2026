@@ -1,5 +1,6 @@
 import { db } from "./_lib/db.js";
 import { getAuthedUser, isCronRequest } from "./_lib/supabase.js";
+import { createAutopilotPack } from "./createAutopilotPack.js";
 
 // Autopilot rotation.
 //
@@ -38,6 +39,41 @@ function interactionOf(link) {
 
 export function groupKey(post) {
   return `${post.created_by_id || "system"}:${post.product_id || post.product_name}`;
+}
+
+// A regeneration calls an LLM, so it can fail for reasons that have nothing to
+// do with this group: a rate limit, a timeout, a product that has since been
+// deleted. Those must not take the whole cron run down with them -- the groups
+// after this one still need processing, and the ones before it have already had
+// their rows rewritten.
+//
+// Returns true only if fresh copy actually landed.
+async function regenerate(D, first, round, origin) {
+  try {
+    // Posts created by the trending-sync job can carry a null owner, and a
+    // profile row can be missing outright. createAutopilotPack dereferences
+    // user.id immediately, so an unguarded null here throws.
+    const owner = first.created_by_id ? await D.User.get(first.created_by_id) : null;
+    if (!owner?.id) {
+      console.warn(`Skipping regeneration: no owner for post ${first.id}`);
+      return false;
+    }
+
+    await createAutopilotPack({
+      user: owner,
+      payload: {
+        niche: first.niche || "all",
+        product_ids: [first.product_id],
+        regeneration: round,
+        archive_existing: false,
+      },
+      origin,
+    });
+    return true;
+  } catch (error) {
+    console.error(`Regeneration failed for post ${first.id}:`, error.message);
+    return false;
+  }
 }
 
 /**
@@ -98,8 +134,14 @@ export default async function handler(req, res) {
       (groups[key] ||= []).push(post);
     }
 
+    // `https://${undefined}` is the truthy string "https://undefined", so a
+    // missing host would sail past createAutopilotPack's origin guard and get
+    // baked into the generated ad copy as a dead link. Resolve it to null here
+    // instead and let the guard do its job.
+    const origin = req.headers?.host ? `https://${req.headers.host}` : null;
+
     const now = Date.now();
-    const summary = { cycles_due: 0, kept: 0, archived: 0, awaiting_post: 0, needs_new_creative: 0, needs_attention: 0 };
+    const summary = { cycles_due: 0, kept: 0, archived: 0, awaiting_post: 0, needs_new_creative: 0, needs_attention: 0, regeneration_failed: 0 };
 
     for (const groupPosts of Object.values(groups)) {
       const first = groupPosts[0];
@@ -118,12 +160,28 @@ export default async function handler(req, res) {
       }
 
       const regenerations = Number(first.regenerations) || 0;
-      const { outcome, keep, archive } = decideCycle(variants, regenerations);
+      const { outcome, keep } = decideCycle(variants, regenerations);
       summary[outcome] = (summary[outcome] || 0) + 1;
+
+      // Regenerate BEFORE rewriting the rows, not after. Bumping the count
+      // first meant a failed regeneration still burned one of the three allowed
+      // rounds, so three failures could exhaust the budget having never
+      // produced a single new ad.
+      let regenerated = false;
+      if (outcome === "needs_new_creative") {
+        regenerated = await regenerate(D, first, regenerations + 1, origin);
+        if (!regenerated) {
+          // Leave the group exactly as it is so the next run retries.
+          // Archiving the old copy without a replacement would strand the
+          // product with nothing running at all.
+          summary.regeneration_failed += 1;
+          continue;
+        }
+      }
 
       const keepSet = new Set(keep);
       const cycleStartsAt = new Date().toISOString();
-      const bumped = outcome === "needs_new_creative" ? regenerations + 1 : regenerations;
+      const bumped = regenerated ? regenerations + 1 : regenerations;
 
       for (const post of groupPosts) {
         const surviving = keepSet.has(post.id);
