@@ -154,12 +154,15 @@ export async function chatWithAgent({ agent_name, messages, user, origin, client
   // Ran out of rounds. Return what we have rather than throwing, so the user
   // gets something and the transcript stays valid.
   console.warn(`Agent ${agent_name} hit the ${MAX_TOOL_ROUNDS}-round tool limit`);
-  return {
-    messages: working,
-    reply: {
-      role: "assistant",
-      content: "That turned into more steps than I can do at once. Tell me which part you want first?",
-    },
-    tool_calls: toolCalls,
+  const reply = {
+    role: "assistant",
+    content: "That turned into more steps than I can do at once. Tell me which part you want first?",
   };
+  // Append it to the history as well, not just return it. The handler forwards
+  // only `messages`, and the client reads the reply out of the last assistant
+  // message -- left off, a capped turn shows the user nothing at all. It also
+  // closes the transcript on an assistant turn instead of a dangling user
+  // tool_result, so the next request still alternates roles.
+  working.push(reply);
+  return { messages: working, reply, tool_calls: toolCalls };
 }

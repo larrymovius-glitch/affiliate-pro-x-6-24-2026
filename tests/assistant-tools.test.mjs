@@ -124,6 +124,31 @@ test("a looping model is capped instead of running forever", async () => {
   });
   assert.equal(client.seen.length, 5, "must stop at MAX_TOOL_ROUNDS");
   assert.match(result.reply.content, /more steps/i);
+
+  // The handler forwards only `messages`, and the client reads the reply from
+  // the last assistant message -- so the fallback has to be in the history too,
+  // or a capped turn renders as nothing.
+  const last = result.messages[result.messages.length - 1];
+  assert.equal(last.role, "assistant", "transcript must not end on a user tool_result");
+  assert.equal(last.content, result.reply.content);
+});
+
+test("every returned transcript ends on an assistant turn", async () => {
+  // Normal path: the assistant's own turn is already the last entry.
+  const plain = fakeClient([text("all done")]);
+  const a = await chatWithAgent({ agent_name: "atlas", messages: [{ role: "user", content: "hi" }], user, client: plain });
+  assert.equal(a.messages[a.messages.length - 1].role, "assistant");
+
+  // After a tool round too.
+  const withTool = fakeClient([wantsTool("t1", "get_my_stats"), text("2 clicks")]);
+  const b = await chatWithAgent({
+    agent_name: "atlas",
+    messages: [{ role: "user", content: "stats" }],
+    user,
+    client: withTool,
+    runTool: async () => ({ clicks: 2 }),
+  });
+  assert.equal(b.messages[b.messages.length - 1].role, "assistant");
 });
 
 test("who the user is reaches the system prompt", async () => {
