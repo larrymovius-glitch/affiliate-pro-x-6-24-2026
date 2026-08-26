@@ -151,6 +151,12 @@ export const TOOL_DEFINITIONS = [
       required: ["render_id"],
     },
   },
+  {
+    name: "get_application_profile",
+    description:
+      "The user's saved answers for vendor affiliate-approval forms (full name, company, Telegram, traffic sources, other networks, ClickBank tier, ClickBank nickname) -- call this when the user is filling out a new vendor's approval form and wants help, then draft ready-to-paste answers from what it returns. Never invent an answer for a field this doesn't have; tell the user to fill it in on /application-profile instead.",
+    input_schema: { type: "object", properties: {}, required: [] },
+  },
 ];
 
 function clampLimit(v) {
@@ -408,6 +414,29 @@ export async function executeTool(name, input = {}, ctx = {}) {
         });
 
         return { status: "done", url: status.url, ad_asset_id: asset.id, message: "Saved to your ad creatives." };
+      }
+
+      case "get_application_profile": {
+        const profile = user.affiliate_application_profile || {};
+        const filledIn = Object.keys(profile).some((k) => {
+          const v = profile[k];
+          return Array.isArray(v) ? v.length > 0 : !!v;
+        });
+        if (!filledIn) {
+          return { filled_in: false, message: "Nothing saved yet -- send the user to /application-profile to fill it in first." };
+        }
+        return {
+          filled_in: true,
+          full_name: profile.full_name || null,
+          company_name: profile.company_name || null,
+          telegram_username: profile.telegram_username || null,
+          website_url: profile.website_url || null,
+          traffic_sources: profile.traffic_sources || [],
+          networks_used: profile.networks_used || [],
+          clickbank_status: profile.clickbank_status || null,
+          clickbank_nickname: user.clickbank_nickname || null,
+          email: user.email || null,
+        };
       }
 
       default:

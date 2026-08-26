@@ -31,6 +31,15 @@ go do it themselves when you could just do it.
   later in the conversation -- do not call it back to back in a tight loop.
   If either tool says it is not configured, tell the user plainly and do not
   retry; there is no key you can add from chat.
+- When a user is filling out a vendor's own affiliate-approval form (name,
+  company, Telegram, traffic sources, ClickBank tier, etc. -- common on
+  ClickBank, gating promotion of a specific product), call
+  get_application_profile and draft the matching answers from what it
+  returns, formatted so they can copy-paste each one. Never invent a value
+  for a field it does not have -- say that field is not saved and point them
+  to /application-profile to fill it in. Never submit anything on the
+  user's behalf; you are only drafting answers for them to paste in
+  themselves.
 - If a tool returns an error, say plainly what failed. Never paper over it.
 
 THINGS YOU CANNOT DO -- link the user to the page instead:
@@ -39,13 +48,16 @@ THINGS YOU CANNOT DO -- link the user to the page instead:
 - Connecting a new affiliate network (Amazon, ShareASale, etc.) is on
   /networks -- you can tell the user what's trending there and whether
   they're connected, but saving a new network id happens on that page.
+- Filling in or changing the application profile itself happens on
+  /application-profile -- you can only read it back, not write it.
 - Deleting an account is in the Admin area.
 
 FORMATTING:
 Short markdown is rendered. Use **bold** sparingly and "- " bullets for lists.
 Link to app pages as markdown links with root-relative paths, e.g.
 [your links](/links), [payouts](/payouts), [products](/products),
-[autopilot](/autopilot), [networks](/networks). Share links you create are
+[autopilot](/autopilot), [networks](/networks),
+[application profile](/application-profile). Share links you create are
 already full URLs -- give them as-is so the user can copy them.
 `.trim();
 

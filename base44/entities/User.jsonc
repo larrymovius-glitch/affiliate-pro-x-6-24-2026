@@ -73,6 +73,11 @@
       "type": "object",
       "description": "Affiliate id/tag per network beyond ClickBank/Digistore24, e.g. { amazon: 'mytag-20' }. See src/lib/affiliateNetworks.js.",
       "default": {}
+    },
+    "affiliate_application_profile": {
+      "type": "object",
+      "description": "Reusable answers for vendor affiliate-approval forms (full_name, company_name, telegram_username, website_url, traffic_sources[], networks_used[], clickbank_status) so Maya/Atlas can draft ready-to-paste answers instead of the user retyping them per vendor. See src/pages/ApplicationProfile.jsx.",
+      "default": {}
     }
   },
   "required": [
