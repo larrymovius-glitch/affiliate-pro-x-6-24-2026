@@ -353,7 +353,7 @@ export async function executeTool(name, input = {}, ctx = {}) {
         if (!product.image_url) return { error: `"${product.name}" has no image yet -- add one on the product before a video ad can be made.` };
 
         if (!videoAds.videoAdsConfigured()) {
-          return { error: "Video ad generation isn't set up yet -- it needs an OpenAI and a Shotstack API key configured on the server. Nothing you can fix from chat.", configured: false };
+          return { error: "Video ad generation isn't set up yet -- it needs an OpenAI and a JSON2Video API key configured on the server. Nothing you can fix from chat.", configured: false };
         }
 
         let script = String(input.script || "").trim();
@@ -403,7 +403,7 @@ export async function executeTool(name, input = {}, ctx = {}) {
           file_url: status.url,
           file_type: "video",
           platform: "general",
-          notes: `Rendered via Shotstack (render ${renderId}).`,
+          notes: `Rendered via JSON2Video (render ${renderId}).`,
           source: "ai_generated_video",
         });
 
