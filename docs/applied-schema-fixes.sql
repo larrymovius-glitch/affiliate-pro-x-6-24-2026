@@ -80,3 +80,19 @@ create unique index if not exists conversion_events_order_id_key
 -- Verified after applying: 29 columns on generated_posts, CHECK now accepts
 -- posted and archived.
 -- ---------------------------------------------------------------------------
+
+-- ---------------------------------------------------------------------------
+-- APPLIED 2026-08-26, migration `add_missing_source_column_to_click_events`.
+--
+-- Found by the first real smoke test of the click -> conversion chain:
+-- api/trackClick.js inserts `source` (and the ClickEvent entity's own schema
+-- declares it) into click_events on every single click, but the live table
+-- never had that column. PostgREST rejected the insert (PGRST204) on every
+-- click since this table existed -- the row count was 0. The click counter on
+-- affiliate_links still incremented (a separate update, earlier in the same
+-- handler), and trackConversion.js attributes sales by short_code against
+-- affiliate_links directly, never touching click_events -- so earnings were
+-- never at risk. This only broke the click log/analytics, silently, for as
+-- long as the table has existed.
+alter table public.click_events add column if not exists source text;
+-- ---------------------------------------------------------------------------
