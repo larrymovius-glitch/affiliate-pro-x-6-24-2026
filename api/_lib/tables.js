@@ -26,4 +26,5 @@ export const TABLES = {
   Product: "products",
   Subscription: "subscriptions",
   User: "profiles",
+  VeteranVerificationDocument: "veteran_verification_documents",
 };
