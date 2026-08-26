@@ -1,5 +1,7 @@
 import { db } from "./db.js";
 import { getClickBankAffiliateId, applyClickBankAffiliateId } from "./affiliates.js";
+import { invokeLLM } from "./llm.js";
+import { AFFILIATE_NETWORKS, connectedNetworkIds } from "./affiliateNetworks.js";
 
 // Tools Maya and Atlas can actually call.
 //
@@ -108,6 +110,19 @@ export const TOOL_DEFINITIONS = [
       required: ["amount"],
     },
   },
+  {
+    name: "find_trending_products",
+    description:
+      "Search the web right now for trending or viral products, optionally scoped to one affiliate network (e.g. 'clickbank', 'amazon'). Returns real, current results with a best-guess network match against the networks this app knows about -- use this instead of naming trending products from memory, which goes stale immediately. If the result says the user is not connected to the matching network, tell them that and offer the signup link instead of pretending a link can be built.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Optional focus, e.g. 'home gadgets' or 'weight loss'. Omit for general trending/viral products." },
+        network: { type: "string", description: `Optional: scope results to one network id -- ${AFFILIATE_NETWORKS.map((n) => n.id).join(", ")}.` },
+      },
+      required: [],
+    },
+  },
 ];
 
 function clampLimit(v) {
@@ -144,14 +159,15 @@ export async function availableBalance(D, userId) {
  *
  * @param {string} name
  * @param {Record<string, any>} input model-supplied, treat as untrusted
- * @param {{ user: any, origin: string|null, D?: any }} ctx
- *        `D` is injectable so the scoping rules can be tested without a
- *        database. Production callers omit it.
+ * @param {{ user: any, origin: string|null, D?: any, invokeLLM?: Function }} ctx
+ *        `D` and `invokeLLM` are injectable so tools can be tested without a
+ *        database or a live web search. Production callers omit both.
  */
 export async function executeTool(name, input = {}, ctx = {}) {
   const { user, origin } = ctx;
   if (!user?.id) return { error: "Not signed in." };
   const D = ctx.D || db();
+  const callLLM = ctx.invokeLLM || invokeLLM;
 
   try {
     switch (name) {
@@ -246,6 +262,55 @@ export async function executeTool(name, input = {}, ctx = {}) {
           payout: { id: payout.id, amount, status: "pending" },
           message: "Filed as pending. An admin reviews it before any money moves.",
         };
+      }
+
+      case "find_trending_products": {
+        const query = String(input.query || "").trim().slice(0, 200);
+        const networkId = String(input.network || "").trim().toLowerCase();
+        const scoped = AFFILIATE_NETWORKS.find((n) => n.id === networkId);
+        if (networkId && !scoped) {
+          return { error: `Unknown network "${networkId}". Known networks: ${AFFILIATE_NETWORKS.map((n) => n.id).join(", ")}.` };
+        }
+
+        const catalogList = AFFILIATE_NETWORKS.map((n) => `${n.id} (${n.name})`).join(", ");
+        const prompt = scoped
+          ? `Search the web right now for real, currently trending or best-selling products on ${scoped.name}${query ? ` in the "${query}" niche` : ""}. Return only real, verified products actually listed on ${scoped.name} today -- do not invent products.`
+          : `Search the web right now for real products that are trending or going viral${query ? ` in the "${query}" niche` : ""} across the internet generally (social media, news, shopping trends). For each one, your best guess at which of these affiliate networks it is likely sold through, if any: ${catalogList}. If none of them plausibly carry it, say so rather than guessing.`;
+
+        const result = await callLLM({
+          prompt,
+          add_context_from_internet: true,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              products: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string" },
+                    network_guess: { type: ["string", "null"], description: `One of: ${AFFILIATE_NETWORKS.map((n) => n.id).join(", ")}, or null if none fit.` },
+                    why: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        const connected = connectedNetworkIds(user);
+        const products = (result.products || []).map((p) => {
+          const network = scoped ? scoped.id : AFFILIATE_NETWORKS.find((n) => n.id === p.network_guess)?.id || null;
+          const net = network ? AFFILIATE_NETWORKS.find((n) => n.id === network) : null;
+          return {
+            name: p.name,
+            network: net?.name || null,
+            why: p.why || null,
+            user_is_connected: net ? connected.has(net.id) : false,
+            signup_url: net && !connected.has(net.id) ? net.signupUrl : null,
+          };
+        });
+        return { products };
       }
 
       default:
