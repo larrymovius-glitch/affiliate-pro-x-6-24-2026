@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { supabase } from "@/lib/supabaseClient";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -72,10 +73,22 @@ const veteranPlan = {
 
 export default function Pricing() {
   const [veteranRequestStatus, setVeteranRequestStatus] = useState("");
+  const [verificationDocument, setVerificationDocument] = useState(null);
 
   const veteranMutation = useMutation({
     mutationFn: async () => {
-      const response = await base44.functions.invoke('requestVeteranVerification', {});
+      if (!verificationDocument) throw new Error("Select a verification document first");
+      const upload = await base44.functions.invoke("createVeteranVerificationUpload", {
+        fileName: verificationDocument.name,
+        contentType: verificationDocument.type,
+        size: verificationDocument.size,
+      });
+      const { path, token } = upload.data;
+      const { error } = await supabase.storage
+        .from("veteran-verification")
+        .uploadToSignedUrl(path, token, verificationDocument, { contentType: verificationDocument.type });
+      if (error) throw error;
+      const response = await base44.functions.invoke("requestVeteranVerification", { documentPath: path });
       return response.data;
     },
     onSuccess: (data) => {
@@ -146,6 +159,18 @@ export default function Pricing() {
                 </li>
               ))}
             </ul>
+            <div className="space-y-2">
+              <label htmlFor="veteran-verification-document" className="text-sm font-medium">Verification document</label>
+              <input
+                id="veteran-verification-document"
+                type="file"
+                accept="application/pdf,image/jpeg,image/png"
+                onChange={(event) => setVerificationDocument(event.target.files?.[0] || null)}
+                disabled={veteranMutation.isPending || veteranRequestStatus !== ""}
+                className="block w-full text-sm"
+              />
+              <p className="text-xs text-muted-foreground">PDF, JPG, or PNG up to 10 MB. Documents are stored privately for authorized review only.</p>
+            </div>
             <Button 
               className="w-full bg-emerald-600 hover:bg-emerald-700"
               onClick={() => veteranMutation.mutate()}

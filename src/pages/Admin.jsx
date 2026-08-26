@@ -114,11 +114,16 @@ export default function Admin() {
 
   const updateVeteranStatusMutation = useMutation({
     mutationFn: ({ id, veteranStatus, veteranNotes }) =>
-      base44.entities.User.update(id, { veteran_status: veteranStatus, veteran_notes: veteranNotes }),
+      base44.functions.invoke("reviewVeteranVerification", { userId: id, veteranStatus, veteranNotes }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       setEditVeteranStatus(null);
     },
+  });
+
+  const openVeteranDocumentMutation = useMutation({
+    mutationFn: (userId) => base44.functions.invoke("getVeteranVerificationDocument", { userId }),
+    onSuccess: ({ data }) => window.open(data.url, "_blank", "noopener,noreferrer"),
   });
 
   const deleteUserMutation = useMutation({
@@ -571,6 +576,14 @@ export default function Admin() {
             <div className="text-sm text-muted-foreground">
               {editVeteranStatus?.email}
             </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => openVeteranDocumentMutation.mutate(editVeteranStatus.id)}
+              disabled={openVeteranDocumentMutation.isPending}
+            >
+              {openVeteranDocumentMutation.isPending ? "Opening document..." : "Open verification document"}
+            </Button>
             <div className="space-y-2">
               <Label className="text-slate-300">Veteran Status</Label>
               <MobileSelect
