@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import BulkImporter from "@/components/products/BulkImporter";
+import { PRODUCT_CATEGORIES } from "@/lib/productCategories";
 
 function ProductForm({ product, onSave, onCancel, saving }) {
   const [form, setForm] = useState({
@@ -51,7 +52,22 @@ function ProductForm({ product, onSave, onCancel, saving }) {
         </div>
         <div className="space-y-2">
           <Label>Category</Label>
-          <Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="e.g. Tech" />
+          <Select value={form.category || undefined} onValueChange={(v) => setForm({ ...form, category: v })}>
+            <SelectTrigger>
+              <SelectValue placeholder="Pick a category" />
+            </SelectTrigger>
+            <SelectContent>
+              {/* A product edited from before this list existed may carry a
+                  custom value -- keep it selectable instead of silently
+                  dropping it when the form re-renders. */}
+              {form.category && !PRODUCT_CATEGORIES.includes(form.category) && (
+                <SelectItem value={form.category}>{form.category}</SelectItem>
+              )}
+              {PRODUCT_CATEGORIES.map((cat) => (
+                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
       <div className="space-y-2">
@@ -239,7 +255,12 @@ export default function Products() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Categories</SelectItem>
-            {data?.categories?.map(cat => (
+            {/* The full fixed list, not just whatever's already tagged on a
+                product -- otherwise this stays empty until someone happens
+                to pick a category first, which is the bug being fixed here.
+                Union with data.categories so a legacy custom value already
+                in use (e.g. "ebay_trending") still shows up as filterable. */}
+            {[...new Set([...PRODUCT_CATEGORIES, ...(data?.categories || [])])].sort().map(cat => (
               <SelectItem key={cat} value={cat}>
                 {cat}
               </SelectItem>

@@ -1,5 +1,9 @@
 import { db } from "./db.js";
 import { getClickBankAffiliateId, applyClickBankAffiliateId } from "./affiliates.js";
+import { invokeLLM } from "./llm.js";
+import { AFFILIATE_NETWORKS, connectedNetworkIds } from "./affiliateNetworks.js";
+import { adminClient } from "./supabase.js";
+import * as videoAdsLib from "./videoAds.js";
 
 // Tools Maya and Atlas can actually call.
 //
@@ -108,6 +112,45 @@ export const TOOL_DEFINITIONS = [
       required: ["amount"],
     },
   },
+  {
+    name: "find_trending_products",
+    description:
+      "Search the web right now for trending or viral products, optionally scoped to one affiliate network (e.g. 'clickbank', 'amazon'). Returns real, current results with a best-guess network match against the networks this app knows about -- use this instead of naming trending products from memory, which goes stale immediately. If the result says the user is not connected to the matching network, tell them that and offer the signup link instead of pretending a link can be built.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Optional focus, e.g. 'home gadgets' or 'weight loss'. Omit for general trending/viral products." },
+        network: { type: "string", description: `Optional: scope results to one network id -- ${AFFILIATE_NETWORKS.map((n) => n.id).join(", ")}.` },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "create_video_ad",
+    description:
+      "Start generating a short AI voiceover video ad (image + TTS voiceover + caption) for one of the user's products. Rendering happens on an external service and takes roughly a minute -- this only submits the job and returns a render_id. Call check_video_ad with that id a little later to see if it's done; do not call it back to back, space it out across the conversation. Requires the product to have an image_url. If this returns a 'not set up' error, tell the user this feature needs an API key configured and do not try again this turn.",
+    input_schema: {
+      type: "object",
+      properties: {
+        product_id: { type: "string", description: "id from list_my_products." },
+        script: { type: "string", description: "Optional ad script/voiceover text, roughly 2-4 short sentences. Omit to have one written automatically." },
+      },
+      required: ["product_id"],
+    },
+  },
+  {
+    name: "check_video_ad",
+    description:
+      "Check on a video ad started with create_video_ad. Once status is 'done' this saves it to the user's ad creatives and returns its url. If still rendering, tell the user it's not ready yet rather than calling this again immediately.",
+    input_schema: {
+      type: "object",
+      properties: {
+        render_id: { type: "string", description: "render_id returned by create_video_ad." },
+        product_id: { type: "string", description: "The same product_id passed to create_video_ad, so the saved creative gets the right title." },
+      },
+      required: ["render_id"],
+    },
+  },
 ];
 
 function clampLimit(v) {
@@ -144,14 +187,20 @@ export async function availableBalance(D, userId) {
  *
  * @param {string} name
  * @param {Record<string, any>} input model-supplied, treat as untrusted
- * @param {{ user: any, origin: string|null, D?: any }} ctx
- *        `D` is injectable so the scoping rules can be tested without a
- *        database. Production callers omit it.
+ * @param {{ user: any, origin: string|null, D?: any, invokeLLM?: Function, videoAds?: any, storageClient?: any }} ctx
+ *        `D`, `invokeLLM`, `videoAds` and `storageClient` are injectable so
+ *        tools can be tested without a database, a live web search, or a
+ *        real render/storage call. Production callers omit all of them.
  */
 export async function executeTool(name, input = {}, ctx = {}) {
   const { user, origin } = ctx;
   if (!user?.id) return { error: "Not signed in." };
   const D = ctx.D || db();
+  const callLLM = ctx.invokeLLM || invokeLLM;
+  const videoAds = ctx.videoAds || videoAdsLib;
+  // Lazy: constructing a real client requires SUPABASE_* env vars, which
+  // most tools -- and most tests -- have no reason to need.
+  const storageClient = () => ctx.storageClient || adminClient();
 
   try {
     switch (name) {
@@ -246,6 +295,119 @@ export async function executeTool(name, input = {}, ctx = {}) {
           payout: { id: payout.id, amount, status: "pending" },
           message: "Filed as pending. An admin reviews it before any money moves.",
         };
+      }
+
+      case "find_trending_products": {
+        const query = String(input.query || "").trim().slice(0, 200);
+        const networkId = String(input.network || "").trim().toLowerCase();
+        const scoped = AFFILIATE_NETWORKS.find((n) => n.id === networkId);
+        if (networkId && !scoped) {
+          return { error: `Unknown network "${networkId}". Known networks: ${AFFILIATE_NETWORKS.map((n) => n.id).join(", ")}.` };
+        }
+
+        const catalogList = AFFILIATE_NETWORKS.map((n) => `${n.id} (${n.name})`).join(", ");
+        const prompt = scoped
+          ? `Search the web right now for real, currently trending or best-selling products on ${scoped.name}${query ? ` in the "${query}" niche` : ""}. Return only real, verified products actually listed on ${scoped.name} today -- do not invent products.`
+          : `Search the web right now for real products that are trending or going viral${query ? ` in the "${query}" niche` : ""} across the internet generally (social media, news, shopping trends). For each one, your best guess at which of these affiliate networks it is likely sold through, if any: ${catalogList}. If none of them plausibly carry it, say so rather than guessing.`;
+
+        const result = await callLLM({
+          prompt,
+          add_context_from_internet: true,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              products: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string" },
+                    network_guess: { type: ["string", "null"], description: `One of: ${AFFILIATE_NETWORKS.map((n) => n.id).join(", ")}, or null if none fit.` },
+                    why: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        const connected = connectedNetworkIds(user);
+        const products = (result.products || []).map((p) => {
+          const network = scoped ? scoped.id : AFFILIATE_NETWORKS.find((n) => n.id === p.network_guess)?.id || null;
+          const net = network ? AFFILIATE_NETWORKS.find((n) => n.id === network) : null;
+          return {
+            name: p.name,
+            network: net?.name || null,
+            why: p.why || null,
+            user_is_connected: net ? connected.has(net.id) : false,
+            signup_url: net && !connected.has(net.id) ? net.signupUrl : null,
+          };
+        });
+        return { products };
+      }
+
+      case "create_video_ad": {
+        const owned = await D.Product.filter({ created_by_id: user.id, id: String(input.product_id || "") });
+        const product = owned[0];
+        if (!product) return { error: "No product of yours with that id. Call list_my_products first." };
+        if (!product.image_url) return { error: `"${product.name}" has no image yet -- add one on the product before a video ad can be made.` };
+
+        if (!videoAds.videoAdsConfigured()) {
+          return { error: "Video ad generation isn't set up yet -- it needs an OpenAI and a Shotstack API key configured on the server. Nothing you can fix from chat.", configured: false };
+        }
+
+        let script = String(input.script || "").trim();
+        if (!script) {
+          const written = await callLLM({
+            prompt: `Write a short, energetic 15-20 second video ad voiceover script for this affiliate product. 2-4 short sentences, spoken out loud, no stage directions, no emoji, no hashtags. End with a clear call to action.\n\nProduct: ${product.name}\nDescription: ${product.description || "N/A"}\nCategory: ${product.category || "N/A"}`,
+          });
+          script = String(written.text || "").trim();
+          if (!script) return { error: "Couldn't write a script for this product. Try passing your own." };
+        }
+
+        const audioBuffer = await videoAds.synthesizeSpeechBuffer(script);
+        const audioUrl = await videoAds.uploadPublicAsset(storageClient(), audioBuffer, `${product.id}.mp3`, "audio/mpeg");
+        const duration = videoAds.estimateDurationSeconds(script);
+        const renderId = await videoAds.submitAdVideoRender({ imageUrl: product.image_url, audioUrl, caption: product.name, duration });
+
+        return {
+          render_id: renderId,
+          product_id: product.id,
+          product_name: product.name,
+          script,
+          estimated_wait_seconds: 60,
+          message: "Rendering started -- call check_video_ad with this render_id in about a minute.",
+        };
+      }
+
+      case "check_video_ad": {
+        const renderId = String(input.render_id || "").trim();
+        if (!renderId) return { error: "render_id is required." };
+        if (!videoAds.videoAdsConfigured()) {
+          return { error: "Video ad generation isn't set up yet.", configured: false };
+        }
+
+        const status = await videoAds.getRenderStatus(renderId);
+        if (status.status === "failed") return { status: "failed", error: status.error || "Render failed." };
+        if (status.status !== "done") return { status: status.status, message: "Still rendering -- check again in a bit, not immediately." };
+
+        let title = "AI-generated video ad";
+        if (input.product_id) {
+          const owned = await D.Product.filter({ created_by_id: user.id, id: String(input.product_id) });
+          if (owned[0]) title = `${owned[0].name} -- AI video ad`;
+        }
+
+        const asset = await D.AdAsset.create({
+          created_by_id: user.id,
+          title,
+          file_url: status.url,
+          file_type: "video",
+          platform: "general",
+          notes: `Rendered via Shotstack (render ${renderId}).`,
+          source: "ai_generated_video",
+        });
+
+        return { status: "done", url: status.url, ad_asset_id: asset.id, message: "Saved to your ad creatives." };
       }
 
       default:

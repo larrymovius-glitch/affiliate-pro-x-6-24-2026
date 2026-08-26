@@ -68,6 +68,11 @@
     "clickbank_nickname": {
       "type": "string",
       "description": "User's own ClickBank account nickname, asked once, used to auto-build all their hoplinks."
+    },
+    "affiliate_network_ids": {
+      "type": "object",
+      "description": "Affiliate id/tag per network beyond ClickBank/Digistore24, e.g. { amazon: 'mytag-20' }. See src/lib/affiliateNetworks.js.",
+      "default": {}
     }
   },
   "required": [
