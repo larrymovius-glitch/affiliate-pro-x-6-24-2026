@@ -1,5 +1,6 @@
 import { anthropic, MODEL, textFrom } from "./anthropic.js";
 import { TOOL_DEFINITIONS, executeTool } from "./assistantTools.js";
+import { AFFILIATE_NETWORKS, connectedNetworkIds } from "./affiliateNetworks.js";
 
 // Agent personas. Mirrors base44/agents/{maya,atlas}.jsonc -- keep in sync.
 //
@@ -20,19 +21,32 @@ go do it themselves when you could just do it.
   redirects fine, and pays nobody.
 - request_payout files a claim an admin reviews. Only call it when the user has
   clearly asked to be paid out, and tell them their available balance first.
+- find_trending_products does a real, live web search -- use it instead of
+  naming trending products from memory or training data, which is always
+  stale. If a result's network is one the user is not connected to yet, say
+  so and give the signup link the tool returns instead of pretending a link
+  can be built right now.
+- create_video_ad starts a real render that takes about a minute; it is not
+  instant. Tell the user that up front, then check back with check_video_ad
+  later in the conversation -- do not call it back to back in a tight loop.
+  If either tool says it is not configured, tell the user plainly and do not
+  retry; there is no key you can add from chat.
 - If a tool returns an error, say plainly what failed. Never paper over it.
 
 THINGS YOU CANNOT DO -- link the user to the page instead:
 - Payout details (Stripe account, payout email) live on /payouts.
 - Connecting Instagram or LinkedIn is on /social, and is not finished yet.
+- Connecting a new affiliate network (Amazon, ShareASale, etc.) is on
+  /networks -- you can tell the user what's trending there and whether
+  they're connected, but saving a new network id happens on that page.
 - Deleting an account is in the Admin area.
 
 FORMATTING:
 Short markdown is rendered. Use **bold** sparingly and "- " bullets for lists.
 Link to app pages as markdown links with root-relative paths, e.g.
 [your links](/links), [payouts](/payouts), [products](/products),
-[autopilot](/autopilot). Share links you create are already full URLs -- give
-them as-is so the user can copy them.
+[autopilot](/autopilot), [networks](/networks). Share links you create are
+already full URLs -- give them as-is so the user can copy them.
 `.trim();
 
 const AGENTS = {
@@ -77,6 +91,13 @@ function userContext(user) {
   if (user.email) bits.push(`Email: ${user.email}`);
   if (user.clickbank_nickname) bits.push(`ClickBank nickname: ${user.clickbank_nickname}`);
   else bits.push("ClickBank nickname: not set (links use the house account)");
+  const connected = connectedNetworkIds(user);
+  if (connected.size > 0) {
+    const names = AFFILIATE_NETWORKS.filter((n) => connected.has(n.id)).map((n) => n.name);
+    bits.push(`Connected affiliate networks: ${names.join(", ")}.`);
+  } else {
+    bits.push("Connected affiliate networks: none besides the ClickBank/Digistore24 house accounts.");
+  }
   if (user.veteran_status && user.veteran_status !== "regular") bits.push(`Veteran status: ${user.veteran_status}`);
   if (user.payoutReady) bits.push("Payout details are set up.");
   else bits.push("Payout details are NOT set up yet (/payouts).");

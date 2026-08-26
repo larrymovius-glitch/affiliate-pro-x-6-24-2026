@@ -2,7 +2,7 @@ import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Link2, Package, Megaphone,
-  BarChart3, Wallet, X, Zap, Crown, Shield, FileText, Instagram, Target, Radar
+  BarChart3, Wallet, X, Zap, Crown, Shield, FileText, Instagram, Target, Radar, Globe2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
@@ -18,6 +18,7 @@ const navItems = [
   { label: "AutoPilot Studio", icon: Zap, path: "/autopilot" },
   { label: "Ad Tracker", icon: Radar, path: "/ad-tracker" },
   { label: "Social Connect", icon: Instagram, path: "/social" },
+  { label: "Networks", icon: Globe2, path: "/networks" },
   { label: "Pricing", icon: Crown, path: "/pricing" },
 ];
 
