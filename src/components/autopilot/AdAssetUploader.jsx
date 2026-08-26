@@ -37,7 +37,7 @@ export default function AdAssetUploader() {
       file_type,
       platform,
       notes,
-      source: "adobe_express"
+      source: "adobe"
     });
     queryClient.invalidateQueries(["ad-assets"]);
     setTitle("");
@@ -53,18 +53,26 @@ export default function AdAssetUploader() {
         <CardContent className="pt-5 space-y-4">
           <div className="flex items-center gap-2 mb-1">
             <Upload className="w-4 h-4 text-primary" />
-            <h3 className="text-sm font-semibold text-foreground">Upload Adobe Express Creative</h3>
+            <h3 className="text-sm font-semibold text-foreground">Upload Adobe Creative</h3>
           </div>
           <p className="text-xs text-muted-foreground">
-            Build it with your own Adobe subscription, export it, then upload it here to store it with your other ads.
+            Not just Express -- Firefly, Premiere, Photoshop, whatever you already pay for. Build it with your own
+            Adobe subscription, export it from Creative Cloud, then upload it here to store it with your other ads.
             There's no way for this app to drive your Creative Cloud account directly -- Adobe doesn't expose that --
             so this is the fast path: design there, land it here.
           </p>
-          <a href="https://new.express.adobe.com/" target="_blank" rel="noreferrer">
-            <Button type="button" variant="outline" size="sm" className="gap-1.5">
-              <ExternalLink className="w-3.5 h-3.5" /> Open Adobe Express
-            </Button>
-          </a>
+          <div className="flex flex-wrap gap-2">
+            <a href="https://new.express.adobe.com/" target="_blank" rel="noreferrer">
+              <Button type="button" variant="outline" size="sm" className="gap-1.5">
+                <ExternalLink className="w-3.5 h-3.5" /> Open Adobe Express
+              </Button>
+            </a>
+            <a href="https://firefly.adobe.com/" target="_blank" rel="noreferrer">
+              <Button type="button" variant="outline" size="sm" className="gap-1.5">
+                <ExternalLink className="w-3.5 h-3.5" /> Open Firefly
+              </Button>
+            </a>
+          </div>
 
           <div className="grid sm:grid-cols-2 gap-3">
             <Input
@@ -148,7 +156,7 @@ export default function AdAssetUploader() {
 
       {assets.length === 0 && (
         <div className="text-center py-10 text-muted-foreground text-sm">
-          No creatives uploaded yet. Export from Adobe Express and upload above!
+          No creatives uploaded yet. Export from Adobe and upload above!
         </div>
       )}
     </div>
