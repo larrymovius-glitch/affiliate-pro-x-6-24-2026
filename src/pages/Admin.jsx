@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Users, UserPlus, Trash2, Shield, ShieldOff, Mail,
-  Star, RefreshCw, Settings, Crown, AlertCircle, CheckCircle, Search, Edit2, ShoppingBag, Link2, Medal, Image
+  Star, RefreshCw, Crown, AlertCircle, CheckCircle, Search, Edit2, ShoppingBag, Link2, Medal, Image
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
@@ -97,7 +97,7 @@ export default function Admin() {
     setInviteLoading(true);
     setInviteMsg(null);
     try {
-      await base44.users.inviteUser(inviteEmail.trim(), inviteRole);
+      await base44.functions.invoke("inviteUser", { email: inviteEmail.trim(), role: inviteRole });
       setInviteMsg({ type: "success", text: `Invitation sent to ${inviteEmail}` });
       setInviteEmail("");
       refetchUsers();
