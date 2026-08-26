@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, Trash2, ImageIcon, VideoIcon, Loader2 } from "lucide-react";
+import { Upload, Trash2, ImageIcon, VideoIcon, Loader2, ExternalLink } from "lucide-react";
 
 export default function AdAssetUploader() {
   const queryClient = useQueryClient();
@@ -55,7 +55,16 @@ export default function AdAssetUploader() {
             <Upload className="w-4 h-4 text-primary" />
             <h3 className="text-sm font-semibold text-foreground">Upload Adobe Express Creative</h3>
           </div>
-          <p className="text-xs text-muted-foreground">Export your design from Adobe Express, then upload it here to store it with your other ads.</p>
+          <p className="text-xs text-muted-foreground">
+            Build it with your own Adobe subscription, export it, then upload it here to store it with your other ads.
+            There's no way for this app to drive your Creative Cloud account directly -- Adobe doesn't expose that --
+            so this is the fast path: design there, land it here.
+          </p>
+          <a href="https://new.express.adobe.com/" target="_blank" rel="noreferrer">
+            <Button type="button" variant="outline" size="sm" className="gap-1.5">
+              <ExternalLink className="w-3.5 h-3.5" /> Open Adobe Express
+            </Button>
+          </a>
 
           <div className="grid sm:grid-cols-2 gap-3">
             <Input
