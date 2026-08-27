@@ -17,8 +17,11 @@ export const AFFILIATE_NETWORKS = [
   // Already integrated -- ClickBank and eBay have real link-building support
   // (api/_lib/affiliates.js, api/syncEbayTrending.js); Digistore24 too, but
   // with a single house ID and no per-user override yet.
-  { id: "clickbank", name: "ClickBank", category: "digital", idLabel: "ClickBank Nickname", signupUrl: "https://accounts.clickbank.com/signup", instant: true },
-  { id: "digistore24", name: "Digistore24", category: "digital", idLabel: "Digistore24 ID", signupUrl: "https://www.digistore24.com/signup", instant: true },
+  // Home pages, not the raw /signup path -- both networks put Login and
+  // Sign Up side by side in their header, and a user who already has an
+  // account needs the former, not a straight shot to account creation.
+  { id: "clickbank", name: "ClickBank", category: "digital", idLabel: "ClickBank Nickname", signupUrl: "https://www.clickbank.com", instant: true },
+  { id: "digistore24", name: "Digistore24", category: "digital", idLabel: "Digistore24 ID", signupUrl: "https://www.digistore24.com", instant: true },
   { id: "ebay", name: "eBay Partner Network", category: "retail", idLabel: "Campaign ID", signupUrl: "https://partnernetwork.ebay.com", instant: true },
 
   // Digital products / courses / info-products -- same territory as ClickBank/Digistore24
