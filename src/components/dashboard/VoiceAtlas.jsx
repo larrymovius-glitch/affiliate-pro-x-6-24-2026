@@ -60,14 +60,6 @@ const VOICE_OPTIONS = [
   { id: "shimmer", label: "Shimmer", note: "Clear female coach", assistant: "maya" },
 ];
 
-const SPEECH_VOICE_MAP = {
-  echo: "honey",
-  onyx: "storm",
-  fable: "spark",
-  nova: "sunny",
-  shimmer: "river",
-};
-
 const EXPERIENCE_OPTIONS = [
   { id: "new", label: "New to Affiliate Marketing", note: "Simple steps and patient guidance" },
   { id: "growing", label: "Growing My Business", note: "Scaling, automation, and stronger campaigns" },
@@ -205,8 +197,15 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
         } catch (e) { console.warn("Premium voice unavailable, using standard:", e); }
       }
       if (!audioUrl) {
+        // GenerateSpeech hits the same OpenAI-backed generatePremiumSpeech
+        // endpoint as the premium branch above (base44Client.js) -- it isn't
+        // a separate provider needing its own voice names. SPEECH_VOICE_MAP
+        // used to translate to a different TTS service's ids ("honey",
+        // "river", ...), none of which OpenAI recognizes, so every standard-
+        // tier request silently fell back server-side to "alloy" regardless
+        // of which voice -- or which assistant -- was actually selected.
         const res = await withTimeout(
-          base44.integrations.Core.GenerateSpeech({ text: speechText, voice: SPEECH_VOICE_MAP[voiceChoice] || "honey" }),
+          base44.integrations.Core.GenerateSpeech({ text: speechText, voice: voiceChoice }),
           20000, "Voice generation"
         );
         audioUrl = res?.url || res?.data?.url;
