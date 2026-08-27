@@ -1,13 +1,12 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Link2, Copy, Trash2, ExternalLink, Search, MousePointerClick, RefreshCw, ShoppingBag } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,7 +18,7 @@ import EasyClickBank from "@/components/products/EasyClickBank";
 import { useAuth } from "@/lib/AuthContext";
 import { applyClickBankAffiliateId, getClickBankAffiliateId } from "@/lib/affiliate-id";
 import { getTrackableUrl as buildTrackingUrl } from "@/lib/links";
-import { DIGISTORE_AFFILIATE_ID, digistorePromoLink } from "../../api/_lib/affiliates.js";
+import { digistorePromoLink, getDigistoreAffiliateId } from "../../api/_lib/affiliates.js";
 
 function sanitizeShortCode(value) {
   return String(value || "link")
@@ -182,7 +181,7 @@ export default function Links() {
     mutationFn: async () => {
       const productId = dsProductId.trim();
       const name = dsProductName.trim() || `DS24 Product ${productId}`;
-      const url = digistorePromoLink(productId);
+      const url = digistorePromoLink(productId, getDigistoreAffiliateId(user));
       const existing = await base44.entities.Product.filter({ url });
       let productEntityId;
       if (existing.length > 0) {
@@ -351,7 +350,7 @@ export default function Links() {
               {dsProductId.trim() && (
                 <div className="p-3 rounded-lg bg-muted text-xs">
                   <p className="text-muted-foreground">Your affiliate link will be:</p>
-                  <p className="font-mono text-foreground break-all mt-1">https://www.digistore24.com/redir/{dsProductId}/{DIGISTORE_AFFILIATE_ID}/</p>
+                  <p className="font-mono text-foreground break-all mt-1">{digistorePromoLink(dsProductId, getDigistoreAffiliateId(user))}</p>
                 </div>
               )}
               <div className="flex justify-end gap-2 pt-2">
