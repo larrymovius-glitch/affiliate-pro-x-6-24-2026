@@ -67,7 +67,7 @@ export default function NetworkCard({ network, savedId }) {
 
         <a href={network.signupUrl} target="_blank" rel="noreferrer">
           <Button variant="outline" size="sm" className="w-full gap-1.5">
-            <ExternalLink className="w-3.5 h-3.5" /> {connected ? "Open account" : `Sign up on ${network.name}`}
+            <ExternalLink className="w-3.5 h-3.5" /> {connected ? "Open account" : "Log in or create account"}
           </Button>
         </a>
 

@@ -13,16 +13,30 @@
 export const DIGISTORE_AFFILIATE_ID = "Here4_you";
 
 // Per-user overridable via profiles.clickbank_nickname -- see
-// src/lib/affiliate-id.js. Digistore24 has no such override: every user's
-// Digistore link is built under the single ID above.
+// src/lib/affiliate-id.js.
 export const CLICKBANK_AFFILIATE_ID = "apxalaska";
 
 // Digistore24 promolink shape: /redir/<productId>/<affiliate>/<campaignKey>.
 // The campaign key is left empty here on purpose -- api/_lib/tracking.js fills
 // that slot with the link's short_code at redirect time, which is what lets a
 // sale be attributed back to the link that produced it.
-export function digistorePromoLink(productId) {
-  return `https://www.digistore24.com/redir/${productId}/${DIGISTORE_AFFILIATE_ID}/`;
+//
+// `affiliateId` defaults to the house account for callers with no specific
+// user in context (the trending-sync cron). Pass getDigistoreAffiliateId(user)
+// for anything a real user is building for themselves.
+export function digistorePromoLink(productId, affiliateId = DIGISTORE_AFFILIATE_ID) {
+  return `https://www.digistore24.com/redir/${productId}/${affiliateId}/`;
+}
+
+/**
+ * The user's own Digistore24 ID if they saved one on /networks
+ * (profiles.affiliate_network_ids.digistore24), else the house account.
+ * Mirrors getClickBankAffiliateId below -- this used to be house-only, which
+ * is why saving a Digistore24 ID on /networks appeared to do nothing: nothing
+ * downstream ever read it.
+ */
+export function getDigistoreAffiliateId(user) {
+  return user?.affiliate_network_ids?.digistore24?.trim() || DIGISTORE_AFFILIATE_ID;
 }
 
 // The two below moved here from src/lib/affiliate-id.js so the serverless side
