@@ -113,3 +113,38 @@ alter table public.click_events add column if not exists source text;
 -- RLS was ever evaluated.
 grant update (affiliate_network_ids) on public.profiles to authenticated;
 -- ---------------------------------------------------------------------------
+
+-- ---------------------------------------------------------------------------
+-- APPLIED 2026-08-27, migration `default_created_by_id_to_auth_uid`.
+--
+-- The big one. Found live: the "Add Affiliate Link" dialog on /links did
+-- nothing on click -- no row appeared, no visible error. Root cause was not
+-- specific to that one button: products, affiliate_links, campaigns,
+-- generated_posts, ad_assets, ad_reviews, payout_schedules, payouts, and
+-- pro_automation_rules all carry a "Users manage own X" RLS policy requiring
+-- created_by_id = auth.uid() on insert, and every one of those columns had no
+-- default. base44Client.js's generic entities.<X>.create(payload) inserts
+-- payload verbatim -- it never set created_by_id -- so every direct
+-- browser-side insert into any of these nine tables has been silently
+-- rejected by RLS since the policy was created. The only rows that ever
+-- existed were created a different way: server-side tool calls (which use
+-- the service role and set created_by_id explicitly) or direct SQL. This is
+-- almost certainly why "nothing saves" reports kept surfacing across
+-- unrelated-looking features -- they were all the same root cause.
+--
+-- Fix: give the column itself a default of the current session's user, so
+-- every insert that omits it -- past call sites and any future one -- is
+-- covered without having to find and patch every .create() call site
+-- individually. Service-role inserts are unaffected: they already set
+-- created_by_id explicitly, and a column default only applies when the
+-- insert omits the column.
+alter table public.products             alter column created_by_id set default auth.uid();
+alter table public.affiliate_links      alter column created_by_id set default auth.uid();
+alter table public.campaigns            alter column created_by_id set default auth.uid();
+alter table public.generated_posts      alter column created_by_id set default auth.uid();
+alter table public.ad_assets            alter column created_by_id set default auth.uid();
+alter table public.ad_reviews           alter column created_by_id set default auth.uid();
+alter table public.payout_schedules     alter column created_by_id set default auth.uid();
+alter table public.payouts              alter column created_by_id set default auth.uid();
+alter table public.pro_automation_rules alter column created_by_id set default auth.uid();
+-- ---------------------------------------------------------------------------
