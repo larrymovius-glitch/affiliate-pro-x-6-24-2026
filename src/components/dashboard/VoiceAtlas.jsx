@@ -377,7 +377,10 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
     let silenceTimer = null;
     const resetSilence = () => {
       if (silenceTimer) clearTimeout(silenceTimer);
-      silenceTimer = setTimeout(() => recognition.stop(), 2000);
+      // Mobile speech recognition fires onspeechend on ordinary mid-sentence
+      // pauses far more eagerly than desktop -- 2s was cutting people off
+      // before they finished a thought, not just after real silence.
+      silenceTimer = setTimeout(() => recognition.stop(), 4500);
     };
 
     recognition.onstart = () => { setListening(true); setPulse(true); setTranscript(""); resetSilence(); };
