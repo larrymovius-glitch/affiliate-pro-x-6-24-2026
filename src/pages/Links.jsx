@@ -14,7 +14,6 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import AffiliateDisclosure from "@/components/AffiliateDisclosure";
-import EasyClickBank from "@/components/products/EasyClickBank";
 import { useAuth } from "@/lib/AuthContext";
 import { applyClickBankAffiliateId, getClickBankAffiliateId } from "@/lib/affiliate-id";
 import { getTrackableUrl as buildTrackingUrl } from "@/lib/links";
@@ -271,8 +270,6 @@ export default function Links() {
           <h1 className="text-2xl font-display font-bold tracking-tight">Links</h1>
           <p className="text-muted-foreground text-sm mt-1">Create and manage your affiliate tracking links</p>
         </div>
-
-      <EasyClickBank />
       </div>
 
       <AffiliateDisclosure />
