@@ -11,3 +11,12 @@
 -- needed.
 alter table public.profiles
   add column if not exists affiliate_network_ids jsonb not null default '{}'::jsonb;
+
+-- `authenticated` only has column-level UPDATE granted on an explicit
+-- allowlist of self-editable profiles columns (see profiles_update_own's RLS
+-- policy plus the per-column grants applied alongside it) -- a new column
+-- does not inherit that automatically. Without this, NetworkCard.jsx's save
+-- appears to succeed in the browser but never persists: Postgres rejects the
+-- update before RLS is even evaluated. Fixed live 2026-08-27, see
+-- docs/applied-schema-fixes.sql.
+grant update (affiliate_network_ids) on public.profiles to authenticated;

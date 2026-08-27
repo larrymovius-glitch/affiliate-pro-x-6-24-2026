@@ -96,3 +96,20 @@ create unique index if not exists conversion_events_order_id_key
 -- long as the table has existed.
 alter table public.click_events add column if not exists source text;
 -- ---------------------------------------------------------------------------
+
+-- ---------------------------------------------------------------------------
+-- APPLIED 2026-08-27, migration `grant_authenticated_update_affiliate_network_ids`.
+--
+-- Found live: saving any non-ClickBank network id on /networks
+-- (src/components/products/NetworkCard.jsx) appeared to succeed in the UI but
+-- never persisted -- profiles.affiliate_network_ids stayed `{}` no matter what
+-- was saved. Root cause: `authenticated` only has column-level UPDATE granted
+-- on a specific allowlist of self-editable profiles columns (avatar_url,
+-- clickbank_nickname, epn_campaign_id, full_name -- see
+-- docs/secure-veteran-access.sql's `revoke update (...) from authenticated`
+-- for the other half of this same allowlist model). affiliate_network_ids was
+-- added later by docs/affiliate-network-ids.sql without a matching grant, so
+-- every browser-side update to it was silently rejected by Postgres before
+-- RLS was ever evaluated.
+grant update (affiliate_network_ids) on public.profiles to authenticated;
+-- ---------------------------------------------------------------------------
