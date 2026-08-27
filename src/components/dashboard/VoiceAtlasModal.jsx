@@ -7,14 +7,20 @@ export default function VoiceAtlasModal({ open, onClose }) {
   const dragOffset = useRef({ x: 0, y: 0 });
   const panelRef = useRef(null);
 
-  // Set default position on open
+  // Set default position on open. Anchored near the top rather than assuming
+  // a fixed panel height -- the panel's actual content (assistant switcher,
+  // voice picker, experience picker, reply, input) regularly exceeds the
+  // 620px this used to assume, while maxHeight allows up to 760px/88vh. That
+  // mismatch put the panel's lower content -- the reply and the input box --
+  // below the visible viewport on open, with no way to see it short of
+  // scrolling the panel's own content first.
   useEffect(() => {
     if (open && pos.x === null) {
       const w = window.innerWidth;
       const h = window.innerHeight;
       setPos({
         x: Math.max(8, w / 2 - 200),
-        y: Math.max(8, h - 620),
+        y: Math.max(8, h * 0.06),
       });
     }
   }, [open]);
@@ -56,19 +62,24 @@ export default function VoiceAtlasModal({ open, onClose }) {
         zIndex: 9999,
         width: "min(94vw, 572px)",
         maxHeight: "min(88vh, 760px)",
+        display: "flex",
+        flexDirection: "column",
         cursor: dragging ? "grabbing" : "auto",
         borderRadius: 20,
-        overflowY: "auto",
-        overflowX: "hidden",
+        overflow: "hidden",
         background: "transparent",
         boxShadow: "0 8px 60px rgba(124,58,237,0.35), 0 2px 20px rgba(0,0,0,0.6)",
         border: "none",
       }}
     >
-      {/* Drag handle bar */}
+      {/* Drag handle bar -- deliberately outside the scrollable body below,
+          so it's always reachable regardless of scroll position. It used to
+          scroll away with the rest of the content, which made the panel
+          impossible to move once you'd scrolled down to read a reply. */}
       <div
         data-drag-handle
         style={{
+          flexShrink: 0,
           background: "linear-gradient(90deg, rgba(124,58,237,0.9), rgba(168,85,247,0.9))",
           padding: "10px 16px",
           cursor: "grab",
@@ -105,8 +116,10 @@ export default function VoiceAtlasModal({ open, onClose }) {
         </button>
       </div>
 
-      {/* Atlas chat body */}
-      <VoiceAtlas onClose={onClose} />
+      {/* Atlas chat body -- the only part that scrolls */}
+      <div style={{ overflowY: "auto", overflowX: "hidden", flex: 1, minHeight: 0 }}>
+        <VoiceAtlas onClose={onClose} />
+      </div>
     </div>
   );
 }
