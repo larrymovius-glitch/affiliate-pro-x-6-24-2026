@@ -148,3 +148,44 @@ alter table public.payout_schedules     alter column created_by_id set default a
 alter table public.payouts              alter column created_by_id set default auth.uid();
 alter table public.pro_automation_rules alter column created_by_id set default auth.uid();
 -- ---------------------------------------------------------------------------
+
+-- ---------------------------------------------------------------------------
+-- APPLIED 2026-08-27, migration `create_assistant_conversations`.
+--
+-- Maya/Atlas had no persistent memory at all. Conversation history lived
+-- only in a React ref inside AssistantSessionProvider (src/lib/
+-- AssistantSessionProvider.jsx) -- a plain in-memory cache with nothing
+-- backing it in the database. A full page reload wiped it, and mobile
+-- browsers routinely reload a backgrounded tab on their own to free memory,
+-- so switching apps and coming back could silently reset the assistant to a
+-- blank conversation with no visible cause. Reported live as "she's not
+-- remembering very well."
+--
+-- New table holds one row per (user, agent, session key) with the full
+-- message history as jsonb, read on createConversation and written on every
+-- addMessage (see src/api/base44Client.js). Same created_by_id-defaults-to-
+-- auth.uid() pattern as the fix above, applied from the start this time.
+create table if not exists public.assistant_conversations (
+  id uuid primary key default gen_random_uuid(),
+  created_by_id uuid not null default auth.uid(),
+  agent_name text not null,
+  session_key text not null,
+  messages jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (created_by_id, agent_name, session_key)
+);
+
+alter table public.assistant_conversations enable row level security;
+
+create policy "Users manage own conversations"
+on public.assistant_conversations for all to authenticated
+using (auth.uid() = created_by_id)
+with check (auth.uid() = created_by_id);
+
+grant select, insert, update, delete on public.assistant_conversations to authenticated;
+
+create trigger set_updated_at
+before update on public.assistant_conversations
+for each row execute function set_updated_at();
+-- ---------------------------------------------------------------------------

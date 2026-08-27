@@ -170,15 +170,46 @@ const integrations = {
 };
 
 // ---------------------------------------------------------------------------
-// Agents — backs the Maya/Atlas voice assistants. Conversations are held
-// client-side (Anthropic's API is stateless, so there's no server-side
-// session to create); each turn round-trips the full history through
-// /api/agentChat. There's no server push channel, so subscribeToConversation
-// is a no-op — the reply is delivered through addMessage's resolved promise.
+// Agents — backs the Maya/Atlas voice assistants. Anthropic's API is
+// stateless, so there's no server-side chat session to create; each turn
+// round-trips the full history through /api/agentChat. The history itself
+// persists in assistant_conversations, one row per (user, agent, session
+// key) — without that, memory lived only in a React ref in
+// AssistantSessionProvider, which a page reload (or a mobile browser
+// silently reloading a backgrounded tab) wiped completely: the assistant
+// forgot everything mid-conversation with no visible cause. There's no
+// server push channel, so subscribeToConversation is a no-op — the reply is
+// delivered through addMessage's resolved promise.
 // ---------------------------------------------------------------------------
+
+function conversationSessionKey(agent_name, metadata = {}) {
+  return metadata.session_key || `${agent_name}:${metadata.experience_level || "default"}`;
+}
+
 const agents = {
   /** @param {{ agent_name?: string, metadata?: Record<string, any> }} [options] */
   async createConversation({ agent_name, metadata } = {}) {
+    const sessionKey = conversationSessionKey(agent_name, metadata);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: existing } = await supabase
+        .from("assistant_conversations")
+        .select("id, messages")
+        .eq("agent_name", agent_name)
+        .eq("session_key", sessionKey)
+        .maybeSingle();
+      if (existing) return { id: existing.id, agent_name, metadata, messages: existing.messages || [] };
+
+      const { data: created, error } = await supabase
+        .from("assistant_conversations")
+        .insert({ agent_name, session_key: sessionKey, messages: [] })
+        .select("id")
+        .single();
+      if (!error && created?.id) return { id: created.id, agent_name, metadata, messages: [] };
+    }
+    // Signed out, or the row couldn't be created -- fall back to an
+    // in-memory-only conversation so the assistant still works this turn,
+    // just without anything to reload on the next one.
     return { id: crypto.randomUUID(), agent_name, metadata, messages: [] };
   },
 
@@ -192,7 +223,15 @@ const agents = {
       agent_name: conversation?.agent_name,
       messages,
     });
-    return { ...conversation, messages: result.data.messages };
+    const updated = { ...conversation, messages: result.data.messages };
+    // Best-effort: never let a save failure block the reply already on
+    // screen. A conversation id from the in-memory fallback above matches no
+    // row, so this is a harmless no-op update in that case.
+    if (conversation?.id) {
+      supabase.from("assistant_conversations").update({ messages: updated.messages }).eq("id", conversation.id)
+        .then(({ error }) => { if (error) console.warn("Conversation save failed:", error); });
+    }
+    return updated;
   },
 };
 
