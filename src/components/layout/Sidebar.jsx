@@ -1,8 +1,8 @@
-import React from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Link2, Package, Megaphone,
-  BarChart3, Wallet, X, Zap, Crown, Shield, FileText, Instagram, Target, Radar, Globe2, ClipboardList
+  BarChart3, Wallet, X, Zap, Crown, Shield, FileText, Instagram, Target, Radar, Globe2, ClipboardList, ChevronDown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
@@ -26,6 +26,26 @@ const navItems = [
 export default function Sidebar({ open, onClose }) {
   const location = useLocation();
   const { user } = useAuth();
+  const navRef = useRef(null);
+  // The nav list scrolls independently of the page, with no visual cue that
+  // it does -- Admin Panel sits directly below it and reads as the list's
+  // natural end, so items further down (Networks among them) went unnoticed
+  // entirely. This tracks whether there's more to scroll to and only shows
+  // the hint while that's true, same as the fade you'd see at the bottom of
+  // a scrollable menu anywhere else.
+  const [hasMoreBelow, setHasMoreBelow] = useState(false);
+
+  const updateScrollHint = useCallback(() => {
+    const el = navRef.current;
+    if (!el) return;
+    setHasMoreBelow(el.scrollHeight - el.scrollTop - el.clientHeight > 4);
+  }, []);
+
+  useEffect(() => {
+    updateScrollHint();
+    window.addEventListener("resize", updateScrollHint);
+    return () => window.removeEventListener("resize", updateScrollHint);
+  }, [updateScrollHint]);
 
   return (
     <>
@@ -65,28 +85,42 @@ export default function Sidebar({ open, onClose }) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={onClose}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
-                  isActive
-                    ? "text-white shadow-lg"
-                    : "text-slate-400 hover:text-white hover:bg-white/5"
-                )}
-                style={isActive ? { background: "linear-gradient(90deg, rgba(124,58,237,0.6), rgba(245,158,11,0.3))", borderLeft: "3px solid #f59e0b" } : {}}
-              >
-                <item.icon className="w-4.5 h-4.5" />
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
+        <div className="relative flex-1 min-h-0">
+          <nav
+            ref={navRef}
+            onScroll={updateScrollHint}
+            className="h-full py-4 px-3 space-y-1 overflow-y-auto"
+          >
+            {navItems.map((item) => {
+              const isActive = location.pathname === item.path;
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  onClick={onClose}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+                    isActive
+                      ? "text-white shadow-lg"
+                      : "text-slate-400 hover:text-white hover:bg-white/5"
+                  )}
+                  style={isActive ? { background: "linear-gradient(90deg, rgba(124,58,237,0.6), rgba(245,158,11,0.3))", borderLeft: "3px solid #f59e0b" } : {}}
+                >
+                  <item.icon className="w-4.5 h-4.5" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+          {hasMoreBelow && (
+            <div
+              className="pointer-events-none absolute bottom-0 left-0 right-0 h-10 flex items-end justify-center pb-1"
+              style={{ background: "linear-gradient(to bottom, transparent, hsl(var(--sidebar-background)) 75%)" }}
+            >
+              <ChevronDown className="w-4 h-4 text-sidebar-foreground/50 animate-bounce" />
+            </div>
+          )}
+        </div>
 
         {/* Admin link */}
         {user?.role === "admin" && (
