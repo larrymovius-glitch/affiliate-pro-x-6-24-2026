@@ -102,13 +102,17 @@ export async function getRenderStatus(renderId) {
   });
   const body = await res.json();
   if (!res.ok) throw new Error(`Render status failed: ${JSON.stringify(body)}`);
+  // The actual status/url live under body.movie, not at the top level (see
+  // JSON2Video's own GET /v2/movies example response) -- reading body.status
+  // directly read undefined every time, so this never matched "done" or
+  // "error" no matter how the render actually finished. Every render in
+  // testing had in fact completed successfully in ~15 seconds; this alone
+  // was why every check kept reporting "still rendering."
+  const movie = body.movie || body;
   // JSON2Video's own terminal statuses are "done", "error", and "timeout" --
-  // only "done" was treated as finished and only "error" as failed, so a
-  // render that timed out on their end fell through neither check and got
-  // reported as "still rendering" forever, with no way for a caller to ever
-  // learn it had actually given up.
-  if (body.status === "error" || body.status === "timeout") {
-    return { status: "failed", url: null, error: body.message || `Render ${body.status}.` };
+  // anything else means still in progress.
+  if (movie.status === "error" || movie.status === "timeout") {
+    return { status: "failed", url: null, error: movie.message || `Render ${movie.status}.` };
   }
-  return { status: body.status, url: body.url || null, error: null };
+  return { status: movie.status, url: movie.url || null, error: null };
 }
