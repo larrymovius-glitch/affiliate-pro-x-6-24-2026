@@ -6,14 +6,13 @@ import { UserPlus } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 import GoogleIcon from "@/components/GoogleIcon";
 import EmailRegistrationForm from "@/components/auth/EmailRegistrationForm";
-import OtpVerificationForm from "@/components/auth/OtpVerificationForm";
+import CheckEmailNotice from "@/components/auth/CheckEmailNotice";
 
 export default function Register() {
   const [searchParams] = useSearchParams();
   const [step, setStep] = useState("register");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
@@ -52,25 +51,6 @@ export default function Register() {
     }
   };
 
-  const handleVerify = async (event) => {
-    event.preventDefault();
-    setError("");
-    setLoading(true);
-    try {
-      const { error: verifyError } = await supabase.auth.verifyOtp({
-        email,
-        token: otp,
-        type: "signup",
-      });
-      if (verifyError) throw verifyError;
-      window.location.href = "/";
-    } catch (err) {
-      setError(err.message || "That verification code is invalid");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleResend = async () => {
     setError("");
     setResending(true);
@@ -82,7 +62,7 @@ export default function Register() {
       });
       if (resendError) throw resendError;
     } catch (err) {
-      setError(err.message || "Unable to resend the code");
+      setError(err.message || "Unable to resend the email");
     } finally {
       setResending(false);
     }
@@ -104,8 +84,8 @@ export default function Register() {
   return (
     <AuthLayout
       icon={UserPlus}
-      title={step === "verify" ? "Verify your email" : "Create your account"}
-      subtitle={step === "verify" ? "One quick step, then your dashboard" : "Choose Google or create an account with email"}
+      title={step === "verify" ? "Check your email" : "Create your account"}
+      subtitle={step === "verify" ? "Almost there" : "Choose Google or create an account with email"}
       footer={step === "register" ? <>Already have an account? <Link to="/login" className="text-primary font-medium hover:underline">Log in</Link></> : null}
     >
       {step === "register" ? (
@@ -117,7 +97,7 @@ export default function Register() {
           <EmailRegistrationForm email={email} password={password} error={error} loading={loading} onEmailChange={setEmail} onPasswordChange={setPassword} onSubmit={handleRegister} />
         </>
       ) : (
-        <OtpVerificationForm email={email} otp={otp} error={error} loading={loading} resending={resending} onOtpChange={setOtp} onSubmit={handleVerify} onResend={handleResend} />
+        <CheckEmailNotice email={email} error={error} resending={resending} onResend={handleResend} />
       )}
     </AuthLayout>
   );
