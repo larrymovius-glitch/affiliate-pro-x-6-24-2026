@@ -102,6 +102,13 @@ export async function getRenderStatus(renderId) {
   });
   const body = await res.json();
   if (!res.ok) throw new Error(`Render status failed: ${JSON.stringify(body)}`);
-  if (body.status === "error") return { status: "failed", url: null, error: body.message || "Render failed." };
+  // JSON2Video's own terminal statuses are "done", "error", and "timeout" --
+  // only "done" was treated as finished and only "error" as failed, so a
+  // render that timed out on their end fell through neither check and got
+  // reported as "still rendering" forever, with no way for a caller to ever
+  // learn it had actually given up.
+  if (body.status === "error" || body.status === "timeout") {
+    return { status: "failed", url: null, error: body.message || `Render ${body.status}.` };
+  }
   return { status: body.status, url: body.url || null, error: null };
 }
