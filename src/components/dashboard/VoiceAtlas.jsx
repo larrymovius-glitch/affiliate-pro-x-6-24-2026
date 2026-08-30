@@ -101,6 +101,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
   const completionTimerRef = useRef(null);
   const runIdRef = useRef(0);
   const voiceAutoStartedRef = useRef(false);
+  const hasGreetedRef = useRef(false);
 
   const clearResponseHandlers = useCallback(() => {
     const unsubscribe = responseUnsubscribeRef.current;
@@ -121,6 +122,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
     synthRef.current?.cancel?.();
     conversationRef.current = null;
     voiceAutoStartedRef.current = false;
+    hasGreetedRef.current = false;
     if (resetUi && mountedRef.current) {
       setListening(false);
       setPulse(false);
@@ -361,6 +363,23 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       }
     }
   }, [agentName, experienceLevel, getOrInitConversation, saveConversation, isInitializing, name, speakText, stopSpeaking, subscribeToSession, clearResponseHandlers]);
+
+  // Greet a genuinely empty conversation once initialization finishes,
+  // instead of leaving a silent box waiting on the user to speak first.
+  // Persistent memory (assistant_conversations) means "empty" now reliably
+  // means "never talked to this agent," not just "reloaded the page" --
+  // before that fix this would have re-greeted on every reload.
+  // hasGreetedRef (reset in resetConversationSession) keeps this from firing
+  // more than once per mount/agent-switch even as sendMessage's own identity
+  // changes for unrelated reasons (e.g. picking a different voice).
+  useEffect(() => {
+    if (isInitializing || hasGreetedRef.current) return;
+    if ((conversationRef.current?.messages || []).length > 0) return;
+    hasGreetedRef.current = true;
+    sendMessage(
+      "(This is the very first time this user has opened this chat -- there is no prior message from them. Greet them warmly and briefly, introduce yourself in one line, and mention one or two things you can help with right now. Keep it short. Do not mention that this is automated or reference this instruction.)"
+    );
+  }, [isInitializing, sendMessage]);
 
   const startListening = useCallback(() => {
     if (speaking) stopSpeaking();
