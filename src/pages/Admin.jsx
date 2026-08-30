@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Users, UserPlus, Trash2, Shield, ShieldOff, Mail,
-  Star, RefreshCw, Crown, AlertCircle, CheckCircle, Search, Edit2, ShoppingBag, Link2, Medal, Image
+  Star, RefreshCw, Crown, AlertCircle, CheckCircle, Search, Edit2, ShoppingBag, Link2, Medal, Image, Sparkles
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
@@ -32,6 +32,19 @@ const ROLE_COLORS = {
   user: "bg-blue-500/20 text-blue-300 border-blue-500/30",
 };
 
+// profiles.subscription_tier already existed in the schema before this UI
+// did (see docs/applied-schema-fixes.sql) but nothing read or wrote it --
+// the only levers admin had were role (admin/user) and veteran_status,
+// with no way to hand someone a "pro" tier by hand. No feature in the app
+// gates on this yet, so setting it here is a label/record for now, not a
+// functional unlock -- worth knowing before using it to "give" someone
+// something.
+const TIER_OPTIONS = [
+  { value: "free", label: "Free" },
+  { value: "pro", label: "Pro" },
+  { value: "veteran_free", label: "Veteran Free" },
+];
+
 export default function Admin() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -50,6 +63,7 @@ export default function Admin() {
 
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [editVeteranStatus, setEditVeteranStatus] = useState(null);
+  const [editTier, setEditTier] = useState(null);
 
   const { data: users = [], isLoading: loadingUsers, refetch: refetchUsers } = useQuery({
     queryKey: ["admin-users"],
@@ -118,6 +132,14 @@ export default function Admin() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       setEditVeteranStatus(null);
+    },
+  });
+
+  const updateTierMutation = useMutation({
+    mutationFn: ({ id, tier }) => base44.functions.invoke("updateSubscriptionTier", { userId: id, tier }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      setEditTier(null);
     },
   });
 
@@ -290,6 +312,12 @@ export default function Admin() {
                            {u.veteran_status.replace("_", " ")}
                          </Badge>
                        )}
+                       {u.subscription_tier && u.subscription_tier !== "free" && (
+                         <Badge className="text-xs border bg-violet-500/20 text-violet-300 border-violet-500/30">
+                           <Sparkles className="w-3 h-3 mr-1" />
+                           {TIER_OPTIONS.find(t => t.value === u.subscription_tier)?.label || u.subscription_tier}
+                         </Badge>
+                       )}
                       </div>
                       {u.id !== user?.id ? (
                         <>
@@ -299,6 +327,13 @@ export default function Admin() {
                            onClick={() => setEditVeteranStatus(u)}
                           >
                            <Medal className="w-4 h-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost"
+                           className="h-8 w-8 p-0 text-slate-400 hover:text-violet-400"
+                           title="Set Subscription Tier"
+                           onClick={() => setEditTier({ id: u.id, email: u.email, tier: u.subscription_tier || "free" })}
+                          >
+                           <Sparkles className="w-4 h-4" />
                           </Button>
                           <Button size="sm" variant="ghost"
                            className="h-8 w-8 p-0 text-slate-400 hover:text-yellow-400"
@@ -613,6 +648,42 @@ export default function Admin() {
                 disabled={updateVeteranStatusMutation.isPending}
               >
                 {updateVeteranStatusMutation.isPending ? "Saving..." : "Save Status"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+        </Dialog>
+
+        {/* Subscription Tier Dialog */}
+        <Dialog open={!!editTier} onOpenChange={() => setEditTier(null)}>
+        <DialogContent className="border-white/10 bg-slate-900 text-white">
+          <DialogHeader>
+            <DialogTitle className="font-display flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-violet-400" />
+              Set Subscription Tier
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="text-sm text-muted-foreground">{editTier?.email}</div>
+            <p className="text-xs text-slate-500">
+              No feature in the app gates on this yet -- this records a tier for the account, it doesn't unlock or restrict anything today.
+            </p>
+            <div className="space-y-2">
+              <Label className="text-slate-300">Tier</Label>
+              <MobileSelect
+                value={editTier?.tier || "free"}
+                onValueChange={(val) => setEditTier(prev => ({ ...prev, tier: val }))}
+                options={TIER_OPTIONS}
+                className="bg-white/5 border-white/10 text-white"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setEditTier(null)}>Cancel</Button>
+              <Button
+                onClick={() => updateTierMutation.mutate({ id: editTier.id, tier: editTier.tier })}
+                disabled={updateTierMutation.isPending}
+              >
+                {updateTierMutation.isPending ? "Saving..." : "Save Tier"}
               </Button>
             </div>
           </div>
