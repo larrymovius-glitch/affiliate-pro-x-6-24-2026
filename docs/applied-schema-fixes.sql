@@ -189,3 +189,34 @@ create trigger set_updated_at
 before update on public.assistant_conversations
 for each row execute function set_updated_at();
 -- ---------------------------------------------------------------------------
+
+-- ---------------------------------------------------------------------------
+-- APPLIED 2026-08-30, migration `fix_subscriptions_schema_for_stripe_webhook`.
+--
+-- api/stripeWebhook.js was writing two columns that do not exist live, so
+-- every affected event would have thrown a 500 and Stripe would have retried
+-- it forever:
+--   * subscriptions.canceled_at -- written on every customer.subscription.*
+--     event, declared in base44/entities/Subscription.jsonc, never created on
+--     the live table. Added below.
+--   * payments.notes -- written on every renewal. The live table has
+--     `description` instead, so the code was changed rather than adding a
+--     duplicate column.
+--
+-- Also widened the subscriptions status CHECK. It allowed only
+-- active|canceled|past_due|trialing, but Stripe creates a subscription with
+-- status "incomplete" whenever the first charge needs authentication (3D
+-- Secure) -- that is frequently the very first customer.subscription.created
+-- event of a genuine signup, which would have been rejected outright.
+--
+-- Neither bug had been observed yet only because payments and subscriptions
+-- were both still empty -- no checkout had ever completed in production.
+alter table public.subscriptions add column if not exists canceled_at timestamptz;
+
+alter table public.subscriptions drop constraint if exists subscriptions_status_check;
+alter table public.subscriptions add constraint subscriptions_status_check
+  check (status = any (array[
+    'active','canceled','past_due','trialing',
+    'incomplete','incomplete_expired','unpaid','paused'
+  ]));
+-- ---------------------------------------------------------------------------
