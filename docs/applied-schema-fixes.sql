@@ -220,3 +220,31 @@ alter table public.subscriptions add constraint subscriptions_status_check
     'incomplete','incomplete_expired','unpaid','paused'
   ]));
 -- ---------------------------------------------------------------------------
+
+-- ---------------------------------------------------------------------------
+-- APPLIED 2026-08-31, migrations `enforce_free_tier_first_ad_limit` and
+-- `tighten_free_tier_first_ad_limit`. Full statements in
+-- docs/free-tier-first-ad-limit.sql.
+--
+-- The app's first paywall: free tier gets one live ad, not one connection
+-- or one draft. Generating ad copy (createAutopilotPack, PostGenerator.jsx)
+-- stays unlimited, and there is no read-side restriction anywhere -- a free
+-- user can always see their existing post's clicks/conversions/earnings.
+-- The limit is specifically on generated_posts.status reaching "posted": a
+-- statement-level AFTER trigger on generated_posts (both INSERT and
+-- UPDATE, as two triggers -- Postgres won't allow a transition table on a
+-- multi-event or column-list trigger) counts a user's total posted rows
+-- after the statement and rejects it if a free-tier user would end up with
+-- more than one. Raises with a `FREE_TIER_LIMIT:` prefix so the frontend
+-- (src/components/autopilot/PostGenerator.jsx markAsPosted, catching the
+-- error from base44.entities.GeneratedPost.update) can tell this apart
+-- from any other failure and show PaywallModal instead of a generic toast.
+--
+-- Statement-level with a transition table, not row-level: db().GeneratedPost
+-- .bulkCreate (api/_lib/db.js) issues one multi-row insert() call, and a
+-- row-level trigger would see its own statement's earlier rows as already
+-- existing, which would have broken the very first legitimate multi-row
+-- batch. Uses NEW.created_by_id rather than auth.uid() for the same reason
+-- as always in this file: createAutopilotPack.js writes through the
+-- service-role connection, where auth.uid() is null.
+-- ---------------------------------------------------------------------------
