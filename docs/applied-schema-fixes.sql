@@ -248,3 +248,19 @@ alter table public.subscriptions add constraint subscriptions_status_check
 -- as always in this file: createAutopilotPack.js writes through the
 -- service-role connection, where auth.uid() is null.
 -- ---------------------------------------------------------------------------
+
+-- ---------------------------------------------------------------------------
+-- APPLIED 2026-08-31, migration `fix_affiliate_links_campaign_id_type`.
+--
+-- Found live: clicking "Start 3-Product Autopilot" on /make-money failed
+-- outright with `invalid input syntax for type uuid:
+-- "autopilot:<productId>:v1"`. affiliate_links.campaign_id was typed uuid,
+-- but base44/entities/AffiliateLink.jsonc declares it a plain string
+-- ("Optional campaign reference"), and the only writer
+-- (api/createAutopilotPack.js) has only ever written composite label
+-- strings like "autopilot:<productId>:v1" or "...:r<n>:v<variant>" -- never
+-- a real UUID. 0 existing rows had a value here, confirming this insert had
+-- never once succeeded -- the entire 3-Product Autopilot feature was dead
+-- on arrival.
+alter table public.affiliate_links alter column campaign_id type text using campaign_id::text;
+-- ---------------------------------------------------------------------------
