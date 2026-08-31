@@ -7,55 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Check, Star, Shield, Heart } from "lucide-react";
 import { toast } from "sonner";
-
-const plans = [
-  {
-    id: "monthly",
-    name: "Monthly",
-    price: "$29",
-    period: "/month",
-    description: "Perfect for getting started",
-    features: [
-      "Unlimited affiliate links",
-      "AI post generation (40/day)",
-      "eBay trending sync",
-      "Content moderation",
-      "Daily performance reports",
-      "Voice assistant access"
-    ],
-    popular: false
-  },
-  {
-    id: "yearly",
-    name: "Yearly",
-    price: "$290",
-    period: "/year",
-    description: "Save 2 months with annual billing",
-    features: [
-      "Everything in Monthly",
-      "2 months free",
-      "Priority support",
-      "Advanced analytics",
-      "Custom branding"
-    ],
-    popular: true
-  },
-  {
-    id: "lifetime",
-    name: "Lifetime",
-    price: "$997",
-    period: "one-time",
-    description: "Pay once, own it forever",
-    features: [
-      "Everything in Yearly",
-      "Lifetime access",
-      "All future updates",
-      "White-label option",
-      "Direct founder support"
-    ],
-    popular: false
-  }
-];
+import { plans } from "@/lib/pricingPlans";
+import { useStripeCheckout } from "@/lib/useStripeCheckout";
 
 const veteranPlan = {
   name: "Veteran Access",
@@ -98,24 +51,7 @@ export default function Pricing() {
     onError: (err) => toast.error(err.response?.data?.error || err.message || "Failed to submit verification request")
   });
 
-  const checkoutMutation = useMutation({
-    mutationFn: async (data) => {
-      // Iframe check BEFORE creating the checkout session
-      if (window.self !== window.top) {
-        throw new Error("Checkout works only from the published app. Please open the app in a new tab.");
-      }
-      const response = await base44.functions.invoke('createStripeCheckout', data);
-      return response.data;
-    },
-    onSuccess: (data) => {
-      if (data.veteranAccess) {
-        toast.success("Veteran discount applied! Free access granted.");
-      } else if (data.url) {
-        window.location.href = data.url;
-      }
-    },
-    onError: (err) => toast.error(err.response?.data?.error || err.message || "Failed to start checkout")
-  });
+  const checkoutMutation = useStripeCheckout();
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 py-12 px-4">
