@@ -1,28 +1,34 @@
 import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Lock, Loader2 } from "lucide-react";
+import { Lock, PartyPopper, Loader2 } from "lucide-react";
 import { plans } from "@/lib/pricingPlans";
 import { useStripeCheckout } from "@/lib/useStripeCheckout";
 
-// Shown when the free-tier one-live-ad limit blocks an action (enforced
-// server-side by the enforce_free_tier_post_limit trigger -- see
-// docs/free-tier-first-ad-limit.sql). Their existing live ad and its
-// analytics stay fully visible; this only appears when they try to publish
-// a second one.
-export default function PaywallModal({ open, onOpenChange }) {
+// Two ways this opens:
+// - variant="success": right when a free user's FIRST ad goes live (see
+//   PostGenerator.jsx markAsPosted) -- a proactive "it works, now upgrade"
+//   moment, not a block. They can still dismiss and keep using that one ad.
+// - variant="limit" (default): when the server actually rejects a SECOND
+//   ad going live, enforced by the enforce_free_tier_post_limit trigger --
+//   see docs/free-tier-first-ad-limit.sql. Their existing live ad and its
+//   analytics stay fully visible either way.
+export default function PaywallModal({ open, onOpenChange, variant = "limit" }) {
   const checkout = useStripeCheckout();
+  const isSuccess = variant === "success";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <div className="flex items-center gap-2">
-            <Lock className="w-5 h-5 text-primary" />
-            <DialogTitle>You've used your free ad</DialogTitle>
+            {isSuccess ? <PartyPopper className="w-5 h-5 text-primary" /> : <Lock className="w-5 h-5 text-primary" />}
+            <DialogTitle>{isSuccess ? "Your first ad is live!" : "You've used your free ad"}</DialogTitle>
           </div>
           <DialogDescription>
-            The free plan includes one live ad, so you can see it work. Upgrade to Pro or Lifetime to publish more.
+            {isSuccess
+              ? "Watch it work — check back for its clicks and conversions any time. When you're ready to publish more, upgrade to Pro or Lifetime."
+              : "The free plan includes one live ad, so you can see it work. Upgrade to Pro or Lifetime to publish more."}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 pt-2 sm:grid-cols-3">

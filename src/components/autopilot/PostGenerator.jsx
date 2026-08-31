@@ -24,6 +24,7 @@ export default function PostGenerator() {
   const [posts, setPosts] = useState([]);
   const [copied, setCopied] = useState(null);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [paywallVariant, setPaywallVariant] = useState("limit");
 
   const { data: links = [] } = useQuery({
     queryKey: ["links"],
@@ -136,8 +137,22 @@ Return a JSON object with:
     try {
       await base44.entities.GeneratedPost.update(post.id, { status: "posted" });
       setPosts(prev => prev.map(p => p.id === post.id ? { ...p, status: "posted" } : p));
+
+      // Free tier's "it works, now upgrade" moment: the trigger only blocks
+      // a SECOND live ad, so this fires right when the first one lands --
+      // proactive, not a block. A paid/veteran user simply never has a
+      // "first" moment worth interrupting them for, so skip it there.
+      const tier = (await base44.auth.me())?.subscription_tier;
+      if (tier === "free") {
+        const alreadyPosted = await base44.entities.GeneratedPost.filter({ status: "posted" });
+        if (alreadyPosted.length === 1) {
+          setPaywallVariant("success");
+          setShowPaywall(true);
+        }
+      }
     } catch (err) {
       if (String(err?.message || "").includes("FREE_TIER_LIMIT")) {
+        setPaywallVariant("limit");
         setShowPaywall(true);
       } else {
         toast.error(err?.message || "Couldn't mark this as posted, try again.");
@@ -263,7 +278,7 @@ Return a JSON object with:
         </div>
       )}
 
-      <PaywallModal open={showPaywall} onOpenChange={setShowPaywall} />
+      <PaywallModal open={showPaywall} onOpenChange={setShowPaywall} variant={paywallVariant} />
     </div>
   );
 }
