@@ -20,6 +20,64 @@ function readRawBody(req) {
 const PAID_TIER = "pro";
 const ACTIVE_STATUSES = new Set(["active", "trialing"]);
 const DEAD_STATUSES = new Set(["canceled", "unpaid", "incomplete_expired"]);
+// Matches the lifetime price in src/lib/pricingPlans.js ("$997") and the
+// amount api/createStripeCheckout.js actually charges for it (99700 cents).
+const LIFETIME_PRICE = 997;
+
+/**
+ * Subscription payments count toward lifetime: once a user's completed
+ * payments add up to the lifetime price, they've effectively paid for it
+ * through monthly/yearly billing -- grant lifetime and stop charging them
+ * further, rather than taking their money forever.
+ *
+ * Idempotent via a synthetic Payment row (transaction_id
+ * "lifetime-earned:<userId>", amount 0 -- it marks the milestone, it isn't
+ * a new charge) so a webhook retry can't grant it twice or cancel an
+ * already-canceled subscription. That marker row is also what
+ * downgradeIfEligible already checks for, so canceling the subscription
+ * here safely triggers a later customer.subscription.deleted event without
+ * downgrading them back to free.
+ */
+export async function grantLifetimeIfEarned(D, stripe, userId) {
+  if (!userId) return;
+
+  const alreadyLifetime = await D.Payment.filter({ user_id: userId, plan_type: "lifetime", status: "completed" });
+  if (alreadyLifetime.length > 0) return;
+
+  const payments = await D.Payment.filter({ user_id: userId, status: "completed" });
+  const total = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  if (total < LIFETIME_PRICE) return;
+
+  const marker = `lifetime-earned:${userId}`;
+  const existingMarker = await D.Payment.filter({ transaction_id: marker });
+  if (existingMarker.length > 0) return;
+
+  await D.Payment.create({
+    user_id: userId,
+    amount: 0,
+    currency: "usd",
+    status: "completed",
+    payment_method: "stripe",
+    transaction_id: marker,
+    plan_type: "lifetime",
+    description: `Lifetime access earned after $${total.toFixed(2)} in subscription payments`,
+  });
+
+  await D.User.update(userId, { subscription_tier: PAID_TIER });
+
+  const activeSubs = await D.Subscription.filter({ user_id: userId, status: "active" });
+  for (const sub of activeSubs) {
+    try {
+      await stripe.subscriptions.cancel(sub.stripe_subscription_id);
+    } catch (err) {
+      // Not fatal -- they've already earned lifetime (the Payment row above
+      // is what actually grants it); worst case they're billed one more
+      // cycle and downgradeIfEligible protects them from ever losing access
+      // for it once that cycle's customer.subscription.deleted arrives.
+      console.error("Failed to cancel subscription after lifetime earned:", err.message);
+    }
+  }
+}
 
 /**
  * Drop a user back to the free tier, but only when that's actually correct.
@@ -88,6 +146,7 @@ export default async function handler(req, res) {
         // because nothing else anywhere writes subscription_tier.
         if (session.metadata?.user_id) {
           await D.User.update(session.metadata.user_id, { subscription_tier: PAID_TIER });
+          await grantLifetimeIfEarned(D, stripe, session.metadata.user_id);
         }
 
         console.log("Payment recorded:", session.id);
@@ -161,6 +220,9 @@ export default async function handler(req, res) {
               // this insert rejected every renewal outright.
               description: "Subscription renewal",
             });
+          }
+          if (subscription.metadata?.user_id) {
+            await grantLifetimeIfEarned(D, stripe, subscription.metadata.user_id);
           }
           console.log("Renewal payment recorded:", invoice.id);
         }
