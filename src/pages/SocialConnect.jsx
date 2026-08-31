@@ -5,82 +5,23 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Instagram, Linkedin, Facebook, Link2, CheckCircle, AlertCircle, Loader2, Settings } from "lucide-react";
-import FacebookPinterestConnector from "@/components/social/FacebookPinterestConnector";
+import { Instagram, CheckCircle, Loader2, Settings } from "lucide-react";
+import SocialPlatformCard from "@/components/social/SocialPlatformCard";
+import { SOCIAL_PLATFORMS } from "@/lib/socialPlatforms";
 
 export default function SocialConnect() {
   const { user } = useAuth();
-  const [instagramConnected, setInstagramConnected] = useState(false);
-  const [linkedinConnected, setLinkedinConnected] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [savingPayment, setSavingPayment] = useState(false);
   const [stripeAccount, setStripeAccount] = useState("");
   const [paymentEmail, setPaymentEmail] = useState("");
 
   useEffect(() => {
-    checkConnection();
-    if (user) {
-      setPaymentEmail(user.email || "");
-    }
+    if (user) setPaymentEmail(user.email || "");
   }, [user]);
-
-  const checkInstagram = async () => {
-    try {
-      await base44.functions.invoke("postToInstagram", { test: true });
-      setInstagramConnected(true);
-    } catch {
-      setInstagramConnected(false);
-    }
-  };
-
-  const checkLinkedin = async () => {
-    try {
-      await base44.functions.invoke("postToLinkedIn", { test: true });
-      setLinkedinConnected(true);
-    } catch {
-      setLinkedinConnected(false);
-    }
-  };
-
-  const checkConnection = async () => {
-    await Promise.all([checkInstagram(), checkLinkedin()]);
-    setLoading(false);
-  };
-
-  const handleConnectInstagram = async () => {
-    try {
-      const url = await base44.connectors.connectAppUser("instagram");
-      const popup = window.open(url, "_blank");
-      const timer = setInterval(() => {
-        if (!popup || popup.closed) {
-          clearInterval(timer);
-          checkInstagram();
-        }
-      }, 500);
-    } catch (error) {
-      console.error("Instagram connection error:", error);
-    }
-  };
-
-  const handleConnectLinkedin = async () => {
-    try {
-      const url = await base44.connectors.connectAppUser("6a3a1c4e98737984ce1e0230");
-      const popup = window.open(url, "_blank");
-      const timer = setInterval(() => {
-        if (!popup || popup.closed) {
-          clearInterval(timer);
-          checkLinkedin();
-        }
-      }, 500);
-    } catch (error) {
-      console.error("LinkedIn connection error:", error);
-    }
-  };
 
   const handleSavePayment = async () => {
     if (!stripeAccount || !paymentEmail) return;
-    
+
     setSavingPayment(true);
     try {
       await base44.functions.invoke("savePaymentInfo", {
@@ -95,6 +36,10 @@ export default function SocialConnect() {
     }
   };
 
+  const handleGeneratePosts = () => {
+    window.location.href = "/autopilot";
+  };
+
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-6">
       {/* Header */}
@@ -105,103 +50,19 @@ export default function SocialConnect() {
         </div>
         <div>
           <h1 className="text-2xl font-bold text-white font-display">Social Media & Payments</h1>
-          <p className="text-sm text-slate-400">Connect accounts & get paid automatically</p>
+          <p className="text-sm text-slate-400">
+            None of these platforms offer a real self-serve connect flow for an app like this one --
+            every card below links straight to the platform itself, plus a copy-paste posting guide.
+          </p>
         </div>
       </div>
 
-      {/* Instagram Connection */}
-      <Card className="border-white/10 bg-white/5">
-        <CardHeader>
-          <CardTitle className="text-white text-base flex items-center gap-2">
-            <Instagram className="w-5 h-5" style={{ color: "#E4405F" }} />
-            Instagram Business
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className={`flex items-center gap-3 rounded-xl p-4 ${
-            instagramConnected ? "bg-green-500/10 border border-green-500/20" : "bg-orange-500/10 border border-orange-500/20"
-          }`}>
-            {instagramConnected
-              ? <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
-              : <AlertCircle className="w-5 h-5 text-orange-400 flex-shrink-0" />}
-            <div className="min-w-0">
-              <p className={`text-sm font-semibold ${instagramConnected ? "text-green-300" : "text-orange-300"}`}>
-                {instagramConnected ? "Instagram Connected" : "Not Connected"}
-              </p>
-              <p className="text-xs text-slate-400 mt-0.5">
-                {instagramConnected 
-                  ? "Auto-posting enabled for affiliate content"
-                  : "Connect to auto-post AI-generated content"}
-              </p>
-            </div>
-          </div>
-
-          {!instagramConnected && (
-            <Button 
-              onClick={handleConnectInstagram}
-              disabled={loading}
-              className="w-full h-11 font-semibold gap-2"
-              style={{ background: "linear-gradient(135deg, #E4405F, #FCAF45)" }}
-            >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
-              {loading ? "Connecting..." : "Connect Instagram Business"}
-            </Button>
-          )}
-
-          {instagramConnected && (
-            <p className="text-xs text-green-400 flex items-center gap-1">
-              <CheckCircle className="w-3 h-3" /> Ready to auto-post to Instagram
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* LinkedIn Connection */}
-      <Card className="border-white/10 bg-white/5">
-        <CardHeader>
-          <CardTitle className="text-white text-base flex items-center gap-2">
-            <Linkedin className="w-5 h-5" style={{ color: "#0A66C2" }} />
-            LinkedIn Professional
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className={`flex items-center gap-3 rounded-xl p-4 ${
-            linkedinConnected ? "bg-green-500/10 border border-green-500/20" : "bg-orange-500/10 border border-orange-500/20"
-          }`}>
-            {linkedinConnected
-              ? <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
-              : <AlertCircle className="w-5 h-5 text-orange-400 flex-shrink-0" />}
-            <div className="min-w-0">
-              <p className={`text-sm font-semibold ${linkedinConnected ? "text-green-300" : "text-orange-300"}`}>
-                {linkedinConnected ? "LinkedIn Connected" : "Not Connected"}
-              </p>
-              <p className="text-xs text-slate-400 mt-0.5">
-                {linkedinConnected 
-                  ? "Auto-posting enabled for professional content"
-                  : "Connect to share affiliate content with your network"}
-              </p>
-            </div>
-          </div>
-
-          {!linkedinConnected && (
-            <Button 
-              onClick={handleConnectLinkedin}
-              disabled={loading}
-              className="w-full h-11 font-semibold gap-2"
-              style={{ background: "linear-gradient(135deg, #0A66C2, #0077B5)" }}
-            >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
-              {loading ? "Connecting..." : "Connect LinkedIn Account"}
-            </Button>
-          )}
-
-          {linkedinConnected && (
-            <p className="text-xs text-green-400 flex items-center gap-1">
-              <CheckCircle className="w-3 h-3" /> Ready to auto-post to LinkedIn
-            </p>
-          )}
-        </CardContent>
-      </Card>
+      {/* Platforms */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {SOCIAL_PLATFORMS.map((platform) => (
+          <SocialPlatformCard key={platform.id} platform={platform} onGeneratePosts={handleGeneratePosts} />
+        ))}
+      </div>
 
       {/* Payment Setup */}
       <Card className="border-white/10 bg-white/5">
@@ -234,7 +95,7 @@ export default function SocialConnect() {
 
             <div className="space-y-1.5">
               <Label className="text-slate-300 text-sm">
-                Stripe Account ID 
+                Stripe Account ID
                 <span className="text-xs text-slate-500 ml-2">(starts with "acct_")</span>
               </Label>
               <Input
@@ -264,36 +125,6 @@ export default function SocialConnect() {
               <span>Payment info verified - ready to receive commissions!</span>
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Facebook & Pinterest */}
-      <FacebookPinterestConnector onGeneratePosts={(platform) => {
-        window.location.href = "/autopilot";
-      }} />
-
-      {/* Quick Actions */}
-      <Card className="border-white/10 bg-white/5">
-        <CardHeader>
-          <CardTitle className="text-white text-base">Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <Button variant="outline" className="w-full justify-start gap-2 text-slate-300" onClick={() => window.location.href = "/autopilot"}>
-            <Instagram className="w-4 h-4" />
-            Generate Instagram Posts (AutoPilot)
-          </Button>
-          <Button variant="outline" className="w-full justify-start gap-2 text-slate-300" onClick={() => window.location.href = "/autopilot"}>
-            <Linkedin className="w-4 h-4" />
-            Generate LinkedIn Posts (AutoPilot)
-          </Button>
-          <Button variant="outline" className="w-full justify-start gap-2 text-slate-300" onClick={() => window.location.href = "/autopilot"}>
-            <Facebook className="w-4 h-4" />
-            Generate Facebook Posts (AutoPilot)
-          </Button>
-          <Button variant="outline" className="w-full justify-start gap-2 text-slate-300">
-            <Settings className="w-4 h-4" />
-            Tell Atlas: "Set up my payments"
-          </Button>
         </CardContent>
       </Card>
     </div>

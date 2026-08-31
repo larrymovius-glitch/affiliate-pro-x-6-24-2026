@@ -12,8 +12,8 @@ import { toast } from "sonner";
 // One card per network on /networks. No OAuth -- most affiliate networks
 // don't offer a public self-serve OAuth flow for third-party apps, so a
 // signup link plus "paste your id here" is the reliable option, not a
-// simplified one. Mirrors the connect-card pattern on SocialConnect.jsx and
-// the manual-guide pattern in components/social/FacebookPinterestConnector.jsx.
+// simplified one. Mirrors the manual-guide pattern in
+// components/social/SocialPlatformCard.jsx.
 export default function NetworkCard({ network, savedId }) {
   const { user, checkUserAuth } = useAuth();
   const [value, setValue] = useState(savedId || "");
