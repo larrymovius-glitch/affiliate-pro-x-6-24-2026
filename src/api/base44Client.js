@@ -235,18 +235,5 @@ const agents = {
   },
 };
 
-// ---------------------------------------------------------------------------
-// Connectors — Social Connect's Instagram/LinkedIn buttons call this, but
-// there's no OAuth connect flow implemented server-side yet (see the notes
-// in api/postToInstagram.js and api/postToLinkedIn.js). Throwing here turns
-// today's crash (calling into an undefined namespace) into the same caught,
-// logged error those buttons already handle.
-// ---------------------------------------------------------------------------
-const connectors = {
-  async connectAppUser(_appId) {
-    throw new Error("Social account connections aren't configured yet — check back soon.");
-  },
-};
-
-export const base44 = { entities, auth, functions, integrations, agents, connectors };
+export const base44 = { entities, auth, functions, integrations, agents };
 export default base44;
