@@ -29,6 +29,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { toast } from "sonner";
 
 // Every table in this schema timestamps with `created_at`; nothing has a
 // `created_date` column. This used to try "-created_at" first and fall back
@@ -44,6 +45,8 @@ export default function TopBar({ onMenuClick }) {
   const navigate = useNavigate();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmEmail, setDeleteConfirmEmail] = useState("");
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleting, setDeleting] = useState(false);
   const [atlasOpen, setAtlasOpen] = useState(false);
 
   useEffect(() => {
@@ -82,10 +85,17 @@ export default function TopBar({ onMenuClick }) {
     }
   };
   const handleDeleteAccount = async () => {
+    setDeleting(true);
     try {
-      await base44.functions.invoke("deleteAccount", {});
-    } catch (_) {
-      // best-effort data deletion
+      await base44.functions.invoke("deleteAccount", { password: deletePassword });
+    } catch (error) {
+      // The server rejects this (wrong password, or the deletion itself
+      // failed) -- surfacing it and stopping here matters, because logging
+      // the user out regardless would have looked like a successful
+      // deletion while leaving every row of their data untouched.
+      setDeleting(false);
+      toast.error(error.message || "Couldn't delete your account, try again.");
+      return;
     }
     await base44.auth.logout("/");
   };
@@ -216,29 +226,38 @@ export default function TopBar({ onMenuClick }) {
         <VoiceAtlasModal open={atlasOpen} onClose={() => setAtlasOpen(false)} />
       )}
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => { setDeleteDialogOpen(open); if (!open) setDeleteConfirmEmail(""); }}>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => { setDeleteDialogOpen(open); if (!open) { setDeleteConfirmEmail(""); setDeletePassword(""); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Account?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action is permanent and cannot be undone. All your data will be removed. To confirm, type your email address below.
+              This action is permanent and cannot be undone. All your data will be removed. To confirm, type your email address and current password below.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <Input
-            type="email"
-            placeholder={user?.email || "your email address"}
-            value={deleteConfirmEmail}
-            onChange={(e) => setDeleteConfirmEmail(e.target.value)}
-            className="h-11"
-          />
+          <div className="space-y-3">
+            <Input
+              type="email"
+              placeholder={user?.email || "your email address"}
+              value={deleteConfirmEmail}
+              onChange={(e) => setDeleteConfirmEmail(e.target.value)}
+              className="h-11"
+            />
+            <Input
+              type="password"
+              placeholder="current password"
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+              className="h-11"
+            />
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel className="h-11">Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={deleteConfirmEmail.trim().toLowerCase() !== (user?.email || "").toLowerCase()}
+              disabled={deleting || deleteConfirmEmail.trim().toLowerCase() !== (user?.email || "").toLowerCase() || !deletePassword}
               onClick={handleDeleteAccount}
             >
-              Yes, Delete Account
+              {deleting ? "Deleting..." : "Yes, Delete Account"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
