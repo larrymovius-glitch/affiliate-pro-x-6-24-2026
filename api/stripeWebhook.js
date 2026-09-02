@@ -17,7 +17,7 @@ function readRawBody(req) {
 // profiles.subscription_tier allows exactly: free | pro | veteran_free.
 // Every paid plan (monthly, yearly, lifetime) maps to "pro" -- there is no
 // separate lifetime tier value, lifetime is distinguished by its Payment row.
-const PAID_TIER = "pro";
+export const PAID_TIER = "pro";
 const ACTIVE_STATUSES = new Set(["active", "trialing"]);
 const DEAD_STATUSES = new Set(["canceled", "unpaid", "incomplete_expired"]);
 // Matches the lifetime price in src/lib/pricingPlans.js ("$997") and the
