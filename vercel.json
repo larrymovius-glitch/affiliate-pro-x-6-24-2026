@@ -39,6 +39,10 @@
       "schedule": "0 6 * * *"
     },
     {
+      "path": "/api/syncEbayTrending",
+      "schedule": "0 7 * * *"
+    },
+    {
       "path": "/api/optimizeAutopilotPosts",
       "schedule": "0 9 * * *"
     }
