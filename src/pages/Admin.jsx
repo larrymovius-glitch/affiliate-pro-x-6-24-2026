@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
@@ -10,7 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Users, UserPlus, Trash2, Shield, ShieldOff, Mail,
-  Star, RefreshCw, Crown, AlertCircle, CheckCircle, Search, Edit2, ShoppingBag, Link2, Medal, Image, Sparkles
+  Star, RefreshCw, Crown, AlertCircle, CheckCircle, Search, Edit2, ShoppingBag, Link2, Medal, Image, Sparkles,
+  Wallet, XCircle, Send
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
@@ -45,6 +46,15 @@ const TIER_OPTIONS = [
   { value: "veteran_free", label: "Veteran Free" },
 ];
 
+const PAYOUT_STATUS_COLORS = {
+  pending: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
+  approved: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+  paid: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+  rejected: "bg-red-500/20 text-red-300 border-red-500/30",
+};
+
+const PAYOUT_FILTERS = ["pending", "approved", "paid", "rejected", "all"];
+
 export default function Admin() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -64,6 +74,9 @@ export default function Admin() {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [editVeteranStatus, setEditVeteranStatus] = useState(null);
   const [editTier, setEditTier] = useState(null);
+  const [payoutFilter, setPayoutFilter] = useState("pending");
+  const [confirmPay, setConfirmPay] = useState(null);
+  const [payError, setPayError] = useState(null);
 
   const { data: users = [], isLoading: loadingUsers, refetch: refetchUsers } = useQuery({
     queryKey: ["admin-users"],
@@ -81,6 +94,33 @@ export default function Admin() {
   });
   const ebayConnected = ebayTokens.length > 0;
   const ebayToken = ebayTokens[0];
+
+  const { data: payouts = [], isLoading: loadingPayouts, refetch: refetchPayouts } = useQuery({
+    queryKey: ["admin-payouts"],
+    queryFn: () => base44.entities.Payout.list("-requested_at"),
+  });
+
+  const usersById = useMemo(() => Object.fromEntries(users.map((u) => [u.id, u])), [users]);
+
+  const approvePayoutMutation = useMutation({
+    mutationFn: (id) => base44.entities.Payout.update(id, { status: "approved" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-payouts"] }),
+  });
+
+  const rejectPayoutMutation = useMutation({
+    mutationFn: (id) => base44.entities.Payout.update(id, { status: "rejected" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-payouts"] }),
+  });
+
+  const payPayoutMutation = useMutation({
+    mutationFn: (payoutId) => base44.functions.invoke("processStripePayout", { payoutId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-payouts"] });
+      setConfirmPay(null);
+      setPayError(null);
+    },
+    onError: (e) => setPayError(e.message || "Failed to process payout"),
+  });
 
   const disconnectEbayMutation = useMutation({
     mutationFn: () => base44.entities.EbayToken.deleteMany({}),
@@ -202,6 +242,9 @@ export default function Admin() {
     !userSearch || u.email?.toLowerCase().includes(userSearch.toLowerCase()) || u.full_name?.toLowerCase().includes(userSearch.toLowerCase())
   );
 
+  const filteredPayouts = payoutFilter === "all" ? payouts : payouts.filter(p => p.status === payoutFilter);
+  const pendingPayoutTotal = payouts.filter(p => p.status === "pending").reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6">
       {/* Header */}
@@ -246,6 +289,9 @@ export default function Admin() {
           </TabsTrigger>
           <TabsTrigger value="invite" className="flex-1 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
             <UserPlus className="w-4 h-4 mr-1.5" /> Invite
+          </TabsTrigger>
+          <TabsTrigger value="payouts" className="flex-1 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+            <Wallet className="w-4 h-4 mr-1.5" /> Payouts
           </TabsTrigger>
             <TabsTrigger value="reviewers" className="flex-1 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
             <Star className="w-4 h-4 mr-1.5" /> Reviewers
@@ -430,6 +476,114 @@ export default function Admin() {
               </Button>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ── PAYOUTS TAB ── */}
+        <TabsContent value="payouts" className="mt-4 space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <p className="text-sm text-slate-400">
+              {payouts.filter(p => p.status === "pending").length} pending · ${pendingPayoutTotal.toFixed(2)} awaiting review
+            </p>
+            <div className="flex items-center gap-2">
+              <Button size="icon" variant="ghost" onClick={() => refetchPayouts()} className="flex-shrink-0 text-slate-400 hover:text-white">
+                <RefreshCw className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5">
+            {PAYOUT_FILTERS.map((f) => (
+              <button
+                key={f}
+                onClick={() => setPayoutFilter(f)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium capitalize border transition-colors ${
+                  payoutFilter === f
+                    ? "border-violet-500 bg-violet-600/30 text-white"
+                    : "border-white/10 bg-white/5 text-slate-400 hover:text-white"
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+
+          {loadingPayouts ? (
+            <div className="space-y-2">
+              {[...Array(3)].map((_, i) => <div key={i} className="h-20 rounded-xl bg-white/5 animate-pulse" />)}
+            </div>
+          ) : filteredPayouts.length === 0 ? (
+            <Card className="border-white/10 bg-white/5">
+              <CardContent className="py-10 text-center text-slate-400">
+                <Wallet className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">No {payoutFilter !== "all" ? payoutFilter : ""} payouts.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {filteredPayouts.map((p) => {
+                const recipient = usersById[p.user_id] || usersById[p.created_by_id];
+                const canPay = p.status === "approved" && recipient?.stripeAccountId;
+                return (
+                  <Card key={p.id} className="border-white/10 bg-white/5 hover:bg-white/8 transition-colors">
+                    <CardContent className="p-4 flex items-center justify-between gap-3 flex-wrap">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-white">${Number(p.amount).toFixed(2)}</p>
+                          <Badge className={`text-xs border ${PAYOUT_STATUS_COLORS[p.status] || PAYOUT_STATUS_COLORS.pending}`}>
+                            {p.status}
+                          </Badge>
+                          {p.source === "auto" && (
+                            <Badge variant="outline" className="text-xs border-white/10 text-slate-400">auto</Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-400 truncate mt-0.5">
+                          {recipient?.email || p.payment_email || "Unknown recipient"} · {p.payment_method || "—"}
+                        </p>
+                        {p.status === "approved" && !recipient?.stripeAccountId && (
+                          <p className="text-xs text-orange-400 mt-0.5 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" /> Recipient hasn't connected Stripe yet
+                          </p>
+                        )}
+                        {p.status === "paid" && (
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Paid {p.paid_at ? new Date(p.paid_at).toLocaleDateString() : ""}{p.notes ? ` · ${p.notes}` : ""}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {p.status === "pending" && (
+                          <>
+                            <Button size="sm" variant="ghost"
+                              className="h-8 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+                              disabled={approvePayoutMutation.isPending}
+                              onClick={() => approvePayoutMutation.mutate(p.id)}>
+                              <CheckCircle className="w-4 h-4 mr-1" /> Approve
+                            </Button>
+                            <Button size="sm" variant="ghost"
+                              className="h-8 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                              disabled={rejectPayoutMutation.isPending}
+                              onClick={() => rejectPayoutMutation.mutate(p.id)}>
+                              <XCircle className="w-4 h-4 mr-1" /> Reject
+                            </Button>
+                          </>
+                        )}
+                        {p.status === "approved" && (
+                          <Button size="sm"
+                            className="h-8"
+                            style={{ background: "linear-gradient(90deg, #7c3aed, #f59e0b)" }}
+                            disabled={!canPay}
+                            title={canPay ? "" : "Recipient hasn't connected a Stripe payout account"}
+                            onClick={() => { setPayError(null); setConfirmPay(p); }}>
+                            <Send className="w-4 h-4 mr-1" /> Pay Now
+                          </Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </TabsContent>
 
         {/* ── REVIEWERS TAB ── */}
@@ -688,6 +842,41 @@ export default function Admin() {
             </div>
           </div>
         </DialogContent>
+        </Dialog>
+
+        {/* Pay Payout Confirm Dialog */}
+        <Dialog open={!!confirmPay} onOpenChange={(open) => { if (!open) { setConfirmPay(null); setPayError(null); } }}>
+          <DialogContent className="border-white/10 bg-slate-900 text-white">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Send className="w-5 h-5 text-violet-400" />
+                Confirm Payout
+              </DialogTitle>
+            </DialogHeader>
+            <div className="py-2 space-y-2">
+              <p className="text-slate-300 text-sm">
+                Send <strong className="text-white">${confirmPay ? Number(confirmPay.amount).toFixed(2) : ""}</strong> to{" "}
+                <strong className="text-white">
+                  {confirmPay ? (usersById[confirmPay.user_id] || usersById[confirmPay.created_by_id])?.email : ""}
+                </strong>{" "}
+                via Stripe? This transfers real money and cannot be undone from here.
+              </p>
+              {payError && (
+                <div className="flex items-center gap-2 text-sm rounded-xl p-3 bg-red-500/10 text-red-400 border border-red-500/20">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" /> {payError}
+                </div>
+              )}
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="ghost" className="text-slate-400" onClick={() => { setConfirmPay(null); setPayError(null); }}>Cancel</Button>
+              <Button
+                disabled={payPayoutMutation.isPending}
+                style={{ background: "linear-gradient(90deg, #7c3aed, #f59e0b)" }}
+                onClick={() => payPayoutMutation.mutate(confirmPay.id)}>
+                {payPayoutMutation.isPending ? "Sending…" : "Send Payment"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
         </Dialog>
 
         {/* Add/Edit Reviewer Dialog */}
