@@ -26,16 +26,15 @@
     "payment_method": {
       "type": "string",
       "enum": [
-        "paypal",
         "bank_transfer",
         "check"
       ],
-      "default": "paypal",
+      "default": "bank_transfer",
       "description": "Preferred payment method"
     },
     "payment_email": {
       "type": "string",
-      "description": "PayPal email or payment destination"
+      "description": "Payment destination (e.g. email tied to the connected payout account)"
     },
     "last_processed_at": {
       "type": "string",
