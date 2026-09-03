@@ -260,7 +260,7 @@ export default function Admin() {
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: "Total Users", value: users.length, icon: Users, color: "#7c3aed" },
           { label: "Admins", value: adminCount, icon: Crown, color: "#f59e0b" },
@@ -283,23 +283,23 @@ export default function Admin() {
       </div>
 
       <Tabs defaultValue="users">
-        <TabsList className="bg-white/5 border border-white/10 w-full">
-          <TabsTrigger value="users" className="flex-1 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+        <TabsList className="bg-white/5 border border-white/10 w-full max-w-full overflow-x-auto justify-start">
+          <TabsTrigger value="users" className="flex-shrink-0 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
             <Users className="w-4 h-4 mr-1.5" /> Users
           </TabsTrigger>
-          <TabsTrigger value="invite" className="flex-1 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+          <TabsTrigger value="invite" className="flex-shrink-0 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
             <UserPlus className="w-4 h-4 mr-1.5" /> Invite
           </TabsTrigger>
-          <TabsTrigger value="payouts" className="flex-1 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+          <TabsTrigger value="payouts" className="flex-shrink-0 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
             <Wallet className="w-4 h-4 mr-1.5" /> Payouts
           </TabsTrigger>
-            <TabsTrigger value="reviewers" className="flex-1 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+            <TabsTrigger value="reviewers" className="flex-shrink-0 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
             <Star className="w-4 h-4 mr-1.5" /> Reviewers
           </TabsTrigger>
-          <TabsTrigger value="ebay" className="flex-1 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+          <TabsTrigger value="ebay" className="flex-shrink-0 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
             <ShoppingBag className="w-4 h-4 mr-1.5" /> eBay
           </TabsTrigger>
-          <TabsTrigger value="avatars" className="flex-1 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+          <TabsTrigger value="avatars" className="flex-shrink-0 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
             <Image className="w-4 h-4 mr-1.5" /> Avatars
           </TabsTrigger>
         </TabsList>
@@ -336,7 +336,7 @@ export default function Admin() {
             <div className="space-y-2">
               {filteredUsers.map((u) => (
                 <Card key={u.id} className="border-white/10 bg-white/5 hover:bg-white/8 transition-colors">
-                  <CardContent className="p-4 flex items-center justify-between gap-3">
+                  <CardContent className="p-4 flex items-center justify-between gap-3 flex-wrap">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm"
                         style={{ background: u.role === "admin" ? "linear-gradient(135deg,#7c3aed,#f59e0b)" : "rgba(124,58,237,0.25)", color: "white" }}>
@@ -347,8 +347,8 @@ export default function Admin() {
                         <p className="text-xs text-slate-400 truncate">{u.email}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                      <div className="flex items-center gap-1 flex-wrap">
                        <Badge className={`text-xs border ${ROLE_COLORS[u.role] || ROLE_COLORS.user}`}>
                          {u.role || "user"}
                        </Badge>
