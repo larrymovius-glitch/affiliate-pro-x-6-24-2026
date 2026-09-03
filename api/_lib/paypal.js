@@ -1,6 +1,9 @@
 // Set PAYPAL_ENV=sandbox in Vercel to test with fake money via a PayPal
 // sandbox test-buyer account (developer.paypal.com > Sandbox > Accounts).
 // Unset (or anything else) stays on live - real cards, real charges.
+// Note: VITE_PAYPAL_CLIENT_ID/PAYPAL_CLIENT_SECRET below must ALSO be
+// swapped to the matching sandbox app's credentials - PAYPAL_ENV only
+// switches the API host, not which app's ID/secret gets used.
 const PAYPAL_API_BASE =
   process.env.PAYPAL_ENV === "sandbox" ? "https://api-m.sandbox.paypal.com" : "https://api-m.paypal.com";
 
