@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Users, UserPlus, Trash2, Shield, ShieldOff, Mail,
-  Star, RefreshCw, Crown, AlertCircle, CheckCircle, Search, Edit2, ShoppingBag, Link2, Medal, Image, Sparkles,
+  Star, RefreshCw, Crown, AlertCircle, CheckCircle, Search, Edit2, ShoppingBag, ExternalLink, Medal, Image, Sparkles,
   Wallet, XCircle, Send
 } from "lucide-react";
 import {
@@ -88,12 +88,14 @@ export default function Admin() {
     queryFn: () => base44.entities.GoogleReviewer.list(),
   });
 
-  const { data: ebayTokens = [], refetch: refetchEbay } = useQuery({
-    queryKey: ["admin-ebay-token"],
-    queryFn: () => base44.entities.EbayToken.list(),
+  const [ebaySyncResult, setEbaySyncResult] = useState(null);
+  const ebayCampaignId = user?.affiliate_network_ids?.ebay || null;
+
+  const syncEbayMutation = useMutation({
+    mutationFn: () => base44.functions.invoke("syncEbayTrending", {}),
+    onSuccess: ({ data }) => setEbaySyncResult({ type: "success", ...data }),
+    onError: (e) => setEbaySyncResult({ type: "error", message: e.message || "Sync failed" }),
   });
-  const ebayConnected = ebayTokens.length > 0;
-  const ebayToken = ebayTokens[0];
 
   const { data: payouts = [], isLoading: loadingPayouts, refetch: refetchPayouts } = useQuery({
     queryKey: ["admin-payouts"],
@@ -121,30 +123,6 @@ export default function Admin() {
     },
     onError: (e) => setPayError(e.message || "Failed to process payout"),
   });
-
-  const disconnectEbayMutation = useMutation({
-    mutationFn: () => base44.entities.EbayToken.deleteMany({}),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-ebay-token"] }),
-  });
-
-  const EBAY_SIGNIN_URL = "https://signin.ebay.com/ws/eBayISAPI.dll?SignIn&runame=Lawerence_Moviu-Lawerenc-Affili-zgqyaq";
-
-  // Complete the eBay connection securely as a logged-in admin (session ID passed back from the OAuth redirect)
-  const [ebayLinking, setEbayLinking] = useState(false);
-  const [ebayLinkError, setEbayLinkError] = useState(null);
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const sessid = urlParams.get("ebay_sessid");
-    if (!sessid || user?.role !== "admin") return;
-    urlParams.delete("ebay_sessid");
-    window.history.replaceState({}, document.title, `${window.location.pathname}${urlParams.toString() ? `?${urlParams}` : ""}`);
-    setEbayLinking(true);
-    setEbayLinkError(null);
-    base44.functions.invoke("ebayOAuthCallback", { sessid })
-      .then(() => refetchEbay())
-      .catch((e) => setEbayLinkError(e.response?.data?.error || e.message))
-      .finally(() => setEbayLinking(false));
-  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleInvite = async () => {
     if (!inviteEmail.trim()) return;
@@ -658,70 +636,61 @@ export default function Admin() {
           <Card className="border-white/10 bg-white/5">
             <CardHeader>
               <CardTitle className="text-white text-base flex items-center gap-2">
-                <ShoppingBag className="w-5 h-5 text-yellow-400" /> eBay Account Connection
+                <ShoppingBag className="w-5 h-5 text-yellow-400" /> eBay Trending Sync
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {ebayLinking && (
-                <div className="flex items-center gap-2 rounded-xl p-3 bg-blue-500/10 border border-blue-500/20 text-blue-300 text-sm">
-                  <RefreshCw className="w-4 h-4 animate-spin" /> Finalizing eBay connection…
-                </div>
-              )}
-              {ebayLinkError && (
-                <div className="flex items-center gap-2 rounded-xl p-3 bg-red-500/10 border border-red-500/20 text-red-300 text-sm">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" /> {ebayLinkError}
-                </div>
-              )}
-              {/* Status */}
-              <div className={`flex items-center gap-3 rounded-xl p-4 ${ebayConnected ? "bg-green-500/10 border border-green-500/20" : "bg-orange-500/10 border border-orange-500/20"}`}>
-                {ebayConnected
+              {/* Campaign ID status */}
+              <div className={`flex items-center gap-3 rounded-xl p-4 ${ebayCampaignId ? "bg-green-500/10 border border-green-500/20" : "bg-orange-500/10 border border-orange-500/20"}`}>
+                {ebayCampaignId
                   ? <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
                   : <AlertCircle className="w-5 h-5 text-orange-400 flex-shrink-0" />}
                 <div className="min-w-0">
-                  <p className={`text-sm font-semibold ${ebayConnected ? "text-green-300" : "text-orange-300"}`}>
-                    {ebayConnected ? "eBay Account Connected" : "Not Connected"}
+                  <p className={`text-sm font-semibold ${ebayCampaignId ? "text-green-300" : "text-orange-300"}`}>
+                    {ebayCampaignId ? `Campaign ID saved: ${ebayCampaignId}` : "No EPN Campaign ID saved"}
                   </p>
-                  {ebayConnected && ebayToken?.connected_at && (
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Connected on {new Date(ebayToken.connected_at).toLocaleDateString()}
-                      {ebayToken.expires_at && ` · Expires ${new Date(ebayToken.expires_at).toLocaleDateString()}`}
-                    </p>
-                  )}
-                  {!ebayConnected && (
-                    <p className="text-xs text-slate-400 mt-0.5">Connect your eBay account to enable affiliate tracking</p>
-                  )}
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {ebayCampaignId
+                      ? "Real eBay products will be linked with this campaign so clicks are tracked and earn commission."
+                      : "Save your eBay Partner Network Campaign ID on the Networks page before syncing."}
+                  </p>
                 </div>
-                <Button size="sm" variant="ghost" onClick={() => refetchEbay()} className="ml-auto text-slate-400 hover:text-white flex-shrink-0">
-                  <RefreshCw className="w-4 h-4" />
-                </Button>
               </div>
 
-              {/* RuName info */}
-              <div className="rounded-xl p-4 bg-white/5 border border-white/10 space-y-1">
-                <p className="text-xs text-slate-500 uppercase tracking-wide font-semibold">RuName</p>
-                <p className="text-sm text-slate-300 font-mono break-all">Lawerence_Moviu-Lawerenc-Affili-zgqyaq</p>
-              </div>
-
-              {/* Actions */}
-              <div className="flex flex-col gap-2">
-                <a href={EBAY_SIGNIN_URL} target="_blank" rel="noopener noreferrer">
-                  <Button className="w-full h-11 font-semibold gap-2" style={{ background: "linear-gradient(90deg, #0064d2, #0099d4)" }}>
-                    <Link2 className="w-4 h-4" />
-                    {ebayConnected ? "Reconnect eBay Account" : "Connect eBay Account"}
+              {!ebayCampaignId && (
+                <a href="/networks">
+                  <Button variant="outline" className="w-full gap-1.5">
+                    <ExternalLink className="w-3.5 h-3.5" /> Go to Networks page
                   </Button>
                 </a>
-                {ebayConnected && (
-                  <Button
-                    variant="ghost"
-                    className="w-full h-10 text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                    disabled={disconnectEbayMutation.isPending}
-                    onClick={() => disconnectEbayMutation.mutate()}
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    {disconnectEbayMutation.isPending ? "Disconnecting…" : "Disconnect eBay Account"}
-                  </Button>
-                )}
-              </div>
+              )}
+
+              {ebaySyncResult && (
+                <div className={`flex items-start gap-2 rounded-xl p-3 text-sm ${
+                  ebaySyncResult.type === "success"
+                    ? "bg-green-500/10 text-green-300 border border-green-500/20"
+                    : "bg-red-500/10 text-red-400 border border-red-500/20"
+                }`}>
+                  {ebaySyncResult.type === "success"
+                    ? <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    : <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />}
+                  <span>{ebaySyncResult.message}</span>
+                </div>
+              )}
+
+              <Button
+                className="w-full h-11 font-semibold gap-2"
+                style={{ background: "linear-gradient(90deg, #0064d2, #0099d4)" }}
+                disabled={!ebayCampaignId || syncEbayMutation.isPending}
+                onClick={() => { setEbaySyncResult(null); syncEbayMutation.mutate(); }}
+              >
+                <RefreshCw className={`w-4 h-4 ${syncEbayMutation.isPending ? "animate-spin" : ""}`} />
+                {syncEbayMutation.isPending ? "Syncing…" : "Sync Trending Products Now"}
+              </Button>
+              <p className="text-xs text-slate-500">
+                Also runs automatically every day. Pulls real trending eBay items via the Browse API and creates
+                tracked affiliate links using your saved Campaign ID.
+              </p>
             </CardContent>
           </Card>
         </TabsContent>
