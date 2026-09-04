@@ -56,8 +56,12 @@ const VOICE_OPTIONS = [
   { id: "echo", label: "Echo", note: "Warm male guide", assistant: "atlas" },
   { id: "onyx", label: "Onyx", note: "Deep male mentor", assistant: "atlas" },
   { id: "fable", label: "Fable", note: "Expressive male storyteller", assistant: "atlas" },
+  { id: "ash", label: "Ash", note: "Warm, measured male voice", assistant: "atlas" },
+  { id: "verse", label: "Verse", note: "Versatile, neutral male voice", assistant: "atlas" },
   { id: "nova", label: "Nova", note: "Bright female guide", assistant: "maya" },
   { id: "shimmer", label: "Shimmer", note: "Clear female coach", assistant: "maya" },
+  { id: "sage", label: "Sage", note: "Calm, wise female voice", assistant: "maya" },
+  { id: "coral", label: "Coral", note: "Warm, friendly female voice", assistant: "maya" },
 ];
 
 const EXPERIENCE_OPTIONS = [
