@@ -152,6 +152,19 @@ export const TOOL_DEFINITIONS = [
     },
   },
   {
+    name: "connect_affiliate_network",
+    description:
+      "Save the user's id for an affiliate network (e.g. eBay Partner Network Campaign ID, ClickBank nickname, an Amazon Associate tag) so their links get properly tracked and credited. Only call this with an id the user actually gave you from their own account on that network -- never invent or guess one. If they don't have an account there yet, point them to the network's signup_url instead (from find_trending_products, or send them to /networks).",
+    input_schema: {
+      type: "object",
+      properties: {
+        network: { type: "string", description: `One of: ${AFFILIATE_NETWORKS.map((n) => n.id).join(", ")}.` },
+        id: { type: "string", description: "The user's account id, campaign id, or nickname on that network, exactly as they gave it." },
+      },
+      required: ["network", "id"],
+    },
+  },
+  {
     name: "get_application_profile",
     description:
       "The user's saved answers for vendor affiliate-approval forms (full name, company, Telegram, traffic sources, other networks, ClickBank tier, ClickBank nickname) -- call this when the user is filling out a new vendor's approval form and wants help, then draft ready-to-paste answers from what it returns. Never invent an answer for a field this doesn't have; tell the user to fill it in on /application-profile instead.",
@@ -414,6 +427,23 @@ export async function executeTool(name, input = {}, ctx = {}) {
         });
 
         return { status: "done", url: status.url, ad_asset_id: asset.id, message: "Saved to your ad creatives." };
+      }
+
+      case "connect_affiliate_network": {
+        const networkId = String(input.network || "").trim().toLowerCase();
+        const value = String(input.id || "").trim();
+        const network = AFFILIATE_NETWORKS.find((n) => n.id === networkId);
+        if (!network) return { error: `Unknown network "${networkId}". Known networks: ${AFFILIATE_NETWORKS.map((n) => n.id).join(", ")}.` };
+        if (!value) return { error: "An id/nickname is required. Ask the user for it -- never invent one." };
+
+        if (networkId === "clickbank") {
+          await D.User.update(user.id, { clickbank_nickname: value });
+        } else {
+          await D.User.update(user.id, {
+            affiliate_network_ids: { ...(user.affiliate_network_ids || {}), [networkId]: value },
+          });
+        }
+        return { connected: true, network: network.name, id: value, message: `Saved -- ${network.name} links will now use this id.` };
       }
 
       case "get_application_profile": {
