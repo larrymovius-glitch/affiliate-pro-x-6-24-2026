@@ -89,6 +89,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
   const [loading, setLoading] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [needsTapToSpeak, setNeedsTapToSpeak] = useState(false);
+  const [micError, setMicError] = useState("");
   const [isInitializing, setIsInitializing] = useState(true);
   const [activeTab, setActiveTab] = useState("text");
   const [textInput, setTextInput] = useState("");
@@ -388,6 +389,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
   const startListening = useCallback(() => {
     if (speaking) stopSpeaking();
     if (!supported || isInitializing || !conversationRef.current) return;
+    setMicError("");
     if (recognitionRef.current) recognitionRef.current.abort();
 
     const recognition = new SpeechRecognition();
@@ -405,11 +407,29 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       silenceTimer = setTimeout(() => recognition.stop(), 4500);
     };
 
-    recognition.onstart = () => { setListening(true); setPulse(true); setTranscript(""); resetSilence(); };
+    recognition.onstart = () => { setListening(true); setPulse(true); setTranscript(""); setMicError(""); resetSilence(); };
     recognition.onspeechstart = resetSilence;
     recognition.onspeechend = resetSilence;
     recognition.onend = () => { setListening(false); setPulse(false); if (silenceTimer) clearTimeout(silenceTimer); };
-    recognition.onerror = () => { setListening(false); setPulse(false); if (silenceTimer) clearTimeout(silenceTimer); };
+    recognition.onerror = (e) => {
+      setListening(false);
+      setPulse(false);
+      if (silenceTimer) clearTimeout(silenceTimer);
+      // no-speech is the ordinary "didn't catch anything, timed out" case --
+      // everything else means the mic itself never worked, which used to
+      // fail totally silently and look identical to Maya just not hearing
+      // anything at all.
+      if (e.error === "no-speech" || e.error === "aborted") return;
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+        setMicError("Microphone access is blocked. Check your browser's site permissions to allow the mic, then tap the mic again.");
+      } else if (e.error === "audio-capture") {
+        setMicError("No microphone found. Check that one is connected and enabled.");
+      } else if (e.error === "network") {
+        setMicError("Voice recognition needs an internet connection.");
+      } else {
+        setMicError("Voice input isn't working right now -- try again, or switch to Type.");
+      }
+    };
     recognition.onresult = (e) => {
       const result = e.results[e.results.length - 1];
       const raw = result[0].transcript;
@@ -584,6 +604,11 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
             <p className="text-base font-semibold text-center" style={{ color: "var(--voice-text)" }}>
               {!supported ? "Voice not supported" : isInitializing ? "⚡ Starting session…" : listening ? "🎤 Listening... speak now!" : "Tap mic to speak"}
             </p>
+            {micError && (
+              <div className="w-full rounded-xl px-4 py-3 text-sm font-medium text-center" style={{ background: "rgba(220,38,38,0.14)", border: "1px solid rgba(220,38,38,0.35)", color: "#fca5a5" }}>
+                {micError}
+              </div>
+            )}
           </div>
         )}
       </div>
