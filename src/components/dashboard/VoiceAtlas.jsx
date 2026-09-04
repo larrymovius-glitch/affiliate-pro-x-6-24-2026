@@ -231,19 +231,17 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
         }
       }
     } catch (error) {
-      console.error("Human voice playback failed:", error);
-      if (typeof SpeechSynthesisUtterance === "undefined" || !synthRef.current?.speak) {
-        if (mountedRef.current) setSpeaking(false);
-        return;
-      }
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.rate = 0.95;
-      utter.pitch = agentName === "maya" ? 1.08 : 0.98;
-      utter.onend = () => mountedRef.current && setSpeaking(false);
-      utter.onerror = () => mountedRef.current && setSpeaking(false);
-      synthRef.current?.speak?.(utter);
+      // This used to fall back to the browser's generic built-in
+      // SpeechSynthesisUtterance voice -- a transient failure of the chosen
+      // premium voice (a timeout, a network blip) made Maya or Atlas
+      // suddenly sound like a completely different, generic robotic voice
+      // for one reply, then switch back once the premium call recovered.
+      // Staying silent for that one reply (the text is still shown) keeps
+      // the voice identity consistent instead of swapping voices mid-chat.
+      console.error("Voice playback failed:", error);
+      if (mountedRef.current) setSpeaking(false);
     }
-  }, [agentName, stopSpeaking, voiceChoice]);
+  }, [stopSpeaking, voiceChoice]);
 
   const sendMessage = useCallback(async (text) => {
     const cleanText = text.trim();
