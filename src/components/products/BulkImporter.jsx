@@ -12,13 +12,27 @@ export default function BulkImporter({ onComplete }) {
 
   const importMutation = useMutation({
     mutationFn: async (text) => {
-      const lines = text.trim().split("\n");
-      const products = [];
+      let products = [];
 
-      for (const line of lines) {
-        if (!line.trim()) continue;
-
-        if (format === "csv") {
+      // JSON parses the whole blob once. It used to be handled inside the
+      // per-line loop with an early `return`, which skipped the insert below
+      // entirely while still reporting "Imported N products".
+      if (format === "json") {
+        const parsed = JSON.parse(text);
+        const array = Array.isArray(parsed) ? parsed : [parsed];
+        products = array
+          .filter(p => p?.name && p?.url)
+          .map(p => ({
+            name: p.name,
+            url: p.url,
+            category: p.category || "",
+            commission_rate: p.commission_rate,
+            description: p.description || "",
+            image_url: p.image_url || ""
+          }));
+      } else {
+        for (const line of text.trim().split("\n")) {
+          if (!line.trim()) continue;
           const [name, url, category, commission_rate] = line.split(",").map(s => s?.trim().replace(/"/g, ""));
           if (name && url) {
             products.push({
@@ -30,30 +44,20 @@ export default function BulkImporter({ onComplete }) {
               image_url: ""
             });
           }
-        } else if (format === "json") {
-          const parsed = JSON.parse(text);
-          const array = Array.isArray(parsed) ? parsed : [parsed];
-          return array.map(p => ({
-            name: p.name,
-            url: p.url,
-            category: p.category || "",
-            commission_rate: p.commission_rate,
-            description: p.description || "",
-            image_url: p.image_url || ""
-          }));
         }
       }
 
-      return products;
-    },
-    onSuccess: async (products) => {
       if (products.length === 0) {
-        toast.error("No valid products found");
-        return;
+        throw new Error("No valid products found");
       }
 
-      // Bulk create
+      // Insert inside mutationFn, not onSuccess: react-query does not route an
+      // onSuccess throw to onError, so a failed import used to report nothing
+      // at all — no success toast, no error toast.
       await base44.entities.Product.bulkCreate(products);
+      return products;
+    },
+    onSuccess: (products) => {
       toast.success(`Imported ${products.length} products`);
       onComplete?.();
     },

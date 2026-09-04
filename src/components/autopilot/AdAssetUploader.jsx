@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Upload, Trash2, ImageIcon, VideoIcon, Loader2, ExternalLink } from "lucide-react";
+import { toast } from "sonner";
 
 export default function AdAssetUploader() {
   const queryClient = useQueryClient();
@@ -22,28 +23,37 @@ export default function AdAssetUploader() {
 
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.AdAsset.delete(id),
-    onSuccess: () => queryClient.invalidateQueries(["ad-assets"])
+    onSuccess: () => queryClient.invalidateQueries(["ad-assets"]),
+    onError: (err) => toast.error(err?.message || "Failed to delete asset")
   });
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     setUploading(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    const file_type = file.type.startsWith("video") ? "video" : "image";
-    await base44.entities.AdAsset.create({
-      title: title || file.name,
-      file_url,
-      file_type,
-      platform,
-      notes,
-      source: "adobe"
-    });
-    queryClient.invalidateQueries(["ad-assets"]);
-    setTitle("");
-    setNotes("");
-    setUploading(false);
-    e.target.value = "";
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const file_type = file.type.startsWith("video") ? "video" : "image";
+      await base44.entities.AdAsset.create({
+        title: title || file.name,
+        file_url,
+        file_type,
+        platform,
+        notes
+      });
+      queryClient.invalidateQueries(["ad-assets"]);
+      setTitle("");
+      setNotes("");
+      toast.success("Asset uploaded");
+    } catch (err) {
+      // Previously unguarded: any failure here escaped as an unhandled
+      // rejection, so setUploading(false) never ran and the button stayed
+      // stuck on "Uploading..." with nothing shown to the user.
+      toast.error(err?.message || "Upload failed");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
   };
 
   return (

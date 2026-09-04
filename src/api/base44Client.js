@@ -54,6 +54,41 @@ function makeEntityClient(entityName) {
       return data;
     },
 
+    // The three below were called by components but never existed here, so
+    // every call site threw "is not a function": bulk product import
+    // (BulkImporter.jsx) and the assistant avatar uploader (AvatarUploader.jsx).
+    // Call shapes match the old Base44 SDK, which is what those callers expect.
+    async bulkCreate(payloads) {
+      const rows = Array.isArray(payloads) ? payloads : [payloads];
+      if (rows.length === 0) return [];
+      const { data, error } = await supabase.from(table).insert(rows).select();
+      if (error) throw error;
+      return data || [];
+    },
+
+    // Base44 shape: updateMany(filter, { $set: payload }). A bare payload
+    // (no $set) is accepted too, since that reads the way callers expect.
+    async updateMany(query = {}, payload = {}) {
+      const values = payload && payload.$set ? payload.$set : payload;
+      let q = supabase.from(table).update(values);
+      for (const [key, value] of Object.entries(query || {})) {
+        q = q.eq(key, value);
+      }
+      const { data, error } = await q.select();
+      if (error) throw error;
+      return data || [];
+    },
+
+    async deleteMany(query = {}) {
+      let q = supabase.from(table).delete();
+      for (const [key, value] of Object.entries(query || {})) {
+        q = q.eq(key, value);
+      }
+      const { error } = await q;
+      if (error) throw error;
+      return true;
+    },
+
     async update(id, payload) {
       const { data, error } = await supabase.from(table).update(payload).eq("id", id).select().single();
       if (error) throw error;
@@ -78,6 +113,9 @@ function makeEntityClient(entityName) {
  * @property {(query?: Record<string, any>, sort?: string, limit?: number) => Promise<any[]>} filter
  * @property {(id: string) => Promise<any>} get
  * @property {(payload: Record<string, any>) => Promise<any>} create
+ * @property {(payloads: Record<string, any>[]) => Promise<any[]>} bulkCreate
+ * @property {(query: Record<string, any>, payload: Record<string, any>) => Promise<any[]>} updateMany
+ * @property {(query: Record<string, any>) => Promise<boolean>} deleteMany
  * @property {(id: string, payload: Record<string, any>) => Promise<any>} update
  * @property {(id: string) => Promise<boolean>} delete
  */

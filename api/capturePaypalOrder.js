@@ -21,6 +21,20 @@ export default async function handler(req, res) {
       return res.status(200).json({ status: "completed" });
     }
 
+    // Confirm this order was created for *this* user before capturing it.
+    // createPaypalOrder.js stamps the buyer's id into custom_id; without
+    // checking it, whoever calls this endpoint gets credited, and the order id
+    // is not a secret (PayPal puts it in the return URL as ?token=). Any
+    // signed-in third party holding an approved order id could otherwise
+    // capture it and take the upgrade, leaving the real payer with nothing but
+    // the idempotency short-circuit above.
+    const order = await paypalFetch(`/v2/checkout/orders/${orderId}`);
+    const orderOwnerId = order.purchase_units?.[0]?.custom_id || "";
+    if (orderOwnerId && orderOwnerId !== user.id) {
+      console.error("PayPal order owner mismatch:", orderId, "expected", orderOwnerId);
+      return res.status(403).json({ error: "This payment belongs to a different account" });
+    }
+
     const capture = await paypalFetch(`/v2/checkout/orders/${orderId}/capture`, { method: "POST" });
 
     if (capture.status !== "COMPLETED") {
@@ -28,9 +42,20 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "PayPal payment was not completed" });
     }
 
+    // Fall back to the order's own amount rather than a hardcoded 997, so a
+    // recorded payment can never disagree with what PayPal actually charged.
     const captureUnit = capture.purchase_units?.[0]?.payments?.captures?.[0];
-    const amount = captureUnit?.amount?.value ? Number(captureUnit.amount.value) : 997;
-    const currency = (captureUnit?.amount?.currency_code || "USD").toLowerCase();
+    const orderAmount = order.purchase_units?.[0]?.amount;
+    const amountValue = captureUnit?.amount?.value ?? orderAmount?.value;
+    const parsedAmount = amountValue != null ? Number(amountValue) : NaN;
+    const amount = Number.isNaN(parsedAmount) ? null : parsedAmount;
+    const currency = (captureUnit?.amount?.currency_code || orderAmount?.currency_code || "USD").toLowerCase();
+
+    // Deliberately does not abort: PayPal has already taken the money by this
+    // point, so bailing here would leave a paying customer with nothing. Record
+    // the payment with a null amount and grant access; the null is the flag to
+    // go reconcile it against PayPal by hand.
+    if (amount == null) console.error("PayPal capture returned no usable amount:", orderId);
 
     await D.Payment.create({
       user_id: user.id,

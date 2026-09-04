@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Upload, Image as ImageIcon, CheckCircle, Trash2 } from "lucide-react";
 
 const ATLAS_DEFAULT = "https://media.base44.com/images/public/6a2a72a46235784f879b968c/a6cbd43e5_generated_image.png";
@@ -22,34 +21,37 @@ export default function AvatarUploader() {
   const mayaAvatar = avatars.find(a => a.assistant === "maya");
   const atlasAvatar = avatars.find(a => a.assistant === "atlas");
 
-  const currentAvatar = selectedAssistant === "maya" ? mayaAvatar?.image_url : atlasAvatar?.image_url;
+  const currentAvatar = selectedAssistant === "maya" ? mayaAvatar?.file_url : atlasAvatar?.file_url;
   const defaultAvatar = selectedAssistant === "maya" ? MAYA_DEFAULT : ATLAS_DEFAULT;
   const displayAvatar = currentAvatar || defaultAvatar;
 
   const uploadMutation = useMutation({
+    // Upload *and* save in mutationFn, not onSuccess: react-query does not
+    // route an onSuccess throw to onError, so a failed save used to leave the
+    // spinner stuck with no error shown at all.
     mutationFn: async (file) => {
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      return file_url;
-    },
-    onSuccess: async (fileUrl) => {
-      await base44.entities.AssistantAvatar.updateMany(
+      // Update first and branch on what came back, rather than trusting the
+      // possibly-stale `avatars` query cache to say whether a row exists.
+      const updated = await base44.entities.AssistantAvatar.updateMany(
         { assistant: selectedAssistant },
-        { $set: { image_url: fileUrl } }
+        { $set: { file_url } }
       );
-      // If no existing avatar, create one
-      const existing = avatars.find(a => a.assistant === selectedAssistant);
-      if (!existing) {
+      if (updated.length === 0) {
         await base44.entities.AssistantAvatar.create({
           assistant: selectedAssistant,
-          image_url: fileUrl,
+          file_url,
         });
       }
+      return file_url;
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assistant-avatars"] });
       setUploadMsg({ type: "success", text: "Avatar uploaded successfully!" });
       setUploading(false);
     },
-    onError: () => {
-      setUploadMsg({ type: "error", text: "Failed to upload avatar" });
+    onError: (err) => {
+      setUploadMsg({ type: "error", text: err?.message || "Failed to upload avatar" });
       setUploading(false);
     },
   });
@@ -59,6 +61,9 @@ export default function AvatarUploader() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assistant-avatars"] });
       setUploadMsg({ type: "success", text: "Custom avatar removed" });
+    },
+    onError: (err) => {
+      setUploadMsg({ type: "error", text: err?.message || "Failed to remove avatar" });
     },
   });
 
