@@ -44,9 +44,10 @@
         "monthly",
         "yearly",
         "lifetime",
-        "veteran_free"
+        "veteran_free",
+        "test"
       ],
-      "description": "Subscription plan type"
+      "description": "Subscription plan type. \"test\" is the admin-only $1 charge used to verify the live payment path."
     },
     "veteran_status": {
       "type": "string",

@@ -5,10 +5,11 @@ import { supabase } from "@/lib/supabaseClient";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, Star, Shield, Heart } from "lucide-react";
+import { Check, Star, Shield, Heart, FlaskConical } from "lucide-react";
 import { toast } from "sonner";
 import { plans } from "@/lib/pricingPlans";
 import { useStripeCheckout } from "@/lib/useStripeCheckout";
+import { useAuth } from "@/lib/AuthContext";
 
 const veteranPlan = {
   name: "Veteran Access",
@@ -25,6 +26,8 @@ const veteranPlan = {
 };
 
 export default function Pricing() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const [veteranRequestStatus, setVeteranRequestStatus] = useState("");
   const [verificationDocument, setVerificationDocument] = useState(null);
 
@@ -187,6 +190,52 @@ export default function Pricing() {
             </Card>
           ))}
         </div>
+
+        {/* Admin-only $1 test purchase. The server rejects planType "test" for
+            anyone who isn't an admin, so this card being hidden is a
+            convenience, not the actual gate. */}
+        {isAdmin && (
+          <Card className="border-amber-500/40 bg-amber-500/5">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                  <FlaskConical className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl font-display">Payment Test — $1</CardTitle>
+                  <CardDescription>
+                    Admin only. Charges a real dollar through the live payment path to verify
+                    checkout, capture, recording and the tier grant end to end.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                This is a real charge, not a sandbox one — the dollar lands in your Stripe or
+                PayPal balance like any sale. It grants the same access a paid plan does, so
+                reset your tier afterwards from Admin if you want to test the upgrade again.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button
+                  className="flex-1"
+                  onClick={() => checkoutMutation.mutate({ planType: "test" })}
+                  disabled={checkoutMutation.isPending}
+                >
+                  {checkoutMutation.isPending ? "Processing..." : "Test $1 with Stripe"}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => paypalCheckoutMutation.mutate({ planType: "test" })}
+                  disabled={paypalCheckoutMutation.isPending}
+                >
+                  {paypalCheckoutMutation.isPending ? "Processing..." : "Test $1 with PayPal"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Trust Badges */}
         <div className="text-center pt-8 border-t">
