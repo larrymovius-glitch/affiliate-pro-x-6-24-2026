@@ -12,6 +12,10 @@ const { decryptNotification, extractTrackingCodes, extractAmount, CREDITS, DEBIT
 //   openssl_encrypt($json, 'AES-256-CBC', substr(sha1($secret), 0, 32),
 //                   OPENSSL_RAW_DATA, $iv)
 function encryptLikeClickBank(json, secret, { zeroPad = false } = {}) {
+  // Same SHA-1 as the handler, for the same unavoidable reason -- this mirrors
+  // ClickBank's own key derivation so the round-trip actually proves the
+  // handler matches the protocol. See the note in api/clickbankNotification.js.
+  // codeql[js/weak-cryptographic-algorithm]
   const key = crypto.createHash("sha1").update(secret).digest("hex").substring(0, 32);
   const iv = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);

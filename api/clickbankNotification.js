@@ -27,6 +27,16 @@ import { findByNormalizedCode } from "./trackConversion.js";
 // integrators publish (PHP: substr(sha1($secretKey), 0, 32) with AES-256-CBC
 // and OPENSSL_RAW_DATA).
 function decryptNotification(encrypted, iv, secretKey) {
+  // CodeQL flags the SHA-1 below, correctly in general and unavoidably here:
+  // this key derivation is ClickBank's wire protocol, not a choice open to us.
+  // Deriving the key with SHA-256 would produce a different key from the one
+  // ClickBank encrypted with, and every real notification would fail to
+  // decrypt. It is also not exploitable as used: SHA-1 is broken for collision
+  // resistance, while forging a notification here would need a preimage (still
+  // infeasible) or the secret itself, and nothing verifies a signature where a
+  // collision could substitute content. The security boundary is the shared
+  // secret, not the hash.
+  // codeql[js/weak-cryptographic-algorithm]
   const key = crypto.createHash("sha1").update(secretKey).digest("hex").slice(0, 32);
   const ivBuf = Buffer.from(String(iv), "base64");
   const dataBuf = Buffer.from(String(encrypted), "base64");
