@@ -12,11 +12,23 @@ export default async function handler(req, res) {
     const admin = adminClient();
     const { data: connection } = await admin
       .from("social_connections")
-      .select("access_token")
+      .select("access_token, expires_at")
       .eq("platform", "instagram")
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
 
-    if (!connection?.access_token) return res.status(400).json({ error: "Instagram is not connected yet." });
+    if (!connection?.access_token) {
+      return res.status(400).json({ error: "Instagram is not connected yet. Connect it on the Social page." });
+    }
+    // Say plainly that the token lapsed. Instagram answers an expired token
+    // with a generic OAuth error that reads like a code bug, and once it has
+    // expired refreshInstagramToken cannot rescue it -- only reconnecting can.
+    if (connection.expires_at && new Date(connection.expires_at).getTime() <= Date.now()) {
+      return res.status(400).json({
+        error: "The Instagram connection expired. Reconnect it on the Social page — an expired token cannot be refreshed.",
+      });
+    }
     const accessToken = connection.access_token;
 
     const userRes = await fetch("https://graph.instagram.com/me?fields=id,username", { headers: { Authorization: `Bearer ${accessToken}` } });

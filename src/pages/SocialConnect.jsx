@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Instagram, CheckCircle, Loader2, Settings } from "lucide-react";
 import SocialPlatformCard from "@/components/social/SocialPlatformCard";
+import InstagramConnect from "@/components/social/InstagramConnect";
 import { SOCIAL_PLATFORMS } from "@/lib/socialPlatforms";
 
 export default function SocialConnect() {
@@ -51,11 +52,15 @@ export default function SocialConnect() {
         <div>
           <h1 className="text-2xl font-bold text-white font-display">Social Media & Payments</h1>
           <p className="text-sm text-slate-400">
-            None of these platforms offer a real self-serve connect flow for an app like this one --
-            every card below links straight to the platform itself, plus a copy-paste posting guide.
+            Instagram can publish automatically once an admin connects the shared account below.
+            The rest have no self-serve connect flow for an app like this one, so each card links
+            straight to the platform plus a copy-paste posting guide.
           </p>
         </div>
       </div>
+
+      {/* Real connect flow, where one exists */}
+      {user?.role === "admin" && <InstagramConnect />}
 
       {/* Platforms */}
       <div className="grid gap-4 sm:grid-cols-2">
