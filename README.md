@@ -47,8 +47,9 @@ list is in `CLAUDE.md` under "Environment variables".
 | `npm run build`     | Production build to `./dist`                                    |
 | `npm run lint`      | ESLint (`src/components`, `src/pages`, `src/Layout.jsx`)         |
 | `npm run typecheck` | `tsc -p ./jsconfig.json` — JS type-checking via `checkJs`        |
+| `npm test`          | Node's built-in test runner over `tests/*.test.mjs`             |
 
-There is no test suite configured yet.
+Run the test suite with `npm test` (Node's built-in runner over `tests/*.test.mjs`).
 
 ## Deployment
 

@@ -1,4 +1,4 @@
-import { db } from "./_lib/db.js";
+import { db, incrementLinkStats } from "./_lib/db.js";
 import { applyTrackingCode } from "./_lib/tracking.js";
 
 // Public click tracker. Reachable at /r/<short_code> (the link we ask people
@@ -21,7 +21,7 @@ export default async function handler(req, res) {
     const link = links[0];
     const now = new Date().toISOString();
 
-    await D.AffiliateLink.update(link.id, { clicks: (link.clicks || 0) + 1 });
+    await incrementLinkStats(link.id, { clicks: 1 });
 
     await D.ClickEvent.create({
       created_by_id: link.created_by_id,

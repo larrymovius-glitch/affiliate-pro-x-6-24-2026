@@ -93,22 +93,31 @@ function buildTemplates(base, secret) {
         "and are not interchangeable. `code` must receive whatever the click carried out as subid; " +
         "api/_lib/tracking.js sends the short_code as ?subid= for any network it has no specific rule for.",
     },
-    {
-      id: "clickbank",
-      name: "ClickBank",
-      supported: false,
-      where: "ClickBank > Settings > My Site > Advanced Tools > Instant Notification URL.",
-      url: null,
-      notes:
-        "Not wired up, and a URL template will not work here. ClickBank's Instant Notification Service " +
-        "does not call a templated URL with query-string macros -- it POSTs a JSON body of " +
-        "{ notification, iv }, where `notification` is the sale payload AES-256-CBC encrypted with your " +
-        "INS secret key and base64-encoded. trackConversion.js reads `secret` and `code` off the query " +
-        "string or a plain body, so an INS POST arrives with neither and is rejected 401. Receiving " +
-        "ClickBank sales needs its own handler that decrypts the payload first. Until then ClickBank " +
-        "clicks are tracked but its sales are not.",
-    },
   ];
+}
+
+// ClickBank is deliberately not in the list above: it is the one network here
+// whose postback is not a URL template at all. Its Instant Notification Service
+// POSTs a JSON body of { notification, iv } with the payload AES-256-CBC
+// encrypted, so it has its own route (api/clickbankNotification.js) and no
+// query string -- there is nothing to fill in, and no secret in the URL, since
+// decrypting the body *is* the authentication.
+function clickbankEntry(origin, hasKey) {
+  return {
+    id: "clickbank",
+    name: "ClickBank",
+    supported: hasKey,
+    where: "ClickBank > Settings > My Account > Advanced Tools > Instant Notification URL.",
+    url: `${origin}/api/clickbankNotification`,
+    notes: hasKey
+      ? "Paste this as the Instant Notification URL and set the version to the latest ClickBank offers. " +
+        "It carries no secret: ClickBank encrypts the payload with your INS secret key, and this app " +
+        "decrypts it with CLICKBANK_SECRET_KEY, which must be the exact same value you set in ClickBank. " +
+        "Sales and rebills add commission; refunds and chargebacks subtract it."
+      : "CLICKBANK_SECRET_KEY is not set in this deployment. Set it to the same secret key you enter in " +
+        "ClickBank's Advanced Tools, then redeploy — until both match, every ClickBank notification " +
+        "fails to decrypt and no ClickBank sale is recorded.",
+  };
 }
 
 export default async function handler(req, res) {
@@ -136,11 +145,16 @@ export default async function handler(req, res) {
       .from("click_events")
       .select("*", { count: "exact", head: true });
 
+    // ClickBank stands apart from the templated networks: its entry is shown
+    // whether or not CONVERSION_SECRET exists, because its route does not use
+    // that secret at all.
+    const clickbank = clickbankEntry(origin, Boolean(process.env.CLICKBANK_SECRET_KEY));
+
     return res.status(200).json({
       configured: Boolean(secret),
       base_url: base,
       // Only ever reaches an admin -- see the header note.
-      templates: secret ? buildTemplates(base, secret) : [],
+      templates: [...(secret ? buildTemplates(base, secret) : []), clickbank],
       param_contract: PARAM_CONTRACT,
       status: {
         total_clicks: totalClicks ?? 0,
