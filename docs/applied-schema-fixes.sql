@@ -310,3 +310,67 @@ alter table public.payout_schedules add column if not exists last_processed_at t
 alter table public.payout_schedules add column if not exists next_payout_date  date;
 alter table public.payout_schedules add column if not exists notes             text;
 -- ---------------------------------------------------------------------------
+
+-- ---------------------------------------------------------------------------
+-- APPLIED 2026-09-05, migration `add_atomic_increment_link_stats`.
+--
+-- Lost updates on affiliate_links counters. api/trackClick.js,
+-- api/trackConversion.js and api/clickbankNotification.js each read a link,
+-- added to a counter in JavaScript, then wrote the sum back. Two postbacks
+-- arriving together both read the same starting value and both write their own
+-- total, so the later write silently discards the earlier one.
+--
+-- On clicks that undercounts. On earnings it destroys money: earnings is the
+-- exact figure api/requestPayout.js treats as a withdrawable balance, so a
+-- dropped sale is a commission the affiliate never gets paid, with nothing
+-- anywhere recording that it went missing. The window is small but it is
+-- widest precisely when it matters -- a link converting well enough to get
+-- simultaneous postbacks.
+--
+-- Fixed by doing the arithmetic inside a single UPDATE. Postgres holds a row
+-- lock for the duration of the statement, so concurrent callers queue and each
+-- addition lands on the value the previous one committed. All three handlers
+-- now call it through incrementLinkStats() in api/_lib/db.js instead of
+-- entity.update().
+--
+-- GRANTS ARE LOAD-BEARING. Postgres grants EXECUTE on a new function to PUBLIC
+-- by default, which here would have handed every signed-in user -- and every
+-- anonymous visitor -- a way to add any amount to any link's earnings and then
+-- withdraw it through requestPayout. Revoked from public/anon/authenticated and
+-- granted to service_role only. Left SECURITY INVOKER (the default) so it also
+-- does not appear as an anon-callable SECURITY DEFINER function in the
+-- security advisor, the way enforce_free_tier_post_limit does.
+--
+-- conversions is floored at 0: refunds decrement it (ClickBank sends RFND/CGBK
+-- through the same path) and a reversal can arrive for a sale never recorded.
+-- earnings is deliberately NOT floored -- letting it go negative preserves a
+-- genuine clawback, and requestPayout already floors the payable total at 0
+-- across all of a user's links. Clamping per link would let a refund be escaped
+-- by earning on a different link.
+--
+-- Verified after applying: anon and authenticated cannot execute it,
+-- service_role can, prosecdef is false; and in a rolled-back transaction, 100
+-- sequential click increments all landed (clicks = 100), two sales then three
+-- refunds left conversions floored at 0 and earnings at -5.00 (40.00 credited,
+-- 45.00 reversed) rather than silently forgiving the difference.
+create or replace function public.increment_link_stats(
+  p_link_id     uuid,
+  p_clicks      integer default 0,
+  p_conversions integer default 0,
+  p_earnings    numeric default 0
+)
+returns void
+language sql
+as $$
+  update public.affiliate_links
+  set clicks      = coalesce(clicks, 0)      + coalesce(p_clicks, 0),
+      conversions = greatest(0, coalesce(conversions, 0) + coalesce(p_conversions, 0)),
+      earnings    = coalesce(earnings, 0)    + coalesce(p_earnings, 0)
+  where id = p_link_id;
+$$;
+
+revoke all on function public.increment_link_stats(uuid, integer, integer, numeric) from public;
+revoke all on function public.increment_link_stats(uuid, integer, integer, numeric) from anon;
+revoke all on function public.increment_link_stats(uuid, integer, integer, numeric) from authenticated;
+grant execute on function public.increment_link_stats(uuid, integer, integer, numeric) to service_role;
+-- ---------------------------------------------------------------------------

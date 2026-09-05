@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { db } from "./_lib/db.js";
+import { db, incrementLinkStats } from "./_lib/db.js";
 import { findByNormalizedCode } from "./trackConversion.js";
 
 // ClickBank Instant Notification Service (INS) receiver.
@@ -187,10 +187,7 @@ export default async function handler(req, res) {
     }
 
     const delta = sign * amount;
-    await D.AffiliateLink.update(link.id, {
-      conversions: Math.max(0, (link.conversions || 0) + sign),
-      earnings: (link.earnings || 0) + delta,
-    });
+    await incrementLinkStats(link.id, { conversions: sign, earnings: delta });
 
     await D.ConversionEvent.create({
       created_by_id: link.created_by_id,
