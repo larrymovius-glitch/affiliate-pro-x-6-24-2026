@@ -159,16 +159,19 @@ export default function PostbackSetup() {
         </CardContent>
       </Card>
 
-      {/* The URLs */}
-      {data?.configured && (
+      {/* The URLs. Rendered whenever there is anything to show, not only when
+          CONVERSION_SECRET exists: ClickBank's route does not use that secret,
+          so its entry is still actionable when the others are missing. */}
+      {(data?.templates || []).length > 0 && (
         <Card className="border-white/10 bg-white/5">
           <CardHeader>
             <CardTitle className="text-white text-base">Postback URLs</CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
             <p className="text-xs text-slate-400">
-              Paste the matching URL into the network&apos;s postback field. These contain the app&apos;s
-              conversion secret — treat them like a password and never share one with an affiliate.
+              Paste the matching URL into the network&apos;s postback field. Any URL below carrying a
+              <code className="text-violet-300"> secret=</code> holds the app&apos;s conversion secret — treat
+              those like a password and never share one with an affiliate.
             </p>
 
             {data.templates.map((t) => (
@@ -185,6 +188,9 @@ export default function PostbackSetup() {
               </div>
             ))}
 
+            {/* Only meaningful for the secret-carrying URLs. ClickBank's route
+                takes an encrypted POST, so there is nothing to ping here. */}
+            {data?.configured && (
             <div className="pt-2 border-t border-white/10">
               <Button
                 variant="outline"
@@ -212,6 +218,7 @@ export default function PostbackSetup() {
                 </div>
               )}
             </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -249,13 +256,18 @@ export default function PostbackSetup() {
 
 // The secret is only ever present inside the returned template URLs (the
 // endpoint never sends it as a bare field), so pull it back out of one rather
-// than widening the response.
+// than widening the response. Has to look for a URL that actually carries a
+// `secret` param rather than just the first URL: ClickBank's entry has a URL
+// but no secret in it, since its route authenticates by decrypting the body.
 function secretFrom(data) {
-  const withUrl = (data.templates || []).find((t) => t.url);
-  if (!withUrl) return "";
-  try {
-    return new URL(withUrl.url).searchParams.get("secret") || "";
-  } catch {
-    return "";
+  for (const t of data.templates || []) {
+    if (!t.url) continue;
+    try {
+      const found = new URL(t.url).searchParams.get("secret");
+      if (found) return found;
+    } catch {
+      // not a parseable URL; keep looking
+    }
   }
+  return "";
 }
