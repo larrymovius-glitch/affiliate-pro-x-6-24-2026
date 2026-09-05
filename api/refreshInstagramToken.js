@@ -1,11 +1,11 @@
 import { adminClient, getAuthedUser, isCronRequest } from "./_lib/supabase.js";
 
-// Keeps the shared Instagram connection alive.
+// Keeps every user's Instagram connection alive.
 //
 // Instagram's long-lived tokens last 60 days and can be refreshed for another
 // 60 -- but only while the token is at least 24 hours old and has NOT expired.
-// Once it lapses there is no refresh path: the admin has to walk the whole
-// OAuth flow again, and in the meantime every scheduled post fails with an
+// Once it lapses there is no refresh path: the user has to walk the whole
+// OAuth flow again, and in the meantime every post of theirs fails with an
 // auth error that looks nothing like an expired token.
 //
 // Runs daily on the Vercel cron in vercel.json. Refreshing well before the
@@ -19,20 +19,24 @@ export default async function handler(req, res) {
     const body = req.body || {};
     const cronOk = isCronRequest(req, body);
     const { user } = await getAuthedUser(req);
-    // Admins can also force a refresh from the UI, to recover a connection
-    // that is close to lapsing without waiting for the nightly run.
-    if (!cronOk && user?.role !== "admin") {
-      return res.status(403).json({ error: "Admin access or scheduled run required" });
+    // The nightly run sweeps every connection; a signed-in user may force a
+    // refresh of THEIR OWN only, to recover one close to lapsing without
+    // waiting for the cron. Never anyone else's -- a user refreshing the whole
+    // table would rotate strangers' tokens.
+    if (!cronOk && !user) {
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
     const appSecret = process.env.INSTAGRAM_APP_SECRET;
     if (!appSecret) return res.status(500).json({ error: "INSTAGRAM_APP_SECRET not configured" });
 
     const admin = adminClient();
-    const { data: connections, error } = await admin
+    let query = admin
       .from("social_connections")
       .select("id, access_token, expires_at, created_at")
       .eq("platform", "instagram");
+    if (!cronOk) query = query.eq("user_id", user.id);
+    const { data: connections, error } = await query;
     if (error) throw error;
 
     if (!connections?.length) {

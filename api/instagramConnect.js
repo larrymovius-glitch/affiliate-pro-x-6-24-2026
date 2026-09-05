@@ -1,14 +1,18 @@
 import crypto from "crypto";
 import { adminClient, getAuthedUser } from "./_lib/supabase.js";
 
-// Starts the Instagram OAuth handshake for the shared house account, and
-// reports whether one is currently connected.
+// Starts the Instagram OAuth handshake, and reports whether the caller has a
+// connection.
 //
-// Admin-only, matching api/postToInstagram.js, which has always published to a
-// single shared account rather than each user's own. Per-user Instagram would
-// need Meta App Review plus business verification; a single account the app
-// owner controls needs no review at all -- add that account as an Instagram
-// Tester on the Meta app and development mode is enough.
+// Every user connects their OWN account -- there is no shared house account.
+// The app owner is simply the first user of the same flow.
+//
+// What Meta gates is scale, not the shape of this: an app in Development mode
+// already works for every account holding a role on it (the admin, plus any
+// account added as an Instagram Tester), with no App Review at all. Review is
+// what lifts it to the general public. So this ships useful today for the owner
+// and any early testers, and opens to everyone once the app is approved --
+// without a code change.
 //
 // Flow (Instagram API with Instagram Login -- the graph.instagram.com family
 // postToInstagram.js already publishes against, not the Facebook Login one):
@@ -61,20 +65,20 @@ export function verifyState(state, secret, now = Date.now()) {
 export default async function handler(req, res) {
   try {
     const { user } = await getAuthedUser(req);
-    if (!user || user.role !== "admin") {
-      return res.status(403).json({ error: "Admin access required" });
-    }
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
 
     const appId = process.env.INSTAGRAM_APP_ID;
     const appSecret = process.env.INSTAGRAM_APP_SECRET;
     const origin = req.headers.origin || `https://${req.headers.host}`;
 
-    // Never selects access_token: the admin's own RLS policy would allow it,
-    // but there is no reason for a live token to reach a browser.
+    // Scoped to the caller: one row per user now, not one row for the whole
+    // app. Never selects access_token -- the user's own RLS policy would allow
+    // it, but there is no reason for a live token to reach a browser.
     const { data: connection } = await adminClient()
       .from("social_connections")
       .select("platform, expires_at, created_at")
       .eq("platform", "instagram")
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();

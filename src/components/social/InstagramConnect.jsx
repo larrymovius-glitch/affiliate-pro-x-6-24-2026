@@ -6,11 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Instagram, CheckCircle, AlertCircle, Loader2, Link2, Unlink, RefreshCw, Copy, CheckCheck } from "lucide-react";
 import { toast } from "sonner";
 
-// Connect card for the shared house Instagram account. Admin-only, because
-// api/postToInstagram.js has always published to one shared account rather
-// than each user's own — per-user Instagram needs Meta App Review plus
-// business verification, while a single account the app owner controls needs
-// no review at all.
+// Connect card for the signed-in user's own Instagram account. Shown to
+// everyone: api/postToInstagram.js publishes to whichever account the caller
+// connected, one row per user in social_connections.
+//
+// Whether a given person can actually complete the flow is Meta's call, not
+// this app's. An app in Development mode works for the admin plus any account
+// added as an Instagram Tester; App Review is what opens it to everyone. The
+// card therefore explains a failed connect rather than hiding the button.
 //
 // Reads its outcome from the ?ig=1&status=... query string that
 // api/instagramCallback.js redirects back with, since the OAuth round trip
@@ -21,7 +24,7 @@ const OUTCOMES = {
   not_configured: { ok: false, text: "INSTAGRAM_APP_ID / INSTAGRAM_APP_SECRET are not set in this deployment." },
   no_code: { ok: false, text: "Instagram redirected back without an authorization code." },
   bad_state: { ok: false, text: "The connection request could not be verified. Start again from this page." },
-  not_admin: { ok: false, text: "That connection was started by an account that is no longer an admin." },
+  unknown_user: { ok: false, text: "The account that started this connection no longer exists." },
   code_exchange_failed: { ok: false, text: "Instagram rejected the authorization code. Check the redirect URI matches exactly." },
   token_exchange_failed: { ok: false, text: "Could not upgrade to a long-lived token. Check the app secret." },
   unexpected: { ok: false, text: "Something went wrong completing the connection. Check the function logs." },
@@ -93,7 +96,6 @@ export default function InstagramConnect() {
       <CardHeader>
         <CardTitle className="text-white text-base flex items-center gap-2">
           <Instagram className="w-5 h-5 text-pink-400" /> Instagram Auto-Posting
-          <span className="ml-auto text-xs font-normal text-slate-500">Admin only</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -118,9 +120,10 @@ export default function InstagramConnect() {
               <p className="text-xs text-slate-400 leading-relaxed">
                 Create a Meta app with the <span className="text-slate-300">Instagram</span> product, then set{" "}
                 <code className="text-orange-300">INSTAGRAM_APP_ID</code> and{" "}
-                <code className="text-orange-300">INSTAGRAM_APP_SECRET</code> in Vercel and redeploy. The account
-                you post from must be an Instagram <span className="text-slate-300">Professional</span> account,
-                added as an Instagram Tester on the app — that is what lets this work without Meta App Review.
+                <code className="text-orange-300">INSTAGRAM_APP_SECRET</code> in Vercel and redeploy. Accounts must
+                be Instagram <span className="text-slate-300">Business</span> accounts. Until the Meta app passes
+                App Review it only works for the app owner and accounts added as Instagram Testers — everyone else
+                will be turned away by Instagram, not by this page.
               </p>
               <div className="space-y-1">
                 <p className="text-xs text-slate-500">Add this exact redirect URI to the app:</p>
@@ -140,7 +143,9 @@ export default function InstagramConnect() {
         {data?.configured && !data?.connected && (
           <>
             <p className="text-sm text-slate-400">
-              Connect the account once and generated posts can publish straight to it — no copy-paste.
+              Connect your Instagram Business account once and generated posts publish straight to it — no
+              copy-paste. If Instagram refuses, this app is still awaiting Meta App Review and your account
+              needs adding as an Instagram Tester first.
             </p>
             <a href={data.authorize_url}>
               <Button className="w-full h-11 font-semibold gap-2"

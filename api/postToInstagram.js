@@ -1,32 +1,36 @@
 import { db } from "./_lib/db.js";
 import { adminClient, getAuthedUser } from "./_lib/supabase.js";
 
-// Same note as postToLinkedIn.js — reads from `social_connections`, which
-// nothing populates yet without a new Instagram OAuth connect flow.
+// Publishes to the CALLER'S OWN connected Instagram account. api/
+// instagramConnect.js populates social_connections, one row per user.
+//
+// Scoping by user_id is the whole safety property here: without it this would
+// grab whichever Instagram row happened to come back first and publish one
+// person's ad copy to a different person's account.
 export default async function handler(req, res) {
   try {
     const { user } = await getAuthedUser(req);
     if (!user) return res.status(401).json({ error: "Unauthorized" });
-    if (user.role !== "admin") return res.status(403).json({ error: "Forbidden: Admin access required to publish to the shared Instagram account" });
 
     const admin = adminClient();
     const { data: connection } = await admin
       .from("social_connections")
       .select("access_token, expires_at")
       .eq("platform", "instagram")
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
     if (!connection?.access_token) {
-      return res.status(400).json({ error: "Instagram is not connected yet. Connect it on the Social page." });
+      return res.status(400).json({ error: "Your Instagram is not connected yet. Connect it on the Social page." });
     }
     // Say plainly that the token lapsed. Instagram answers an expired token
     // with a generic OAuth error that reads like a code bug, and once it has
     // expired refreshInstagramToken cannot rescue it -- only reconnecting can.
     if (connection.expires_at && new Date(connection.expires_at).getTime() <= Date.now()) {
       return res.status(400).json({
-        error: "The Instagram connection expired. Reconnect it on the Social page — an expired token cannot be refreshed.",
+        error: "Your Instagram connection expired. Reconnect it on the Social page — an expired token cannot be refreshed.",
       });
     }
     const accessToken = connection.access_token;

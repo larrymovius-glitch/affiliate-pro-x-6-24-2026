@@ -1,12 +1,13 @@
 import { adminClient } from "./_lib/supabase.js";
 import { redirectUri, verifyState } from "./instagramConnect.js";
 
-// Where Instagram sends the browser back after the admin approves. Public by
+// Where Instagram sends the browser back after the user approves. Public by
 // necessity -- a redirect carries no Authorization header -- so the signed
-// `state` from instagramConnect.js is what proves who started the flow. An
-// unsigned or stale state is refused before any token is exchanged.
+// `state` from instagramConnect.js is what proves who started the flow, and
+// therefore whose account the token gets attached to. An unsigned or stale
+// state is refused before any token is exchanged.
 
-// Always lands the admin back in the app with a readable outcome rather than
+// Always lands the user back in the app with a readable outcome rather than
 // leaving them on a bare JSON error page they cannot act on.
 function back(res, origin, params) {
   const qs = new URLSearchParams({ ig: "1", ...params });
@@ -40,15 +41,15 @@ export default async function handler(req, res) {
       return back(res, origin, { status: "error", reason: "bad_state" });
     }
 
-    // The state proves which account started the flow; it does not prove that
-    // account is still an admin. Re-check, so a revoked admin cannot complete a
-    // handshake they began earlier.
+    // The state proves which account started the flow. Confirm that account
+    // still exists before attaching an Instagram token to it -- a deleted user
+    // should not leave an orphaned connection behind.
     const admin = adminClient();
     const { data: profile } = await admin
-      .from("profiles").select("id, role").eq("id", claims.uid).maybeSingle();
-    if (profile?.role !== "admin") {
-      console.error("instagramCallback: state uid is not an admin:", claims.uid);
-      return back(res, origin, { status: "error", reason: "not_admin" });
+      .from("profiles").select("id").eq("id", claims.uid).maybeSingle();
+    if (!profile) {
+      console.error("instagramCallback: state uid no longer exists:", claims.uid);
+      return back(res, origin, { status: "error", reason: "unknown_user" });
     }
 
     // 1. Code -> short-lived token (~1 hour).
@@ -88,16 +89,25 @@ export default async function handler(req, res) {
       Date.now() + (Number(longData.expires_in) || 60 * 24 * 3600) * 1000
     ).toISOString();
 
-    // One shared house account: replace whatever was there rather than
-    // accumulating rows postToInstagram would then have to choose between.
-    await admin.from("social_connections").delete().eq("platform", "instagram");
-    const { error: insertError } = await admin.from("social_connections").insert({
-      user_id: claims.uid,
-      platform: "instagram",
-      access_token: longData.access_token,
-      expires_at: expiresAt,
-    });
-    if (insertError) throw insertError;
+    // Upsert on the table's own UNIQUE (user_id, platform): reconnecting
+    // replaces this user's row and touches nobody else's. Deliberately not a
+    // delete-then-insert -- if the insert failed after the delete, a user who
+    // was reconnecting would be left with no connection at all.
+    const { error: upsertError } = await admin
+      .from("social_connections")
+      .upsert(
+        {
+          user_id: claims.uid,
+          platform: "instagram",
+          access_token: longData.access_token,
+          expires_at: expiresAt,
+          // Reset the clock: refreshInstagramToken measures Instagram's ">24h
+          // old" rule from created_at, and this is a brand new token.
+          created_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id,platform" }
+      );
+    if (upsertError) throw upsertError;
 
     console.log("instagramCallback: connected, expires", expiresAt);
     return back(res, origin, { status: "connected" });

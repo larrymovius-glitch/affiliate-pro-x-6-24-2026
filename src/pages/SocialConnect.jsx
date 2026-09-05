@@ -52,7 +52,7 @@ export default function SocialConnect() {
         <div>
           <h1 className="text-2xl font-bold text-white font-display">Social Media & Payments</h1>
           <p className="text-sm text-slate-400">
-            Instagram can publish automatically once an admin connects the shared account below.
+            Connect your own Instagram below and generated posts publish to it automatically.
             The rest have no self-serve connect flow for an app like this one, so each card links
             straight to the platform plus a copy-paste posting guide.
           </p>
@@ -60,7 +60,7 @@ export default function SocialConnect() {
       </div>
 
       {/* Real connect flow, where one exists */}
-      {user?.role === "admin" && <InstagramConnect />}
+      <InstagramConnect />
 
       {/* Platforms */}
       <div className="grid gap-4 sm:grid-cols-2">
