@@ -74,12 +74,29 @@ test("create_affiliate_link refuses another user's product", async () => {
 });
 
 test("create_affiliate_link builds a share URL and applies the user's affiliate id", async () => {
-  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", url: "https://vendor.hop.clickbank.net/" }] });
+  // Classic hoplink shape, <affiliate>.<vendor>.hop.clickbank.net -- the only
+  // one that can be rewritten. This fixture used to read
+  // "https://vendor.hop.clickbank.net/", which is not a real hoplink of either
+  // kind: at four labels ClickBank reads it as the *encrypted* shape, where the
+  // single label is an opaque token encoding affiliate and vendor together. The
+  // old code "passed" by overwriting that token, which is precisely the bug
+  // that destroyed four production links.
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", url: "https://oldaff.vendor.hop.clickbank.net/" }] });
   const r = await executeTool("create_affiliate_link", { product_id: "p1" }, ctxFor(D));
   assert.match(r.share_url, /^https:\/\/app\.test\/r\/[A-Z0-9]{6}$/);
   const insert = D.seen.find((s) => s && s.short_code);
   assert.equal(insert.created_by_id, "me");
-  assert.match(insert.destination_url, /mynick\.hop\.clickbank\.net/, "must use the caller's nickname");
+  assert.match(insert.destination_url, /mynick\.vendor\.hop\.clickbank\.net/, "must use the caller's nickname");
+});
+
+test("create_affiliate_link leaves an encrypted hoplink intact", async () => {
+  // The counterpart to the case above: an encrypted hoplink already carries its
+  // affiliate and must survive untouched, not be overwritten with the nickname.
+  const encrypted = "https://2932f2ztddoo-91gljhlinczeq.hop.clickbank.net/";
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", url: encrypted }] });
+  await executeTool("create_affiliate_link", { product_id: "p1" }, ctxFor(D));
+  const insert = D.seen.find((s) => s && s.short_code);
+  assert.equal(insert.destination_url, encrypted, "an encrypted hoplink must not be rewritten");
 });
 
 test("balance subtracts what has already been claimed", async () => {

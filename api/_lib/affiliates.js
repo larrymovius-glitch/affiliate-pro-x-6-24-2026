@@ -52,9 +52,10 @@ export function getClickBankAffiliateId(user) {
 
 /**
  * Rewrite a ClickBank hoplink so the commission is credited to `affiliateId`.
- * Handles both documented shapes -- `hop.clickbank.net/?affiliate=` and
+ * Handles `hop.clickbank.net/?affiliate=` and the classic
  * `<affiliate>.<vendor>.hop.clickbank.net`. Anything that is not a ClickBank
- * URL, or not a URL at all, is returned untouched.
+ * URL, or not a URL at all, is returned untouched -- as is an *encrypted*
+ * hoplink, for the reason below.
  */
 export function applyClickBankAffiliateId(value, affiliateId) {
   try {
@@ -65,6 +66,20 @@ export function applyClickBankAffiliateId(value, affiliateId) {
     }
     if (url.hostname.endsWith(".hop.clickbank.net")) {
       const parts = url.hostname.split(".");
+      // ClickBank has two hoplink shapes and only one of them can be rewritten:
+      //
+      //   classic    <affiliate>.<vendor>.hop.clickbank.net   5 labels
+      //   encrypted  <token>.hop.clickbank.net                4 labels
+      //
+      // The encrypted token encodes the affiliate AND the vendor together, and
+      // ClickBank's own guidance is that it cannot be edited -- that is the
+      // point of it. Blindly overwriting label 0 turned
+      // `2932f2ztddoo-91gljhlinczeq.hop.clickbank.net` into
+      // `apxalaska.hop.clickbank.net`: the vendor gone, the link pointing at no
+      // product at all, and every click on it worth exactly nothing. Encrypted
+      // links already carry their affiliate, so the right move is to leave them
+      // alone rather than destroy them.
+      if (parts.length < 5) return value;
       parts[0] = affiliateId;
       url.hostname = parts.join(".");
       return url.toString();
