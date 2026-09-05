@@ -264,3 +264,49 @@ alter table public.subscriptions add constraint subscriptions_status_check
 -- on arrival.
 alter table public.affiliate_links alter column campaign_id type text using campaign_id::text;
 -- ---------------------------------------------------------------------------
+
+-- ---------------------------------------------------------------------------
+-- APPLIED 2026-09-05, migration `add_missing_columns_to_payout_schedules`.
+--
+-- The whole auto-payout feature was dead, in two layers.
+--
+-- api/savePaymentInfo.js creates a payout schedule with `notes` after saving
+-- the user's Stripe payout account. api/processAutoPayouts.js then stamps
+-- `last_processed_at`, `next_payout_date` and `notes` onto that schedule each
+-- run. None of the three columns existed, so PostgREST rejected the whole
+-- write (PGRST204) every time.
+--
+-- savePaymentInfo.js is the only server path that creates a schedule, and it
+-- updates the profile (stripeAccountId/paymentEmail/payoutReady) *before* the
+-- failing insert -- so "Save" on /social half-committed: the profile was
+-- written, the request 500'd, and the user saw a bare error. payout_schedules
+-- had 0 rows, confirming this had never once succeeded.
+--
+-- The second layer is quieter and survives the first being fixed:
+-- processAutoPayouts.js reads schedule.last_processed_at to decide whether a
+-- schedule is due. With no such column it read back undefined on every run,
+-- so `shouldProcess` was unconditionally true and the daily/weekly/biweekly/
+-- monthly frequency setting was ignored entirely -- every active schedule
+-- would be treated as due on every nightly run. (No duplicate payouts would
+-- have resulted even so: the reserved-balance check subtracts pending,
+-- approved and paid payouts from total earnings, so a second same-day run
+-- computes an available balance of 0. The cadence was still meaningless.)
+--
+-- The throw also aborted the per-schedule loop, so only the first active
+-- schedule in the list was ever reached on a given run.
+--
+-- Types match exactly what the handlers send: last_processed_at gets
+-- now.toISOString() (timestamptz), next_payout_date gets
+-- nextDate.toISOString().split("T")[0] -- a bare YYYY-MM-DD (date), notes a
+-- status string (text).
+--
+-- Verified after applying: all three columns present and nullable, and both
+-- handlers' exact payloads replayed successfully inside a transaction that
+-- was rolled back (payout_schedules still 0 rows afterwards).
+--
+-- Additive and nullable, as everywhere else in this file: drops nothing,
+-- rewrites no rows, re-runnable.
+alter table public.payout_schedules add column if not exists last_processed_at timestamptz;
+alter table public.payout_schedules add column if not exists next_payout_date  date;
+alter table public.payout_schedules add column if not exists notes             text;
+-- ---------------------------------------------------------------------------

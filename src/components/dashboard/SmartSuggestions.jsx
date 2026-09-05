@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { withTimeout } from "@/lib/withTimeout";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sparkles, TrendingUp, AlertCircle, Lightbulb, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
