@@ -11,13 +11,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Users, UserPlus, Trash2, Shield, ShieldOff, Mail,
   Star, RefreshCw, Crown, AlertCircle, CheckCircle, Search, Edit2, ShoppingBag, ExternalLink, Medal, Image, Sparkles,
-  Wallet, XCircle, Send
+  Wallet, XCircle, Send, Radio
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import AvatarUploader from "@/components/admin/AvatarUploader";
+import PostbackSetup from "@/components/admin/PostbackSetup";
 import MobileSelect from "@/components/ui/MobileSelect";
 
 const VETERAN_STATUS_OPTIONS = [
@@ -270,6 +271,9 @@ export default function Admin() {
           </TabsTrigger>
           <TabsTrigger value="payouts" className="flex-shrink-0 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
             <Wallet className="w-4 h-4 mr-1.5" /> Payouts
+          </TabsTrigger>
+          <TabsTrigger value="tracking" className="flex-shrink-0 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+            <Radio className="w-4 h-4 mr-1.5" /> Tracking
           </TabsTrigger>
             <TabsTrigger value="reviewers" className="flex-shrink-0 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
             <Star className="w-4 h-4 mr-1.5" /> Reviewers
@@ -622,6 +626,11 @@ export default function Admin() {
             </div>
           )}
         </TabsContent>
+        {/* ── TRACKING TAB ── */}
+        <TabsContent value="tracking" className="mt-4">
+          <PostbackSetup />
+        </TabsContent>
+
         {/* ── AVATARS TAB ── */}
         <TabsContent value="avatars" className="mt-4">
           <Card className="border-white/10 bg-white/5">
