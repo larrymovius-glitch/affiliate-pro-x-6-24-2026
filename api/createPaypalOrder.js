@@ -1,5 +1,6 @@
 import { getAuthedUser } from "./_lib/supabase.js";
 import { paypalFetch } from "./_lib/paypal.js";
+import { db } from "./_lib/db.js";
 
 // PayPal checkout currently only covers the one-time Lifetime plan.
 // Monthly/Yearly stay Stripe-only until PayPal subscriptions are built.
@@ -47,6 +48,32 @@ export default async function handler(req, res) {
 
     const approveLink = order.links?.find((l) => l.rel === "approve")?.href;
     if (!approveLink) throw new Error("PayPal did not return an approval link");
+
+    // Record the order before sending the buyer to PayPal. Capture happens on
+    // the /payment-success redirect, so without a row written here there is no
+    // trace that an order ever existed if the buyer never makes it back --
+    // nothing to reconcile against, and an approved order that was never
+    // captured just expires silently. reconcilePaypalPayments picks these up.
+    try {
+      await db().Payment.create({
+        // This route has no auth guard, so `user` can be null. A row with no
+        // owner still records that money moved (visible to an admin), it just
+        // can't have a tier granted against it -- reconciliation logs that case.
+        user_id: user?.id || null,
+        amount: Number(LIFETIME_PRICE),
+        currency: "usd",
+        status: "pending",
+        payment_method: "paypal",
+        transaction_id: order.id,
+        plan_type: "lifetime",
+        veteran_status: "regular",
+        description: "PayPal Lifetime checkout started",
+      });
+    } catch (recordError) {
+      // Don't block checkout on this -- the buyer can still pay and the normal
+      // redirect path still records the capture. It only costs the safety net.
+      console.error("Failed to record pending PayPal order:", order.id, recordError.message);
+    }
 
     res.status(200).json({ url: approveLink, orderId: order.id });
   } catch (error) {
