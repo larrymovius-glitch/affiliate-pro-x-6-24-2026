@@ -28,7 +28,7 @@ export default function PrivacyPolicy() {
           <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
             <li><strong className="text-foreground">Account Information:</strong> Name, email address, and password when you register.</li>
             <li><strong className="text-foreground">Usage Data:</strong> Information about how you use the app, including clicks, conversions, and campaign activity.</li>
-            <li><strong className="text-foreground">Payment Information:</strong> Payout preferences such as PayPal email or bank transfer details (we do not store full payment credentials).</li>
+            <li><strong className="text-foreground">Payment Information:</strong> Payout preferences such as bank transfer or check destination details (we do not store full payment credentials).</li>
             <li><strong className="text-foreground">Device Information:</strong> Device type, operating system, and app version for analytics and performance purposes.</li>
           </ul>
         </section>

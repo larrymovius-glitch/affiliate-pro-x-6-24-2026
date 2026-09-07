@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Zap, Star, FileSearch, Upload, Video } from "lucide-react";
 import PostGenerator from "@/components/autopilot/PostGenerator";

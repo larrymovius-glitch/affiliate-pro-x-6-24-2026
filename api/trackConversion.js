@@ -1,4 +1,4 @@
-import { db } from "./_lib/db.js";
+import { db, incrementLinkStats } from "./_lib/db.js";
 import { normalizeTrackingCode } from "./_lib/tracking.js";
 
 // Secure conversion postback: /api/trackConversion?secret=...&code=...&amount=...
@@ -99,10 +99,7 @@ export default async function handler(req, res) {
       }
     }
     const now = new Date().toISOString();
-    await D.AffiliateLink.update(link.id, {
-      conversions: (link.conversions || 0) + 1,
-      earnings: (link.earnings || 0) + safeAmount,
-    });
+    await incrementLinkStats(link.id, { conversions: 1, earnings: safeAmount });
 
     await D.ConversionEvent.create({
       created_by_id: link.created_by_id,

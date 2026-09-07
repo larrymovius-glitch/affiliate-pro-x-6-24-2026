@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Copy, CheckCheck, Video, TrendingUp, Music } from "lucide-react";
+import { Loader2, Copy, CheckCheck, Video, Music } from "lucide-react";
 import AffiliateDisclosure from "@/components/AffiliateDisclosure";
 import { withTimeout } from "@/lib/withTimeout";
 import { getTrackableUrl } from "@/lib/links";

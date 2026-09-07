@@ -18,8 +18,13 @@ export default function VoiceAtlasModal({ open, onClose }) {
     if (open && pos.x === null) {
       const w = window.innerWidth;
       const h = window.innerHeight;
+      // Panel width is min(94vw, 572px) below -- this has to match, or the
+      // panel opens off-center. It used to assume a flat 400px (half = 200),
+      // which put the panel ~86px right of true center on a normal desktop
+      // screen where the real width is 572px.
+      const panelWidth = Math.min(w * 0.94, 572);
       setPos({
-        x: Math.max(8, w / 2 - 200),
+        x: Math.max(8, w / 2 - panelWidth / 2),
         y: Math.max(8, h * 0.06),
       });
     }

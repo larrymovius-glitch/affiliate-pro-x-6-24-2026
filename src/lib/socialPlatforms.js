@@ -1,7 +1,12 @@
 // Catalog of social platforms a user can advertise on from /social-connect.
-// None of these have a real OAuth connect flow -- see the note in
-// api/postToInstagram.js and api/postToLinkedIn.js, and src/api/
-// base44Client.js's `connectors.connectAppUser`, which always throws.
+// These are the manual, copy-paste ones. Instagram is the exception and is not
+// served by this list: it has a real OAuth flow now (api/instagramConnect.js ->
+// api/instagramCallback.js) for the shared house account, rendered separately
+// by src/components/social/InstagramConnect.jsx. Its card stays here for the
+// posting guide, which is still useful for Stories and Reels the API cannot
+// publish. The rest have no self-serve connect flow -- see the note in
+// api/postToLinkedIn.js, and src/api/base44Client.js's
+// `connectors.connectAppUser`, which always throws.
 // Rather than a fake "Connect" button that silently does nothing, every
 // platform gets the same honest treatment Facebook/Pinterest already had:
 // a real link to go set the account up (or manage an existing one), plus a

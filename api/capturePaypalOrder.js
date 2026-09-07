@@ -16,9 +16,21 @@ export default async function handler(req, res) {
 
     const D = db();
 
+    // createPaypalOrder now writes a `pending` row up front, so "a row exists"
+    // no longer means "already paid" -- only a completed one does. Checking for
+    // any row here would short-circuit before capturing and leave every order
+    // approved-but-never-charged.
     const existing = await D.Payment.filter({ transaction_id: orderId });
-    if (existing.length > 0) {
+    if (existing.some((p) => p.status === "completed")) {
       return res.status(200).json({ status: "completed" });
+    }
+
+    const pending = existing.find((p) => p.status === "pending");
+    // An order we have on file belongs to whoever started it. Without this,
+    // someone could pass another buyer's order id and have the resulting tier
+    // granted to their own account instead.
+    if (pending && pending.user_id && pending.user_id !== user.id) {
+      return res.status(403).json({ error: "That payment belongs to a different account" });
     }
 
     const capture = await paypalFetch(`/v2/checkout/orders/${orderId}/capture`, { method: "POST" });
@@ -32,16 +44,27 @@ export default async function handler(req, res) {
     const amount = captureUnit?.amount?.value ? Number(captureUnit.amount.value) : 997;
     const currency = (captureUnit?.amount?.currency_code || "USD").toLowerCase();
 
-    await D.Payment.create({
-      user_id: user.id,
-      amount,
-      currency,
-      status: "completed",
-      payment_method: "paypal",
-      transaction_id: orderId,
-      plan_type: "lifetime",
-      veteran_status: "regular",
-    });
+    if (pending) {
+      await D.Payment.update(pending.id, {
+        amount,
+        currency,
+        status: "completed",
+        description: "PayPal Lifetime payment captured",
+      });
+    } else {
+      // No pending row: an order started before createPaypalOrder recorded one.
+      await D.Payment.create({
+        user_id: user.id,
+        amount,
+        currency,
+        status: "completed",
+        payment_method: "paypal",
+        transaction_id: orderId,
+        plan_type: "lifetime",
+        veteran_status: "regular",
+        description: "PayPal Lifetime payment captured",
+      });
+    }
 
     // Same link Stripe's checkout.session.completed makes - without this,
     // the customer has paid but nothing anywhere lifts them off the free tier.
@@ -51,6 +74,18 @@ export default async function handler(req, res) {
     res.status(200).json({ status: "completed" });
   } catch (error) {
     console.error("PayPal capture error:", error);
+    // reconcilePaypalPayments may have captured this order first, in which case
+    // PayPal rejects the second capture. The buyer has paid and been granted
+    // their tier, so don't show them a payment-failed page over it.
+    try {
+      const { orderId } = req.body || {};
+      if (orderId) {
+        const settled = await db().Payment.filter({ transaction_id: orderId, status: "completed" });
+        if (settled.length > 0) return res.status(200).json({ status: "completed" });
+      }
+    } catch {
+      // fall through to the error below
+    }
     res.status(500).json({ error: error.message });
   }
 }

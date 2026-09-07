@@ -264,3 +264,113 @@ alter table public.subscriptions add constraint subscriptions_status_check
 -- on arrival.
 alter table public.affiliate_links alter column campaign_id type text using campaign_id::text;
 -- ---------------------------------------------------------------------------
+
+-- ---------------------------------------------------------------------------
+-- APPLIED 2026-09-05, migration `add_missing_columns_to_payout_schedules`.
+--
+-- The whole auto-payout feature was dead, in two layers.
+--
+-- api/savePaymentInfo.js creates a payout schedule with `notes` after saving
+-- the user's Stripe payout account. api/processAutoPayouts.js then stamps
+-- `last_processed_at`, `next_payout_date` and `notes` onto that schedule each
+-- run. None of the three columns existed, so PostgREST rejected the whole
+-- write (PGRST204) every time.
+--
+-- savePaymentInfo.js is the only server path that creates a schedule, and it
+-- updates the profile (stripeAccountId/paymentEmail/payoutReady) *before* the
+-- failing insert -- so "Save" on /social half-committed: the profile was
+-- written, the request 500'd, and the user saw a bare error. payout_schedules
+-- had 0 rows, confirming this had never once succeeded.
+--
+-- The second layer is quieter and survives the first being fixed:
+-- processAutoPayouts.js reads schedule.last_processed_at to decide whether a
+-- schedule is due. With no such column it read back undefined on every run,
+-- so `shouldProcess` was unconditionally true and the daily/weekly/biweekly/
+-- monthly frequency setting was ignored entirely -- every active schedule
+-- would be treated as due on every nightly run. (No duplicate payouts would
+-- have resulted even so: the reserved-balance check subtracts pending,
+-- approved and paid payouts from total earnings, so a second same-day run
+-- computes an available balance of 0. The cadence was still meaningless.)
+--
+-- The throw also aborted the per-schedule loop, so only the first active
+-- schedule in the list was ever reached on a given run.
+--
+-- Types match exactly what the handlers send: last_processed_at gets
+-- now.toISOString() (timestamptz), next_payout_date gets
+-- nextDate.toISOString().split("T")[0] -- a bare YYYY-MM-DD (date), notes a
+-- status string (text).
+--
+-- Verified after applying: all three columns present and nullable, and both
+-- handlers' exact payloads replayed successfully inside a transaction that
+-- was rolled back (payout_schedules still 0 rows afterwards).
+--
+-- Additive and nullable, as everywhere else in this file: drops nothing,
+-- rewrites no rows, re-runnable.
+alter table public.payout_schedules add column if not exists last_processed_at timestamptz;
+alter table public.payout_schedules add column if not exists next_payout_date  date;
+alter table public.payout_schedules add column if not exists notes             text;
+-- ---------------------------------------------------------------------------
+
+-- ---------------------------------------------------------------------------
+-- APPLIED 2026-09-05, migration `add_atomic_increment_link_stats`.
+--
+-- Lost updates on affiliate_links counters. api/trackClick.js,
+-- api/trackConversion.js and api/clickbankNotification.js each read a link,
+-- added to a counter in JavaScript, then wrote the sum back. Two postbacks
+-- arriving together both read the same starting value and both write their own
+-- total, so the later write silently discards the earlier one.
+--
+-- On clicks that undercounts. On earnings it destroys money: earnings is the
+-- exact figure api/requestPayout.js treats as a withdrawable balance, so a
+-- dropped sale is a commission the affiliate never gets paid, with nothing
+-- anywhere recording that it went missing. The window is small but it is
+-- widest precisely when it matters -- a link converting well enough to get
+-- simultaneous postbacks.
+--
+-- Fixed by doing the arithmetic inside a single UPDATE. Postgres holds a row
+-- lock for the duration of the statement, so concurrent callers queue and each
+-- addition lands on the value the previous one committed. All three handlers
+-- now call it through incrementLinkStats() in api/_lib/db.js instead of
+-- entity.update().
+--
+-- GRANTS ARE LOAD-BEARING. Postgres grants EXECUTE on a new function to PUBLIC
+-- by default, which here would have handed every signed-in user -- and every
+-- anonymous visitor -- a way to add any amount to any link's earnings and then
+-- withdraw it through requestPayout. Revoked from public/anon/authenticated and
+-- granted to service_role only. Left SECURITY INVOKER (the default) so it also
+-- does not appear as an anon-callable SECURITY DEFINER function in the
+-- security advisor, the way enforce_free_tier_post_limit does.
+--
+-- conversions is floored at 0: refunds decrement it (ClickBank sends RFND/CGBK
+-- through the same path) and a reversal can arrive for a sale never recorded.
+-- earnings is deliberately NOT floored -- letting it go negative preserves a
+-- genuine clawback, and requestPayout already floors the payable total at 0
+-- across all of a user's links. Clamping per link would let a refund be escaped
+-- by earning on a different link.
+--
+-- Verified after applying: anon and authenticated cannot execute it,
+-- service_role can, prosecdef is false; and in a rolled-back transaction, 100
+-- sequential click increments all landed (clicks = 100), two sales then three
+-- refunds left conversions floored at 0 and earnings at -5.00 (40.00 credited,
+-- 45.00 reversed) rather than silently forgiving the difference.
+create or replace function public.increment_link_stats(
+  p_link_id     uuid,
+  p_clicks      integer default 0,
+  p_conversions integer default 0,
+  p_earnings    numeric default 0
+)
+returns void
+language sql
+as $$
+  update public.affiliate_links
+  set clicks      = coalesce(clicks, 0)      + coalesce(p_clicks, 0),
+      conversions = greatest(0, coalesce(conversions, 0) + coalesce(p_conversions, 0)),
+      earnings    = coalesce(earnings, 0)    + coalesce(p_earnings, 0)
+  where id = p_link_id;
+$$;
+
+revoke all on function public.increment_link_stats(uuid, integer, integer, numeric) from public;
+revoke all on function public.increment_link_stats(uuid, integer, integer, numeric) from anon;
+revoke all on function public.increment_link_stats(uuid, integer, integer, numeric) from authenticated;
+grant execute on function public.increment_link_stats(uuid, integer, integer, numeric) to service_role;
+-- ---------------------------------------------------------------------------

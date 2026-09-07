@@ -56,8 +56,12 @@ const VOICE_OPTIONS = [
   { id: "echo", label: "Echo", note: "Warm male guide", assistant: "atlas" },
   { id: "onyx", label: "Onyx", note: "Deep male mentor", assistant: "atlas" },
   { id: "fable", label: "Fable", note: "Expressive male storyteller", assistant: "atlas" },
+  { id: "ash", label: "Ash", note: "Warm, measured male voice", assistant: "atlas" },
+  { id: "verse", label: "Verse", note: "Versatile, neutral male voice", assistant: "atlas" },
   { id: "nova", label: "Nova", note: "Bright female guide", assistant: "maya" },
   { id: "shimmer", label: "Shimmer", note: "Clear female coach", assistant: "maya" },
+  { id: "sage", label: "Sage", note: "Calm, wise female voice", assistant: "maya" },
+  { id: "coral", label: "Coral", note: "Warm, friendly female voice", assistant: "maya" },
 ];
 
 const EXPERIENCE_OPTIONS = [
@@ -85,6 +89,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
   const [loading, setLoading] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [needsTapToSpeak, setNeedsTapToSpeak] = useState(false);
+  const [micError, setMicError] = useState("");
   const [isInitializing, setIsInitializing] = useState(true);
   const [activeTab, setActiveTab] = useState("text");
   const [textInput, setTextInput] = useState("");
@@ -226,19 +231,17 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
         }
       }
     } catch (error) {
-      console.error("Human voice playback failed:", error);
-      if (typeof SpeechSynthesisUtterance === "undefined" || !synthRef.current?.speak) {
-        if (mountedRef.current) setSpeaking(false);
-        return;
-      }
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.rate = 0.95;
-      utter.pitch = agentName === "maya" ? 1.08 : 0.98;
-      utter.onend = () => mountedRef.current && setSpeaking(false);
-      utter.onerror = () => mountedRef.current && setSpeaking(false);
-      synthRef.current?.speak?.(utter);
+      // This used to fall back to the browser's generic built-in
+      // SpeechSynthesisUtterance voice -- a transient failure of the chosen
+      // premium voice (a timeout, a network blip) made Maya or Atlas
+      // suddenly sound like a completely different, generic robotic voice
+      // for one reply, then switch back once the premium call recovered.
+      // Staying silent for that one reply (the text is still shown) keeps
+      // the voice identity consistent instead of swapping voices mid-chat.
+      console.error("Voice playback failed:", error);
+      if (mountedRef.current) setSpeaking(false);
     }
-  }, [agentName, stopSpeaking, voiceChoice]);
+  }, [stopSpeaking, voiceChoice]);
 
   const sendMessage = useCallback(async (text) => {
     const cleanText = text.trim();
@@ -384,6 +387,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
   const startListening = useCallback(() => {
     if (speaking) stopSpeaking();
     if (!supported || isInitializing || !conversationRef.current) return;
+    setMicError("");
     if (recognitionRef.current) recognitionRef.current.abort();
 
     const recognition = new SpeechRecognition();
@@ -401,11 +405,29 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       silenceTimer = setTimeout(() => recognition.stop(), 4500);
     };
 
-    recognition.onstart = () => { setListening(true); setPulse(true); setTranscript(""); resetSilence(); };
+    recognition.onstart = () => { setListening(true); setPulse(true); setTranscript(""); setMicError(""); resetSilence(); };
     recognition.onspeechstart = resetSilence;
     recognition.onspeechend = resetSilence;
     recognition.onend = () => { setListening(false); setPulse(false); if (silenceTimer) clearTimeout(silenceTimer); };
-    recognition.onerror = () => { setListening(false); setPulse(false); if (silenceTimer) clearTimeout(silenceTimer); };
+    recognition.onerror = (e) => {
+      setListening(false);
+      setPulse(false);
+      if (silenceTimer) clearTimeout(silenceTimer);
+      // no-speech is the ordinary "didn't catch anything, timed out" case --
+      // everything else means the mic itself never worked, which used to
+      // fail totally silently and look identical to Maya just not hearing
+      // anything at all.
+      if (e.error === "no-speech" || e.error === "aborted") return;
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+        setMicError("Microphone access is blocked. Check your browser's site permissions to allow the mic, then tap the mic again.");
+      } else if (e.error === "audio-capture") {
+        setMicError("No microphone found. Check that one is connected and enabled.");
+      } else if (e.error === "network") {
+        setMicError("Voice recognition needs an internet connection.");
+      } else {
+        setMicError("Voice input isn't working right now -- try again, or switch to Type.");
+      }
+    };
     recognition.onresult = (e) => {
       const result = e.results[e.results.length - 1];
       const raw = result[0].transcript;
@@ -580,6 +602,11 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
             <p className="text-base font-semibold text-center" style={{ color: "var(--voice-text)" }}>
               {!supported ? "Voice not supported" : isInitializing ? "⚡ Starting session…" : listening ? "🎤 Listening... speak now!" : "Tap mic to speak"}
             </p>
+            {micError && (
+              <div className="w-full rounded-xl px-4 py-3 text-sm font-medium text-center" style={{ background: "rgba(220,38,38,0.14)", border: "1px solid rgba(220,38,38,0.35)", color: "#fca5a5" }}>
+                {micError}
+              </div>
+            )}
           </div>
         )}
       </div>

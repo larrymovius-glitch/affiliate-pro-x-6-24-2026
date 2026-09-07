@@ -154,7 +154,7 @@ function Card({ title, children, className = "", tall = false }) {
     <section
       className={`relative overflow-hidden rounded-2xl border p-4 ${className}`}
       style={{
-        borderColor: C.lineBright,
+        borderColor: "rgba(245,185,66,0.35)",
         background: `linear-gradient(160deg, ${C.cardTop} 0%, ${C.card} 100%)`,
         boxShadow: "0 12px 28px -18px rgba(0,0,0,0.8)",
       }}
@@ -294,7 +294,7 @@ function EpcCard({ data }) {
           <path
             d="M 11 55 A 44 44 0 0 1 99 55"
             fill="none"
-            stroke={C.lineBright}
+            stroke="rgba(234,244,255,0.16)"
             strokeWidth="9"
             strokeLinecap="round"
           />

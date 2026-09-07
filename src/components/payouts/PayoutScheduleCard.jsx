@@ -28,7 +28,7 @@ export default function PayoutScheduleCard() {
     is_active: true,
     frequency: "weekly",
     minimum_amount: 25,
-    payment_method: "paypal",
+    payment_method: "bank_transfer",
     payment_email: "",
   });
 
@@ -39,7 +39,7 @@ export default function PayoutScheduleCard() {
         is_active: schedule.is_active ?? true,
         frequency: schedule.frequency || "weekly",
         minimum_amount: schedule.minimum_amount || 25,
-        payment_method: schedule.payment_method || "paypal",
+        payment_method: schedule.payment_method || "bank_transfer",
         payment_email: schedule.payment_email || "",
       });
     }
@@ -165,7 +165,6 @@ export default function PayoutScheduleCard() {
                 <Select value={form.payment_method} onValueChange={(v) => setForm(f => ({ ...f, payment_method: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="paypal">PayPal</SelectItem>
                     <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
                     <SelectItem value="check">Check</SelectItem>
                   </SelectContent>
@@ -175,7 +174,7 @@ export default function PayoutScheduleCard() {
                 <Label className="text-xs">Payment Email / Destination</Label>
                 <Input
                   type="email"
-                  placeholder="paypal@example.com"
+                  placeholder="you@example.com"
                   value={form.payment_email}
                   onChange={(e) => setForm(f => ({ ...f, payment_email: e.target.value }))}
                 />

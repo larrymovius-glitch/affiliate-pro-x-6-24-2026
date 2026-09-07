@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
@@ -10,13 +10,15 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Users, UserPlus, Trash2, Shield, ShieldOff, Mail,
-  Star, RefreshCw, Crown, AlertCircle, CheckCircle, Search, Edit2, ShoppingBag, Link2, Medal, Image, Sparkles
+  Star, RefreshCw, Crown, AlertCircle, CheckCircle, Search, Edit2, ShoppingBag, ExternalLink, Medal, Image, Sparkles,
+  Wallet, XCircle, Send, Radio
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import AvatarUploader from "@/components/admin/AvatarUploader";
+import PostbackSetup from "@/components/admin/PostbackSetup";
 import MobileSelect from "@/components/ui/MobileSelect";
 
 const VETERAN_STATUS_OPTIONS = [
@@ -45,6 +47,15 @@ const TIER_OPTIONS = [
   { value: "veteran_free", label: "Veteran Free" },
 ];
 
+const PAYOUT_STATUS_COLORS = {
+  pending: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
+  approved: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+  paid: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+  rejected: "bg-red-500/20 text-red-300 border-red-500/30",
+};
+
+const PAYOUT_FILTERS = ["pending", "approved", "paid", "rejected", "all"];
+
 export default function Admin() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -64,6 +75,9 @@ export default function Admin() {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [editVeteranStatus, setEditVeteranStatus] = useState(null);
   const [editTier, setEditTier] = useState(null);
+  const [payoutFilter, setPayoutFilter] = useState("pending");
+  const [confirmPay, setConfirmPay] = useState(null);
+  const [payError, setPayError] = useState(null);
 
   const { data: users = [], isLoading: loadingUsers, refetch: refetchUsers } = useQuery({
     queryKey: ["admin-users"],
@@ -75,36 +89,41 @@ export default function Admin() {
     queryFn: () => base44.entities.GoogleReviewer.list(),
   });
 
-  const { data: ebayTokens = [], refetch: refetchEbay } = useQuery({
-    queryKey: ["admin-ebay-token"],
-    queryFn: () => base44.entities.EbayToken.list(),
-  });
-  const ebayConnected = ebayTokens.length > 0;
-  const ebayToken = ebayTokens[0];
+  const [ebaySyncResult, setEbaySyncResult] = useState(null);
+  const ebayCampaignId = user?.affiliate_network_ids?.ebay || null;
 
-  const disconnectEbayMutation = useMutation({
-    mutationFn: () => base44.entities.EbayToken.deleteMany({}),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-ebay-token"] }),
+  const syncEbayMutation = useMutation({
+    mutationFn: () => base44.functions.invoke("syncEbayTrending", {}),
+    onSuccess: ({ data }) => setEbaySyncResult({ type: "success", ...data }),
+    onError: (e) => setEbaySyncResult({ type: "error", message: e.message || "Sync failed" }),
   });
 
-  const EBAY_SIGNIN_URL = "https://signin.ebay.com/ws/eBayISAPI.dll?SignIn&runame=Lawerence_Moviu-Lawerenc-Affili-zgqyaq";
+  const { data: payouts = [], isLoading: loadingPayouts, refetch: refetchPayouts } = useQuery({
+    queryKey: ["admin-payouts"],
+    queryFn: () => base44.entities.Payout.list("-requested_at"),
+  });
 
-  // Complete the eBay connection securely as a logged-in admin (session ID passed back from the OAuth redirect)
-  const [ebayLinking, setEbayLinking] = useState(false);
-  const [ebayLinkError, setEbayLinkError] = useState(null);
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const sessid = urlParams.get("ebay_sessid");
-    if (!sessid || user?.role !== "admin") return;
-    urlParams.delete("ebay_sessid");
-    window.history.replaceState({}, document.title, `${window.location.pathname}${urlParams.toString() ? `?${urlParams}` : ""}`);
-    setEbayLinking(true);
-    setEbayLinkError(null);
-    base44.functions.invoke("ebayOAuthCallback", { sessid })
-      .then(() => refetchEbay())
-      .catch((e) => setEbayLinkError(e.response?.data?.error || e.message))
-      .finally(() => setEbayLinking(false));
-  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+  const usersById = useMemo(() => Object.fromEntries(users.map((u) => [u.id, u])), [users]);
+
+  const approvePayoutMutation = useMutation({
+    mutationFn: (id) => base44.entities.Payout.update(id, { status: "approved" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-payouts"] }),
+  });
+
+  const rejectPayoutMutation = useMutation({
+    mutationFn: (id) => base44.entities.Payout.update(id, { status: "rejected" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-payouts"] }),
+  });
+
+  const payPayoutMutation = useMutation({
+    mutationFn: (payoutId) => base44.functions.invoke("processStripePayout", { payoutId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-payouts"] });
+      setConfirmPay(null);
+      setPayError(null);
+    },
+    onError: (e) => setPayError(e.message || "Failed to process payout"),
+  });
 
   const handleInvite = async () => {
     if (!inviteEmail.trim()) return;
@@ -202,6 +221,9 @@ export default function Admin() {
     !userSearch || u.email?.toLowerCase().includes(userSearch.toLowerCase()) || u.full_name?.toLowerCase().includes(userSearch.toLowerCase())
   );
 
+  const filteredPayouts = payoutFilter === "all" ? payouts : payouts.filter(p => p.status === payoutFilter);
+  const pendingPayoutTotal = payouts.filter(p => p.status === "pending").reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6">
       {/* Header */}
@@ -217,7 +239,7 @@ export default function Admin() {
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: "Total Users", value: users.length, icon: Users, color: "#7c3aed" },
           { label: "Admins", value: adminCount, icon: Crown, color: "#f59e0b" },
@@ -240,20 +262,26 @@ export default function Admin() {
       </div>
 
       <Tabs defaultValue="users">
-        <TabsList className="bg-white/5 border border-white/10 w-full">
-          <TabsTrigger value="users" className="flex-1 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+        <TabsList className="bg-white/5 border border-white/10 w-full max-w-full overflow-x-auto justify-start">
+          <TabsTrigger value="users" className="flex-shrink-0 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
             <Users className="w-4 h-4 mr-1.5" /> Users
           </TabsTrigger>
-          <TabsTrigger value="invite" className="flex-1 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+          <TabsTrigger value="invite" className="flex-shrink-0 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
             <UserPlus className="w-4 h-4 mr-1.5" /> Invite
           </TabsTrigger>
-            <TabsTrigger value="reviewers" className="flex-1 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+          <TabsTrigger value="payouts" className="flex-shrink-0 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+            <Wallet className="w-4 h-4 mr-1.5" /> Payouts
+          </TabsTrigger>
+          <TabsTrigger value="tracking" className="flex-shrink-0 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+            <Radio className="w-4 h-4 mr-1.5" /> Tracking
+          </TabsTrigger>
+            <TabsTrigger value="reviewers" className="flex-shrink-0 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
             <Star className="w-4 h-4 mr-1.5" /> Reviewers
           </TabsTrigger>
-          <TabsTrigger value="ebay" className="flex-1 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+          <TabsTrigger value="ebay" className="flex-shrink-0 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
             <ShoppingBag className="w-4 h-4 mr-1.5" /> eBay
           </TabsTrigger>
-          <TabsTrigger value="avatars" className="flex-1 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+          <TabsTrigger value="avatars" className="flex-shrink-0 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
             <Image className="w-4 h-4 mr-1.5" /> Avatars
           </TabsTrigger>
         </TabsList>
@@ -290,7 +318,7 @@ export default function Admin() {
             <div className="space-y-2">
               {filteredUsers.map((u) => (
                 <Card key={u.id} className="border-white/10 bg-white/5 hover:bg-white/8 transition-colors">
-                  <CardContent className="p-4 flex items-center justify-between gap-3">
+                  <CardContent className="p-4 flex items-center justify-between gap-3 flex-wrap">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm"
                         style={{ background: u.role === "admin" ? "linear-gradient(135deg,#7c3aed,#f59e0b)" : "rgba(124,58,237,0.25)", color: "white" }}>
@@ -301,8 +329,8 @@ export default function Admin() {
                         <p className="text-xs text-slate-400 truncate">{u.email}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                      <div className="flex items-center gap-1 flex-wrap">
                        <Badge className={`text-xs border ${ROLE_COLORS[u.role] || ROLE_COLORS.user}`}>
                          {u.role || "user"}
                        </Badge>
@@ -432,6 +460,114 @@ export default function Admin() {
           </Card>
         </TabsContent>
 
+        {/* ── PAYOUTS TAB ── */}
+        <TabsContent value="payouts" className="mt-4 space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <p className="text-sm text-slate-400">
+              {payouts.filter(p => p.status === "pending").length} pending · ${pendingPayoutTotal.toFixed(2)} awaiting review
+            </p>
+            <div className="flex items-center gap-2">
+              <Button size="icon" variant="ghost" onClick={() => refetchPayouts()} className="flex-shrink-0 text-slate-400 hover:text-white">
+                <RefreshCw className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5">
+            {PAYOUT_FILTERS.map((f) => (
+              <button
+                key={f}
+                onClick={() => setPayoutFilter(f)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium capitalize border transition-colors ${
+                  payoutFilter === f
+                    ? "border-violet-500 bg-violet-600/30 text-white"
+                    : "border-white/10 bg-white/5 text-slate-400 hover:text-white"
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+
+          {loadingPayouts ? (
+            <div className="space-y-2">
+              {[...Array(3)].map((_, i) => <div key={i} className="h-20 rounded-xl bg-white/5 animate-pulse" />)}
+            </div>
+          ) : filteredPayouts.length === 0 ? (
+            <Card className="border-white/10 bg-white/5">
+              <CardContent className="py-10 text-center text-slate-400">
+                <Wallet className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">No {payoutFilter !== "all" ? payoutFilter : ""} payouts.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {filteredPayouts.map((p) => {
+                const recipient = usersById[p.user_id] || usersById[p.created_by_id];
+                const canPay = p.status === "approved" && recipient?.stripeAccountId;
+                return (
+                  <Card key={p.id} className="border-white/10 bg-white/5 hover:bg-white/8 transition-colors">
+                    <CardContent className="p-4 flex items-center justify-between gap-3 flex-wrap">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-white">${Number(p.amount).toFixed(2)}</p>
+                          <Badge className={`text-xs border ${PAYOUT_STATUS_COLORS[p.status] || PAYOUT_STATUS_COLORS.pending}`}>
+                            {p.status}
+                          </Badge>
+                          {p.source === "auto" && (
+                            <Badge variant="outline" className="text-xs border-white/10 text-slate-400">auto</Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-400 truncate mt-0.5">
+                          {recipient?.email || p.payment_email || "Unknown recipient"} · {p.payment_method || "—"}
+                        </p>
+                        {p.status === "approved" && !recipient?.stripeAccountId && (
+                          <p className="text-xs text-orange-400 mt-0.5 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" /> Recipient hasn't connected Stripe yet
+                          </p>
+                        )}
+                        {p.status === "paid" && (
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Paid {p.paid_at ? new Date(p.paid_at).toLocaleDateString() : ""}{p.notes ? ` · ${p.notes}` : ""}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {p.status === "pending" && (
+                          <>
+                            <Button size="sm" variant="ghost"
+                              className="h-8 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+                              disabled={approvePayoutMutation.isPending}
+                              onClick={() => approvePayoutMutation.mutate(p.id)}>
+                              <CheckCircle className="w-4 h-4 mr-1" /> Approve
+                            </Button>
+                            <Button size="sm" variant="ghost"
+                              className="h-8 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                              disabled={rejectPayoutMutation.isPending}
+                              onClick={() => rejectPayoutMutation.mutate(p.id)}>
+                              <XCircle className="w-4 h-4 mr-1" /> Reject
+                            </Button>
+                          </>
+                        )}
+                        {p.status === "approved" && (
+                          <Button size="sm"
+                            className="h-8"
+                            style={{ background: "linear-gradient(90deg, #7c3aed, #f59e0b)" }}
+                            disabled={!canPay}
+                            title={canPay ? "" : "Recipient hasn't connected a Stripe payout account"}
+                            onClick={() => { setPayError(null); setConfirmPay(p); }}>
+                            <Send className="w-4 h-4 mr-1" /> Pay Now
+                          </Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+
         {/* ── REVIEWERS TAB ── */}
         <TabsContent value="reviewers" className="mt-4 space-y-3">
           <div className="flex items-center justify-between">
@@ -490,6 +626,11 @@ export default function Admin() {
             </div>
           )}
         </TabsContent>
+        {/* ── TRACKING TAB ── */}
+        <TabsContent value="tracking" className="mt-4">
+          <PostbackSetup />
+        </TabsContent>
+
         {/* ── AVATARS TAB ── */}
         <TabsContent value="avatars" className="mt-4">
           <Card className="border-white/10 bg-white/5">
@@ -504,70 +645,61 @@ export default function Admin() {
           <Card className="border-white/10 bg-white/5">
             <CardHeader>
               <CardTitle className="text-white text-base flex items-center gap-2">
-                <ShoppingBag className="w-5 h-5 text-yellow-400" /> eBay Account Connection
+                <ShoppingBag className="w-5 h-5 text-yellow-400" /> eBay Trending Sync
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {ebayLinking && (
-                <div className="flex items-center gap-2 rounded-xl p-3 bg-blue-500/10 border border-blue-500/20 text-blue-300 text-sm">
-                  <RefreshCw className="w-4 h-4 animate-spin" /> Finalizing eBay connection…
-                </div>
-              )}
-              {ebayLinkError && (
-                <div className="flex items-center gap-2 rounded-xl p-3 bg-red-500/10 border border-red-500/20 text-red-300 text-sm">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" /> {ebayLinkError}
-                </div>
-              )}
-              {/* Status */}
-              <div className={`flex items-center gap-3 rounded-xl p-4 ${ebayConnected ? "bg-green-500/10 border border-green-500/20" : "bg-orange-500/10 border border-orange-500/20"}`}>
-                {ebayConnected
+              {/* Campaign ID status */}
+              <div className={`flex items-center gap-3 rounded-xl p-4 ${ebayCampaignId ? "bg-green-500/10 border border-green-500/20" : "bg-orange-500/10 border border-orange-500/20"}`}>
+                {ebayCampaignId
                   ? <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
                   : <AlertCircle className="w-5 h-5 text-orange-400 flex-shrink-0" />}
                 <div className="min-w-0">
-                  <p className={`text-sm font-semibold ${ebayConnected ? "text-green-300" : "text-orange-300"}`}>
-                    {ebayConnected ? "eBay Account Connected" : "Not Connected"}
+                  <p className={`text-sm font-semibold ${ebayCampaignId ? "text-green-300" : "text-orange-300"}`}>
+                    {ebayCampaignId ? `Campaign ID saved: ${ebayCampaignId}` : "No EPN Campaign ID saved"}
                   </p>
-                  {ebayConnected && ebayToken?.connected_at && (
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Connected on {new Date(ebayToken.connected_at).toLocaleDateString()}
-                      {ebayToken.expires_at && ` · Expires ${new Date(ebayToken.expires_at).toLocaleDateString()}`}
-                    </p>
-                  )}
-                  {!ebayConnected && (
-                    <p className="text-xs text-slate-400 mt-0.5">Connect your eBay account to enable affiliate tracking</p>
-                  )}
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {ebayCampaignId
+                      ? "Real eBay products will be linked with this campaign so clicks are tracked and earn commission."
+                      : "Save your eBay Partner Network Campaign ID on the Networks page before syncing."}
+                  </p>
                 </div>
-                <Button size="sm" variant="ghost" onClick={() => refetchEbay()} className="ml-auto text-slate-400 hover:text-white flex-shrink-0">
-                  <RefreshCw className="w-4 h-4" />
-                </Button>
               </div>
 
-              {/* RuName info */}
-              <div className="rounded-xl p-4 bg-white/5 border border-white/10 space-y-1">
-                <p className="text-xs text-slate-500 uppercase tracking-wide font-semibold">RuName</p>
-                <p className="text-sm text-slate-300 font-mono break-all">Lawerence_Moviu-Lawerenc-Affili-zgqyaq</p>
-              </div>
-
-              {/* Actions */}
-              <div className="flex flex-col gap-2">
-                <a href={EBAY_SIGNIN_URL} target="_blank" rel="noopener noreferrer">
-                  <Button className="w-full h-11 font-semibold gap-2" style={{ background: "linear-gradient(90deg, #0064d2, #0099d4)" }}>
-                    <Link2 className="w-4 h-4" />
-                    {ebayConnected ? "Reconnect eBay Account" : "Connect eBay Account"}
+              {!ebayCampaignId && (
+                <a href="/networks">
+                  <Button variant="outline" className="w-full gap-1.5">
+                    <ExternalLink className="w-3.5 h-3.5" /> Go to Networks page
                   </Button>
                 </a>
-                {ebayConnected && (
-                  <Button
-                    variant="ghost"
-                    className="w-full h-10 text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                    disabled={disconnectEbayMutation.isPending}
-                    onClick={() => disconnectEbayMutation.mutate()}
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    {disconnectEbayMutation.isPending ? "Disconnecting…" : "Disconnect eBay Account"}
-                  </Button>
-                )}
-              </div>
+              )}
+
+              {ebaySyncResult && (
+                <div className={`flex items-start gap-2 rounded-xl p-3 text-sm ${
+                  ebaySyncResult.type === "success"
+                    ? "bg-green-500/10 text-green-300 border border-green-500/20"
+                    : "bg-red-500/10 text-red-400 border border-red-500/20"
+                }`}>
+                  {ebaySyncResult.type === "success"
+                    ? <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    : <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />}
+                  <span>{ebaySyncResult.message}</span>
+                </div>
+              )}
+
+              <Button
+                className="w-full h-11 font-semibold gap-2"
+                style={{ background: "linear-gradient(90deg, #0064d2, #0099d4)" }}
+                disabled={!ebayCampaignId || syncEbayMutation.isPending}
+                onClick={() => { setEbaySyncResult(null); syncEbayMutation.mutate(); }}
+              >
+                <RefreshCw className={`w-4 h-4 ${syncEbayMutation.isPending ? "animate-spin" : ""}`} />
+                {syncEbayMutation.isPending ? "Syncing…" : "Sync Trending Products Now"}
+              </Button>
+              <p className="text-xs text-slate-500">
+                Also runs automatically every day. Pulls real trending eBay items via the Browse API and creates
+                tracked affiliate links using your saved Campaign ID.
+              </p>
             </CardContent>
           </Card>
         </TabsContent>
@@ -688,6 +820,41 @@ export default function Admin() {
             </div>
           </div>
         </DialogContent>
+        </Dialog>
+
+        {/* Pay Payout Confirm Dialog */}
+        <Dialog open={!!confirmPay} onOpenChange={(open) => { if (!open) { setConfirmPay(null); setPayError(null); } }}>
+          <DialogContent className="border-white/10 bg-slate-900 text-white">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Send className="w-5 h-5 text-violet-400" />
+                Confirm Payout
+              </DialogTitle>
+            </DialogHeader>
+            <div className="py-2 space-y-2">
+              <p className="text-slate-300 text-sm">
+                Send <strong className="text-white">${confirmPay ? Number(confirmPay.amount).toFixed(2) : ""}</strong> to{" "}
+                <strong className="text-white">
+                  {confirmPay ? (usersById[confirmPay.user_id] || usersById[confirmPay.created_by_id])?.email : ""}
+                </strong>{" "}
+                via Stripe? This transfers real money and cannot be undone from here.
+              </p>
+              {payError && (
+                <div className="flex items-center gap-2 text-sm rounded-xl p-3 bg-red-500/10 text-red-400 border border-red-500/20">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" /> {payError}
+                </div>
+              )}
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="ghost" className="text-slate-400" onClick={() => { setConfirmPay(null); setPayError(null); }}>Cancel</Button>
+              <Button
+                disabled={payPayoutMutation.isPending}
+                style={{ background: "linear-gradient(90deg, #7c3aed, #f59e0b)" }}
+                onClick={() => payPayoutMutation.mutate(confirmPay.id)}>
+                {payPayoutMutation.isPending ? "Sending…" : "Send Payment"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
         </Dialog>
 
         {/* Add/Edit Reviewer Dialog */}

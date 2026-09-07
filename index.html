@@ -2,6 +2,16 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // Suppress Chrome's default "Add to Home Screen" install prompt, which
+      // otherwise auto-animates the manifest icon large on screen on every
+      // visit. Stashing the event lets a future "Install App" button trigger
+      // it deliberately via deferredInstallPrompt.prompt() instead.
+      window.addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        window.deferredInstallPrompt = e;
+      });
+    </script>
     <link rel="icon" type="image/png" href="/brand/logo-192.png" />
     <link rel="apple-touch-icon" href="/brand/logo-192.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
