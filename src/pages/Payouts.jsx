@@ -36,12 +36,12 @@ export default function Payouts() {
   const { onTouchStart, onTouchMove, onTouchEnd, pullDistance, pulling } = usePullToRefresh(() => refetch());
 
   const requestMutation = useMutation({
-    mutationFn: async (data) => {
+    mutationFn: async (/** @type {any} */ data) => {
       const response = await base44.functions.invoke("requestPayout", { amount: data.amount });
       return response.data;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["payouts"] }); queryClient.invalidateQueries({ queryKey: ["all-links-balance"] }); setDialogOpen(false); setAmount(""); toast.success("Payout requested!"); },
-    onError: (err) => toast.error(err.response?.data?.error || err.message || "Failed to request payout"),
+    onError: (/** @type {any} */ err) => toast.error(err.response?.data?.error || err.message || "Failed to request payout"),
   });
 
   const { data: allLinks = [] } = useQuery({

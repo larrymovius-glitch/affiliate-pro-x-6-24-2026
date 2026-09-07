@@ -107,7 +107,7 @@ export function CardMenu({ actions }) {
 /** Tiny toast helper — call show("Copied") from anywhere in the page. */
 export function useToast() {
   const [toast, setToast] = useState(null);
-  const timer = useRef();
+  const timer = useRef(/** @type {any} */ (null));
   const show = (msg) => {
     clearTimeout(timer.current);
     setToast(msg);

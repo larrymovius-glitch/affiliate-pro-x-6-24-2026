@@ -105,7 +105,7 @@ export default function Links() {
         created_at: new Date().toISOString(),
         _optimistic: true,
       };
-      queryClient.setQueryData(["links"], old => [optimistic, ...(old || [])]);
+      queryClient.setQueryData(["links"], (/** @type {any} */ old) => [optimistic, ...(old || [])]);
       return { previous };
     },
     onError: (_err, _vars, context) => {
@@ -121,11 +121,11 @@ export default function Links() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.AffiliateLink.delete(id),
+    mutationFn: (/** @type {any} */ id) => base44.entities.AffiliateLink.delete(id),
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ["links"] });
       const previous = queryClient.getQueryData(["links"]);
-      queryClient.setQueryData(["links"], old => (old || []).filter(l => l.id !== id));
+      queryClient.setQueryData(["links"], (/** @type {any} */ old) => (old || []).filter(l => l.id !== id));
       return { previous };
     },
     onError: (_err, _vars, context) => {

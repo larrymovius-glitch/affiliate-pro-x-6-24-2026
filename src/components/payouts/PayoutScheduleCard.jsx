@@ -46,7 +46,7 @@ export default function PayoutScheduleCard() {
   }, [schedule?.id]);
 
   const saveMutation = useMutation({
-    mutationFn: async (data) => {
+    mutationFn: async (/** @type {any} */ data) => {
       if (schedule?.id) {
         return base44.entities.PayoutSchedule.update(schedule.id, data);
       } else {

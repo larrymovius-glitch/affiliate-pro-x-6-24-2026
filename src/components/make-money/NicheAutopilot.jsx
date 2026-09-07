@@ -58,7 +58,7 @@ export default function NicheAutopilot({ niches, selectedNiche, onNicheChange, p
         {mutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlayCircle className="mr-2 h-4 w-4" />}
         Start 3-Product Autopilot
       </Button>
-      {mutation.error && <p className="text-sm text-destructive">{mutation.error.response?.data?.error || mutation.error.message}</p>}
+      {mutation.error && <p className="text-sm text-destructive">{(/** @type {any} */ (mutation.error)).response?.data?.error || mutation.error.message}</p>}
       {result?.success && (
         <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-foreground">
           <div className="flex items-center gap-2 font-semibold"><Sparkles className="h-4 w-4 text-emerald-600" /> Autopilot is ready</div>

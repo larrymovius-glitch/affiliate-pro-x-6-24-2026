@@ -6,7 +6,7 @@ import React from "react";
 // close to the photograph's palette stands in, so nothing ever looks broken.
 const HERO_IMAGE_URL = ""; // e.g. "https://media.base44.com/images/public/<your-app-id>/hero_login.jpg"
 
-export default function AuthLayout({ icon: Icon, title, subtitle, footer, children }) {
+export default function AuthLayout({ icon: Icon, title, subtitle, footer = undefined, children }) {
   return (
     <div
       className="dark min-h-screen flex flex-col items-center justify-start px-4 pb-10"

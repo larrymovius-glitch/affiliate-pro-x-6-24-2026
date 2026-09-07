@@ -16,7 +16,7 @@ function useIsMobile() {
   return typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches;
 }
 
-export default function MobileSelect({ value, onValueChange, placeholder, options = [], className, label }) {
+export default function MobileSelect({ value, onValueChange, placeholder = undefined, options = [], className = undefined, label = undefined }) {
   const isMobile = useIsMobile();
   const [drawerOpen, setDrawerOpen] = useState(false);
 

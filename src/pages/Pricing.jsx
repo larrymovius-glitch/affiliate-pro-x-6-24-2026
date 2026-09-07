@@ -48,13 +48,13 @@ export default function Pricing() {
       setVeteranRequestStatus(data.status);
       toast.success(data.message);
     },
-    onError: (err) => toast.error(err.response?.data?.error || err.message || "Failed to submit verification request")
+    onError: (/** @type {any} */ err) => toast.error(err.response?.data?.error || err.message || "Failed to submit verification request")
   });
 
   const checkoutMutation = useStripeCheckout();
 
   const paypalCheckoutMutation = useMutation({
-    mutationFn: async (data) => {
+    mutationFn: async (/** @type {any} */ data) => {
       if (window.self !== window.top) {
         throw new Error("Checkout works only from the published app. Please open the app in a new tab.");
       }
@@ -68,7 +68,7 @@ export default function Pricing() {
         window.location.href = data.url;
       }
     },
-    onError: (err) => toast.error(err.response?.data?.error || err.message || "Failed to start PayPal checkout")
+    onError: (/** @type {any} */ err) => toast.error(err.response?.data?.error || err.message || "Failed to start PayPal checkout")
   });
 
   return (

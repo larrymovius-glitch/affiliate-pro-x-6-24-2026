@@ -86,17 +86,17 @@ export default function Campaigns() {
   const { onTouchStart, onTouchMove, onTouchEnd, pullDistance, pulling } = usePullToRefresh(() => refetch());
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.Campaign.create(data),
+    mutationFn: (/** @type {any} */ data) => base44.entities.Campaign.create(data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["campaigns"] }); setDialogOpen(false); toast.success("Campaign created"); },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Campaign.update(id, data),
+    mutationFn: (/** @type {any} */ { id, data }) => base44.entities.Campaign.update(id, data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["campaigns"] }); setDialogOpen(false); setEditCampaign(null); toast.success("Campaign updated"); },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.Campaign.delete(id),
+    mutationFn: (/** @type {any} */ id) => base44.entities.Campaign.delete(id),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["campaigns"] }); toast.success("Campaign deleted"); },
   });
 

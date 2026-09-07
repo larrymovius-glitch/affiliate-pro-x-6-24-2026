@@ -5,7 +5,7 @@ import { toast } from "sonner";
 // Shared by src/pages/Pricing.jsx and PaywallModal.jsx.
 export function useStripeCheckout() {
   return useMutation({
-    mutationFn: async (data) => {
+    mutationFn: async (/** @type {any} */ data) => {
       // Iframe check BEFORE creating the checkout session.
       if (window.self !== window.top) {
         throw new Error("Checkout works only from the published app. Please open the app in a new tab.");
@@ -20,6 +20,6 @@ export function useStripeCheckout() {
         window.location.href = data.url;
       }
     },
-    onError: (err) => toast.error(err.response?.data?.error || err.message || "Failed to start checkout"),
+    onError: (/** @type {any} */ err) => toast.error(err.response?.data?.error || err.message || "Failed to start checkout"),
   });
 }

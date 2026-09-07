@@ -11,7 +11,7 @@ export default function BulkImporter({ onComplete }) {
   const [format, setFormat] = useState("csv");
 
   const importMutation = useMutation({
-    mutationFn: async (text) => {
+    mutationFn: async (/** @type {any} */ text) => {
       let products = [];
 
       // JSON parses the whole blob once. It used to be handled inside the

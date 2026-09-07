@@ -22,8 +22,8 @@ export default function AdAssetUploader() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.AdAsset.delete(id),
-    onSuccess: () => queryClient.invalidateQueries(["ad-assets"]),
+    mutationFn: (/** @type {any} */ id) => base44.entities.AdAsset.delete(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["ad-assets"] }),
     onError: (err) => toast.error(err?.message || "Failed to delete asset")
   });
 
@@ -41,7 +41,7 @@ export default function AdAssetUploader() {
         platform,
         notes
       });
-      queryClient.invalidateQueries(["ad-assets"]);
+      queryClient.invalidateQueries({ queryKey: ["ad-assets"] });
       setTitle("");
       setNotes("");
       toast.success("Asset uploaded");

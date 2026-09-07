@@ -47,7 +47,7 @@ const DialogContent = React.forwardRef((/** @type {any} */ { className, children
 DialogContent.displayName = DialogPrimitive.Content.displayName
 
 const DialogHeader = ({
-  className,
+  className = undefined,
   ...props
 }) => (
   <div
@@ -57,7 +57,7 @@ const DialogHeader = ({
 DialogHeader.displayName = "DialogHeader"
 
 const DialogFooter = ({
-  className,
+  className = undefined,
   ...props
 }) => (
   <div

@@ -106,12 +106,12 @@ export default function Admin() {
   const usersById = useMemo(() => Object.fromEntries(users.map((u) => [u.id, u])), [users]);
 
   const approvePayoutMutation = useMutation({
-    mutationFn: (id) => base44.entities.Payout.update(id, { status: "approved" }),
+    mutationFn: (/** @type {any} */ id) => base44.entities.Payout.update(id, { status: "approved" }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-payouts"] }),
   });
 
   const rejectPayoutMutation = useMutation({
-    mutationFn: (id) => base44.entities.Payout.update(id, { status: "rejected" }),
+    mutationFn: (/** @type {any} */ id) => base44.entities.Payout.update(id, { status: "rejected" }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-payouts"] }),
   });
 
@@ -141,12 +141,12 @@ export default function Admin() {
   };
 
   const toggleRoleMutation = useMutation({
-    mutationFn: ({ id, role }) => base44.entities.User.update(id, { role }),
+    mutationFn: (/** @type {any} */ { id, role }) => base44.entities.User.update(id, { role }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-users"] }),
   });
 
   const updateVeteranStatusMutation = useMutation({
-    mutationFn: ({ id, veteranStatus, veteranNotes }) =>
+    mutationFn: (/** @type {any} */ { id, veteranStatus, veteranNotes }) =>
       base44.functions.invoke("reviewVeteranVerification", { userId: id, veteranStatus, veteranNotes }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
@@ -155,7 +155,7 @@ export default function Admin() {
   });
 
   const updateTierMutation = useMutation({
-    mutationFn: ({ id, tier }) => base44.functions.invoke("updateSubscriptionTier", { userId: id, tier }),
+    mutationFn: (/** @type {any} */ { id, tier }) => base44.functions.invoke("updateSubscriptionTier", { userId: id, tier }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       setEditTier(null);
@@ -168,7 +168,7 @@ export default function Admin() {
   });
 
   const deleteUserMutation = useMutation({
-    mutationFn: (id) => base44.entities.User.delete(id),
+    mutationFn: (/** @type {any} */ id) => base44.entities.User.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       setConfirmDelete(null);
@@ -176,7 +176,7 @@ export default function Admin() {
   });
 
   const saveReviewerMutation = useMutation({
-    mutationFn: (data) =>
+    mutationFn: (/** @type {any} */ data) =>
       editReviewer
         ? base44.entities.GoogleReviewer.update(editReviewer.id, data)
         : base44.entities.GoogleReviewer.create(data),
@@ -189,7 +189,7 @@ export default function Admin() {
   });
 
   const deleteReviewerMutation = useMutation({
-    mutationFn: (id) => base44.entities.GoogleReviewer.delete(id),
+    mutationFn: (/** @type {any} */ id) => base44.entities.GoogleReviewer.delete(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-reviewers"] }),
   });
 

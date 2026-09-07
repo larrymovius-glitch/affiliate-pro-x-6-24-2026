@@ -111,12 +111,12 @@ export default function Products() {
   const { onTouchStart, onTouchMove, onTouchEnd, pullDistance, pulling } = usePullToRefresh(() => refetch());
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.Product.create(data),
+    mutationFn: (/** @type {any} */ data) => base44.entities.Product.create(data),
     onMutate: async (data) => {
       await queryClient.cancelQueries({ queryKey: ["products"] });
       const previous = queryClient.getQueryData(["products"]);
       const optimistic = { id: `optimistic-${Date.now()}`, ...data, created_at: new Date().toISOString(), _optimistic: true };
-      queryClient.setQueryData(["products"], old => [optimistic, ...(old || [])]);
+      queryClient.setQueryData(["products"], (/** @type {any} */ old) => [optimistic, ...(old || [])]);
       return { previous };
     },
     onError: (_err, _vars, context) => {
@@ -127,11 +127,11 @@ export default function Products() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Product.update(id, data),
+    mutationFn: (/** @type {any} */ { id, data }) => base44.entities.Product.update(id, data),
     onMutate: async ({ id, data }) => {
       await queryClient.cancelQueries({ queryKey: ["products"] });
       const previous = queryClient.getQueryData(["products"]);
-      queryClient.setQueryData(["products"], old => (old || []).map(p => p.id === id ? { ...p, ...data } : p));
+      queryClient.setQueryData(["products"], (/** @type {any} */ old) => (old || []).map(p => p.id === id ? { ...p, ...data } : p));
       return { previous };
     },
     onError: (_err, _vars, context) => {
@@ -142,11 +142,11 @@ export default function Products() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.Product.delete(id),
+    mutationFn: (/** @type {any} */ id) => base44.entities.Product.delete(id),
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ["products"] });
       const previous = queryClient.getQueryData(["products"]);
-      queryClient.setQueryData(["products"], old => (old || []).filter(p => p.id !== id));
+      queryClient.setQueryData(["products"], (/** @type {any} */ old) => (old || []).filter(p => p.id !== id));
       return { previous };
     },
     onError: (_err, _vars, context) => {

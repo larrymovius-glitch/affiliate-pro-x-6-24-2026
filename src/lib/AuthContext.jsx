@@ -2,7 +2,7 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
-const AuthContext = createContext();
+const AuthContext = createContext(undefined);
 
 // Safe defaults so downstream components never crash on a missing settings row.
 const DEFAULT_PUBLIC_SETTINGS = {

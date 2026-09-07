@@ -26,8 +26,8 @@ export default function PostLibrary() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.GeneratedPost.delete(id),
-    onSuccess: () => queryClient.invalidateQueries(["generated-posts"])
+    mutationFn: (/** @type {any} */ id) => base44.entities.GeneratedPost.delete(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["generated-posts"] })
   });
 
   const filtered = posts.filter(p => {

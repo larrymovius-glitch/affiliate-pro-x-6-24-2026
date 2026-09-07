@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { downloadCsv, useToast } from "./CardMenu";
 
 /* ---------- metallic palette ---------- */
@@ -67,7 +67,7 @@ function ago(h) {
  *   trend?: { impressions, clicks }[],
  * }[]
  */
-export function AdTracker({ ads, channels, staleHours = 48, linkFor, onRefresh }) {
+export function AdTracker({ ads, channels = undefined, staleHours = 48, linkFor = undefined, onRefresh }) {
   const [active, setActive] = useState([]);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState("clicks");
@@ -673,6 +673,7 @@ export function AdTracker({ ads, channels, staleHours = 48, linkFor, onRefresh }
 
 /* ---------- shared inline styles ---------- */
 
+/** @type {React.CSSProperties} */
 const panel = {
   background: "linear-gradient(160deg, #123f6e 0%, #0f3560 100%)",
   border: "1px solid rgba(255,255,255,0.09)",
