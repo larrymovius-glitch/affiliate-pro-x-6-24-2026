@@ -1,0 +1,93 @@
+-- Security and performance audit against Supabase's own advisor
+-- (mcp__Supabase__get_advisors), applied directly to the live database via
+-- migrations. This file records what changed and why; it does not need to
+-- be re-run -- these migrations are already applied.
+--
+-- ============================================================
+-- SECURITY (4 findings)
+-- ============================================================
+--
+-- 1. FIXED: enforce_free_tier_post_limit() was callable by anon/authenticated
+--    via /rest/v1/rpc/enforce_free_tier_post_limit. It's a trigger function
+--    referencing the new_rows transition table, never meant to be invoked
+--    directly. Revoked execute from anon/authenticated (matches how
+--    increment_link_stats was already locked down).
+--
+-- 2. FIXED: increment_link_stats was missing an explicit search_path.
+--    Already SECURITY INVOKER with execute restricted to service_role only,
+--    so real risk was low; added `search_path = public` as defense in depth,
+--    matching enforce_free_tier_post_limit and is_admin which both already
+--    had it set.
+--
+-- 3. NOT CHANGED (verified correct): is_admin() is flagged as callable by
+--    authenticated users, but its actual definition only ever answers "is
+--    the calling user (via auth.uid()) an admin" -- no data leakage. It's
+--    SECURITY DEFINER specifically so RLS policies on profiles can check
+--    role without infinite recursion, the standard Supabase pattern.
+--    Restricting it would break every policy that calls it.
+--
+-- 4. NOT CHANGED (verified correct): veteran_status_audit and
+--    veteran_verification_documents are flagged for "RLS enabled, no
+--    policy" -- this means those tables are fully locked down, readable
+--    by nobody but service_role. Correct posture for veteran PII, not a gap.
+--
+-- STILL OPEN, no code/SQL fix exists: Leaked Password Protection is
+-- disabled in Supabase Auth. This is a dashboard-only toggle
+-- (Authentication > Policies) -- no API for it was available to apply
+-- this remotely.
+--
+-- ============================================================
+-- PERFORMANCE (fixed in migrations fix_indexes_and_rls_initplan,
+-- consolidate_multiple_permissive_policies, and
+-- drop_conversion_events_duplicate_index)
+-- ============================================================
+--
+-- Duplicate indexes dropped (identical coverage to another index that
+-- remains): affiliate_links_user_idx, click_events_user_idx,
+-- click_events_code_idx, conversion_events_user_idx.
+--
+-- Missing covering indexes added for foreign keys: both FKs on
+-- veteran_status_audit (reviewer_user_id, subject_user_id), and the one on
+-- veteran_verification_documents (user_id).
+--
+-- auth.uid() re-evaluation: 4 RLS policies still called auth.uid() bare
+-- instead of (select auth.uid()), forcing Postgres to re-evaluate it per
+-- row instead of once per statement -- profiles_update_own,
+-- profiles_read_own_or_reviewer, "own social connections", and "Users
+-- manage own conversations". Rewrapped; identical access, same as the rest
+-- of the schema already used.
+--
+-- Multiple permissive policies consolidated on 9 tables (app_settings,
+-- assistant_avatars, ebay_tokens, google_reviewers, notifications,
+-- payments, payouts, profiles, subscriptions) -- each pair evaluated
+-- separately per query before. Two different fixes depending on the case:
+--   - Where a second policy was a pure no-op (ebay_tokens' and
+--     google_reviewers' "No client access" policies had qual=false and
+--     PERMISSIVE, which OR's into the admin policy and never subtracts
+--     access -- false OR is_admin() = is_admin(), always) -- dropped
+--     outright, zero access change.
+--   - Where an "Anyone reads X" policy already granted SELECT to everyone
+--     (app_settings, assistant_avatars) -- admin's redundant SELECT
+--     coverage was narrowed away, admin keeps insert/update/delete only.
+--   - Where admin and a user-scoped policy each covered part of the same
+--     command genuinely (payments/subscriptions SELECT; notifications
+--     SELECT+UPDATE; payouts INSERT+SELECT; profiles UPDATE) -- merged
+--     into one policy per command with `is_admin() OR <original user
+--     condition>`, preserving identical real access with one policy
+--     evaluation instead of two.
+--
+-- Verified after every change via pg_policies and a fresh advisor pull --
+-- not assumed correct from the migration applying without error.
+--
+-- ============================================================
+-- LEFT ALONE, deliberately
+-- ============================================================
+--
+-- 15 "unused index" findings (INFO level) -- Supabase's own usage stats
+-- say these have never been hit, but that can mean "hasn't fired yet" as
+-- easily as "never needed" for a low-traffic path (an admin lookup, a
+-- monthly payout run, an audit table). Dropping an index on unverifiable
+-- usage history is a guess, not a fix -- left alone.
+--
+-- Auth DB Connection Strategy (percentage vs absolute) -- a Supabase
+-- dashboard setting under Settings > Database, not a schema change.
