@@ -45,3 +45,42 @@ export async function paypalFetch(path, options = {}) {
   }
   return data;
 }
+
+/**
+ * PayPal doesn't sign webhooks with a shared secret the way Stripe does --
+ * verifying one means calling PayPal's own verification endpoint with the
+ * transmission headers it sent plus the raw event body. PAYPAL_WEBHOOK_ID
+ * identifies which webhook subscription (created once in the PayPal
+ * dashboard, pointing at /api/paypalWebhook) this check is for; PayPal
+ * rejects a mismatched one.
+ *
+ * @param {Record<string, string>} headers
+ * @param {any} body
+ * @returns {Promise<boolean>}
+ */
+export async function verifyPaypalWebhookSignature(headers, body) {
+  const webhookId = process.env.PAYPAL_WEBHOOK_ID;
+  if (!webhookId) throw new Error("PAYPAL_WEBHOOK_ID is not configured");
+
+  const result = await paypalFetch("/v1/notifications/verify-webhook-signature", {
+    method: "POST",
+    body: JSON.stringify({
+      auth_algo: headers["paypal-auth-algo"],
+      cert_url: headers["paypal-cert-url"],
+      transmission_id: headers["paypal-transmission-id"],
+      transmission_sig: headers["paypal-transmission-sig"],
+      transmission_time: headers["paypal-transmission-time"],
+      webhook_id: webhookId,
+      webhook_event: body,
+    }),
+  });
+
+  return result.verification_status === "SUCCESS";
+}
+
+export async function cancelPaypalSubscription(subscriptionId, reason) {
+  await paypalFetch(`/v1/billing/subscriptions/${subscriptionId}/cancel`, {
+    method: "POST",
+    body: JSON.stringify({ reason: reason || "Upgraded to lifetime access" }),
+  });
+}

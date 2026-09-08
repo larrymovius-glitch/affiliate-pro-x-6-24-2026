@@ -173,16 +173,14 @@ export default function Pricing() {
                 >
                   {checkoutMutation.isPending ? "Processing..." : "Get Started"}
                 </Button>
-                {plan.id === "lifetime" && (
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => paypalCheckoutMutation.mutate({ planType: plan.id })}
-                    disabled={paypalCheckoutMutation.isPending || veteranRequestStatus === "verified"}
-                  >
-                    {paypalCheckoutMutation.isPending ? "Processing..." : "Pay with PayPal"}
-                  </Button>
-                )}
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => paypalCheckoutMutation.mutate({ planType: plan.id })}
+                  disabled={paypalCheckoutMutation.isPending || veteranRequestStatus === "verified"}
+                >
+                  {paypalCheckoutMutation.isPending ? "Processing..." : "Pay with PayPal"}
+                </Button>
               </CardContent>
             </Card>
           ))}

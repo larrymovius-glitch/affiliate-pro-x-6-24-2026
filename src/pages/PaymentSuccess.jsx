@@ -7,17 +7,24 @@ import { CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 
 export default function PaymentSuccess() {
   const [searchParams] = useSearchParams();
+  // PayPal's redirect shape differs by product: a one-time Order comes back
+  // with ?token=<orderId>, a Subscription with ?subscription_id=<id>.
   const paypalToken = searchParams.get("token");
-  const [status, setStatus] = useState(paypalToken ? "capturing" : "done");
+  const paypalSubscriptionId = searchParams.get("subscription_id");
+  const [status, setStatus] = useState(paypalToken || paypalSubscriptionId ? "capturing" : "done");
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    if (!paypalToken) return;
+    if (!paypalToken && !paypalSubscriptionId) return;
     let cancelled = false;
 
     (async () => {
       try {
-        await base44.functions.invoke("capturePaypalOrder", { orderId: paypalToken });
+        if (paypalSubscriptionId) {
+          await base44.functions.invoke("capturePaypalSubscription", { subscriptionId: paypalSubscriptionId });
+        } else {
+          await base44.functions.invoke("capturePaypalOrder", { orderId: paypalToken });
+        }
         if (!cancelled) setStatus("done");
       } catch (err) {
         if (!cancelled) {
@@ -31,7 +38,7 @@ export default function PaymentSuccess() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paypalToken]);
+  }, [paypalToken, paypalSubscriptionId]);
 
   if (status === "capturing") {
     return (
