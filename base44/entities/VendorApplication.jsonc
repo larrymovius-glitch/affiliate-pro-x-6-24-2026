@@ -1,0 +1,45 @@
+{
+  "name": "VendorApplication",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "description": "User the application was submitted on behalf of"
+    },
+    "vendor_url": {
+      "type": "string",
+      "description": "The vendor application form URL that was submitted"
+    },
+    "submitted_fields": {
+      "type": "object",
+      "description": "The exact field selector -> value pairs submitted, for a full audit trail of what the bot sent"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["submitted", "failed"],
+      "default": "submitted"
+    },
+    "confirmation_text": {
+      "type": "string",
+      "description": "Any confirmation message the vendor's page showed after submission"
+    }
+  },
+  "required": ["user_id", "vendor_url", "submitted_fields"],
+  "rls": {
+    "create": {
+      "user_condition": { "role": "service_role" }
+    },
+    "read": {
+      "$or": [
+        { "data.user_id": "{{user.id}}" },
+        { "user_condition": { "role": "admin" } }
+      ]
+    },
+    "update": {
+      "user_condition": { "role": "service_role" }
+    },
+    "delete": {
+      "user_condition": { "role": "service_role" }
+    }
+  }
+}

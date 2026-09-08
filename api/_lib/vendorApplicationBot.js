@@ -177,3 +177,82 @@ For each form field, decide which profile answer (if any) it's asking for. Only 
     needsReview: mappings.filter((m) => m.confidence !== "high" || m.value == null),
   };
 }
+
+/**
+ * The one function in this whole module that actually changes something on
+ * an external site. Deliberately takes an already-approved list of
+ * {selector, value} pairs, not raw fields or a profile -- the caller (the
+ * API route, ultimately a human clicking "submit" on a reviewed draft) is
+ * what decides what gets sent. This function only ever executes a plan it's
+ * handed, never decides what belongs in it.
+ *
+ * Before touching anything, re-reads the live page and drops any approved
+ * mapping whose selector no longer exists -- the vendor's form may have
+ * changed in the time between drafting and submitting, and filling into
+ * whatever now occupies that selector (a different field entirely, on a
+ * redesigned page) is exactly the silent-corruption failure mode this
+ * whole design exists to avoid. Skipped fields are reported, not guessed
+ * around.
+ *
+ * @param {string} url
+ * @param {Array<{selector: string, value: string}>} approvedMappings
+ * @param {{ launch?: Function }} [deps]
+ * @returns {Promise<{ submitted: Array, skipped: Array, confirmationText: string }>}
+ */
+export async function submitVendorApplication(url, approvedMappings, deps = {}) {
+  const gate = checkVendorBotAction({ action: "submit_application_form", url });
+  if (!gate.allowed) throw new Error(gate.reason);
+
+  if (!Array.isArray(approvedMappings) || approvedMappings.length === 0) {
+    throw new Error("No approved mappings provided -- nothing to submit.");
+  }
+
+  const launch = deps.launch || launchBrowser;
+  const browser = await launch();
+  try {
+    const page = await browser.newPage();
+    await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
+
+    const currentSelectors = await page.evaluate(() =>
+      Array.from(document.querySelectorAll("input, textarea, select")).map((el) => (el.id ? `#${el.id}` : null)).filter(Boolean)
+    );
+    const currentSet = new Set(currentSelectors);
+
+    const submitted = [];
+    const skipped = [];
+    for (const mapping of approvedMappings) {
+      if (!currentSet.has(mapping.selector)) {
+        skipped.push({ ...mapping, reason: "Field no longer present on the live page -- form may have changed since drafting." });
+        continue;
+      }
+      await page.type(mapping.selector, String(mapping.value), { delay: 20 });
+      submitted.push(mapping);
+    }
+
+    if (submitted.length === 0) {
+      return { submitted, skipped, confirmationText: "" };
+    }
+
+    const submitSelector = await page.evaluate(() => {
+      const candidates = Array.from(document.querySelectorAll('button[type="submit"], input[type="submit"], button'));
+      const submitLike = candidates.find((el) => /submit|apply|send/i.test(el.textContent || el.value || ""));
+      const target = submitLike || candidates[0];
+      if (!target) return null;
+      if (!target.id) target.id = "vab-submit-button";
+      return `#${target.id}`;
+    });
+
+    let confirmationText = "";
+    if (submitSelector) {
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: "networkidle2", timeout: 15000 }).catch(() => {}),
+        page.click(submitSelector),
+      ]);
+      confirmationText = await page.evaluate(() => document.body?.innerText?.slice(0, 500) || "");
+    }
+
+    return { submitted, skipped, confirmationText };
+  } finally {
+    await browser.close();
+  }
+}
