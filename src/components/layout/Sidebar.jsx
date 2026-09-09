@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Link2, Package, Megaphone,
-  BarChart3, Wallet, X, Zap, Crown, Shield, FileText, Instagram, Target, Radar, Globe2, ClipboardList, ChevronDown
+  BarChart3, Wallet, X, Zap, Crown, Shield, FileText, Instagram, Target, Radar, Globe2, ClipboardList, ChevronDown, ShieldCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
@@ -20,6 +20,7 @@ const navItems = [
   { label: "Social Connect", icon: Instagram, path: "/social" },
   { label: "Networks", icon: Globe2, path: "/networks" },
   { label: "Application Profile", icon: ClipboardList, path: "/application-profile" },
+  { label: "Vendor Applications", icon: ShieldCheck, path: "/vendor-applications" },
   { label: "Pricing", icon: Crown, path: "/pricing" },
 ];
 

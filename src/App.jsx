@@ -31,6 +31,7 @@ import AutoPilot from '@/pages/AutoPilot';
 import SocialConnect from '@/pages/SocialConnect';
 import Networks from '@/pages/Networks';
 import ApplicationProfile from '@/pages/ApplicationProfile';
+import VendorApplications from '@/pages/VendorApplications';
 import PrivacyPolicy from '@/pages/PrivacyPolicy';
 import TermsOfService from '@/pages/TermsOfService';
 import Admin from '@/pages/Admin';
@@ -88,6 +89,7 @@ const AuthenticatedApp = () => {
           <Route path="/social" element={<SocialConnect />} />
           <Route path="/networks" element={<Networks />} />
           <Route path="/application-profile" element={<ApplicationProfile />} />
+          <Route path="/vendor-applications" element={<VendorApplications />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/pricing" element={<Pricing />} />
         </Route>
