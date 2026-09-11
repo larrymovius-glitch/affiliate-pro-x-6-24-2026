@@ -167,7 +167,7 @@ export const TOOL_DEFINITIONS = [
   {
     name: "get_application_profile",
     description:
-      "The user's saved answers for vendor affiliate-approval forms (full name, company, Telegram, traffic sources, other networks, ClickBank tier, ClickBank nickname) -- call this when the user is filling out a new vendor's approval form and wants help, then draft ready-to-paste answers from what it returns. Never invent an answer for a field this doesn't have; tell the user to fill it in on /application-profile instead.",
+      "The user's saved answers for vendor affiliate-approval forms (full name, company, Telegram, WhatsApp, traffic sources, other networks, ClickBank tier, ClickBank nickname) -- call this when the user is filling out a new vendor's approval form and wants help, then draft ready-to-paste answers from what it returns. Never invent an answer for a field this doesn't have; tell the user to fill it in on /application-profile instead.",
     input_schema: { type: "object", properties: {}, required: [] },
   },
 ];
@@ -460,6 +460,7 @@ export async function executeTool(name, input = {}, ctx = {}) {
           full_name: profile.full_name || null,
           company_name: profile.company_name || null,
           telegram_username: profile.telegram_username || null,
+          whatsapp_number: profile.whatsapp_number || null,
           website_url: profile.website_url || null,
           traffic_sources: profile.traffic_sources || [],
           networks_used: profile.networks_used || [],

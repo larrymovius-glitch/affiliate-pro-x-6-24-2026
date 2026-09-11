@@ -76,7 +76,7 @@
     },
     "affiliate_application_profile": {
       "type": "object",
-      "description": "Reusable answers for vendor affiliate-approval forms (full_name, company_name, telegram_username, website_url, traffic_sources[], networks_used[], clickbank_status) so Maya/Atlas can draft ready-to-paste answers instead of the user retyping them per vendor. See src/pages/ApplicationProfile.jsx.",
+      "description": "Reusable answers for vendor affiliate-approval forms (full_name, company_name, telegram_username, whatsapp_number, website_url, traffic_sources[], networks_used[], clickbank_status) so Maya/Atlas can draft ready-to-paste answers instead of the user retyping them per vendor. See src/pages/ApplicationProfile.jsx.",
       "default": {}
     }
   },

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { withTimeout } from "@/lib/withTimeout";
@@ -29,18 +29,42 @@ export default function ApplicationProfile() {
     full_name: saved.full_name || "",
     company_name: saved.company_name || "",
     telegram_username: saved.telegram_username || "",
+    whatsapp_number: saved.whatsapp_number || "",
     website_url: saved.website_url || "",
     traffic_sources: saved.traffic_sources || [],
     networks_used: saved.networks_used || [],
     clickbank_status: saved.clickbank_status || "",
   });
   const [saving, setSaving] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState(null);
+
+  // The form only seeds from `user` on first mount, so a save that actually
+  // reached the database needs to be reflected back here explicitly --
+  // otherwise the screen looks identical whether the save worked or silently
+  // failed, which is exactly what was reported.
+  useEffect(() => {
+    setForm({
+      full_name: saved.full_name || "",
+      company_name: saved.company_name || "",
+      telegram_username: saved.telegram_username || "",
+      whatsapp_number: saved.whatsapp_number || "",
+      website_url: saved.website_url || "",
+      traffic_sources: saved.traffic_sources || [],
+      networks_used: saved.networks_used || [],
+      clickbank_status: saved.clickbank_status || "",
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    });
+  }, [JSON.stringify(saved)]);
 
   const save = async () => {
     setSaving(true);
     try {
-      await withTimeout(base44.auth.updateMe({ affiliate_application_profile: form }), 15000, "Saving");
+      const updated = await withTimeout(base44.auth.updateMe({ affiliate_application_profile: form }), 15000, "Saving");
+      if (!updated?.affiliate_application_profile) {
+        throw new Error("The save didn't come back with your data -- please try again.");
+      }
       await checkUserAuth();
+      setLastSavedAt(new Date());
       toast.success("Saved. Maya and Atlas can use this to draft form answers now.");
     } catch (e) {
       toast.error(e?.message || "Couldn't save, try again.");
@@ -87,6 +111,12 @@ export default function ApplicationProfile() {
               <Label>Telegram username</Label>
               <Input value={form.telegram_username} onChange={(e) => setForm({ ...form, telegram_username: e.target.value })} placeholder="@yourhandle" />
             </div>
+            <div className="space-y-1.5">
+              <Label>WhatsApp number (optional)</Label>
+              <Input value={form.whatsapp_number} onChange={(e) => setForm({ ...form, whatsapp_number: e.target.value })} placeholder="+1 555 555 5555" />
+            </div>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Website / landing page (optional)</Label>
               <Input value={form.website_url} onChange={(e) => setForm({ ...form, website_url: e.target.value })} placeholder="https://..." />
@@ -155,6 +185,11 @@ export default function ApplicationProfile() {
       <Button onClick={save} disabled={saving} className="w-full gap-1.5">
         {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCheck className="w-4 h-4" />} Save Profile
       </Button>
+      {lastSavedAt && (
+        <p className="text-center text-xs text-emerald-400 flex items-center justify-center gap-1.5">
+          <CheckCheck className="w-3.5 h-3.5" /> Saved at {lastSavedAt.toLocaleTimeString()}
+        </p>
+      )}
     </div>
   );
 }

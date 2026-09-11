@@ -43,4 +43,5 @@ test("get_application_profile returns saved fields plus clickbank_nickname and e
   assert.equal(r.clickbank_nickname, "apxalaska");
   assert.equal(r.email, "me@example.com");
   assert.equal(r.company_name, null, "unset fields come back null, not undefined");
+  assert.equal(r.whatsapp_number, null);
 });
