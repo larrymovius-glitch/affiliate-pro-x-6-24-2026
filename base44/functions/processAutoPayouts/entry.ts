@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
           user_id: ownerId,
           amount: availableBalance,
           status: 'pending',
-          payment_method: schedule.payment_method || 'paypal',
+          payment_method: schedule.payment_method || 'bank_transfer',
           payment_email: schedule.payment_email || '',
           source: 'auto',
           requested_at: now.toISOString(),
