@@ -115,6 +115,53 @@ export function subscriptionPeriod(subscription) {
   };
 }
 
+/**
+ * Writes a subscription's current state to the subscriptions table and
+ * returns the subscription it wrote.
+ *
+ * Stripe sends customer.subscription.created and .updated within the same
+ * second, in no guaranteed order, so two webhook runs can race: both find no
+ * row and both insert, and the loser hits the unique constraint on
+ * stripe_subscription_id (a 500 on the first real purchase) -- or an older
+ * snapshot lands last and overwrites a newer one. So this reads the live
+ * subscription from Stripe instead of trusting the event's copy, and turns a
+ * lost insert race into an update. See tests/stripe-subscription-sync.test.mjs.
+ */
+export async function syncSubscription(D, stripe, eventSubscription) {
+  let subscription = eventSubscription;
+  try {
+    subscription = await stripe.subscriptions.retrieve(eventSubscription.id);
+  } catch (err) {
+    console.error("Could not fetch live subscription, using the event's copy:", eventSubscription.id, err.message);
+  }
+
+  const record = {
+    user_id: subscription.metadata?.user_id || "",
+    user_email: subscription.metadata?.user_email || "",
+    stripe_subscription_id: subscription.id,
+    stripe_customer_id: typeof subscription.customer === "string" ? subscription.customer : "",
+    plan_type: subscription.metadata?.plan_type,
+    status: subscription.status,
+    ...subscriptionPeriod(subscription),
+    canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : null,
+  };
+
+  const [existing] = await D.Subscription.filter({ stripe_subscription_id: subscription.id });
+  if (existing) {
+    await D.Subscription.update(existing.id, record);
+    return subscription;
+  }
+
+  try {
+    await D.Subscription.create(record);
+  } catch (err) {
+    if (err?.code !== "23505") throw err;
+    const [insertedMeanwhile] = await D.Subscription.filter({ stripe_subscription_id: subscription.id });
+    await D.Subscription.update(insertedMeanwhile.id, record);
+  }
+  return subscription;
+}
+
 export default async function handler(req, res) {
   try {
     const stripeKey = process.env.STRIPE_SECRET_KEY;
@@ -174,23 +221,10 @@ export default async function handler(req, res) {
       case "customer.subscription.created":
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
-        const subscription = event.data.object;
-        if (subscription.metadata?.app_id !== APP_ID) return res.status(200).json({ message: "Ignored - different app" });
+        const eventSubscription = event.data.object;
+        if (eventSubscription.metadata?.app_id !== APP_ID) return res.status(200).json({ message: "Ignored - different app" });
 
-        const record = {
-          user_id: subscription.metadata?.user_id || "",
-          user_email: subscription.metadata?.user_email || "",
-          stripe_subscription_id: subscription.id,
-          stripe_customer_id: typeof subscription.customer === "string" ? subscription.customer : "",
-          plan_type: subscription.metadata?.plan_type,
-          status: subscription.status,
-          ...subscriptionPeriod(subscription),
-          canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : null,
-        };
-
-        const existing = await D.Subscription.filter({ stripe_subscription_id: subscription.id });
-        if (existing.length > 0) await D.Subscription.update(existing[0].id, record);
-        else await D.Subscription.create(record);
+        const subscription = await syncSubscription(D, stripe, eventSubscription);
 
         // Keep the user's tier in step with the subscription's real state.
         // Deliberately no branch for "incomplete"/"past_due": those are
