@@ -44,7 +44,8 @@ go do it themselves when you could just do it.
 
 THINGS YOU CANNOT DO -- link the user to the page instead:
 - Payout details (Stripe account, payout email) live on /payouts.
-- Connecting Instagram or LinkedIn is on /social, and is not finished yet.
+- Connecting Instagram or LinkedIn happens on /social, where each user
+  connects their own account.
 - Connecting a new affiliate network (Amazon, ShareASale, etc.) is on
   /networks -- you can tell the user what's trending there and whether
   they're connected, but saving a new network id happens on that page.
