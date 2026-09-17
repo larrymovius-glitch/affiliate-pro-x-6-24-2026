@@ -97,17 +97,17 @@ export default function VendorApplications() {
           <ShieldCheck className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-white font-display">Vendor Applications</h1>
-          <p className="text-sm text-slate-400">
+          <h1 className="text-2xl font-bold text-foreground font-display">Vendor Applications</h1>
+          <p className="text-sm text-muted-foreground">
             Paste a vendor's affiliate-application URL. It reads the real form and drafts answers from your{" "}
             <a href="/application-profile" className="underline">Application Profile</a> -- nothing is submitted until you review and approve it below.
           </p>
         </div>
       </div>
 
-      <Card className="border-white/10 bg-white/5">
+      <Card className="border-border bg-card">
         <CardHeader>
-          <CardTitle className="text-white text-base">Read a vendor's application form</CardTitle>
+          <CardTitle className="text-foreground text-base">Read a vendor's application form</CardTitle>
         </CardHeader>
         <CardContent className="flex gap-2">
           <Input
@@ -124,9 +124,9 @@ export default function VendorApplications() {
       </Card>
 
       {draft && (
-        <Card className="border-white/10 bg-white/5">
+        <Card className="border-border bg-card">
           <CardHeader>
-            <CardTitle className="text-white text-base flex items-center gap-2">
+            <CardTitle className="text-foreground text-base flex items-center gap-2">
               Review before submitting
               <Badge variant="outline">{approvedCount} of {totalFields} approved</Badge>
             </CardTitle>
@@ -139,15 +139,15 @@ export default function VendorApplications() {
                   <CheckCircle2 className="w-4 h-4" /> Ready to fill (drafted with high confidence)
                 </div>
                 {draft.readyToFill.map((m) => (
-                  <div key={m.selector} className="flex items-center gap-3 rounded-lg border border-white/10 p-3">
+                  <div key={m.selector} className="flex items-center gap-3 rounded-lg border border-border p-3">
                     <input
                       type="checkbox"
                       checked={!!approved[m.selector]}
                       onChange={(e) => setApproved((prev) => ({ ...prev, [m.selector]: e.target.checked }))}
                     />
                     <div className="flex-1">
-                      <div className="text-xs text-slate-400">{m.selector}</div>
-                      <div className="text-white text-sm">{m.value}</div>
+                      <div className="text-xs text-muted-foreground">{m.selector}</div>
+                      <div className="text-foreground text-sm">{m.value}</div>
                     </div>
                   </div>
                 ))}
@@ -161,7 +161,7 @@ export default function VendorApplications() {
                 </div>
                 {draft.needsReview.map((m) => (
                   <div key={m.selector} className="space-y-1.5 rounded-lg border border-amber-500/30 p-3">
-                    <Label className="text-xs text-slate-400">{m.label || m.selector}{m.reason ? ` -- ${m.reason}` : ""}</Label>
+                    <Label className="text-xs text-muted-foreground">{m.label || m.selector}{m.reason ? ` -- ${m.reason}` : ""}</Label>
                     <div className="flex gap-2">
                       <Input
                         value={reviewFieldValue(m.selector)}
@@ -192,23 +192,23 @@ export default function VendorApplications() {
         </Card>
       )}
 
-      <Card className="border-white/10 bg-white/5">
+      <Card className="border-border bg-card">
         <CardHeader>
-          <CardTitle className="text-white text-base flex items-center gap-2">
+          <CardTitle className="text-foreground text-base flex items-center gap-2">
             <History className="w-4 h-4" /> Submission history
           </CardTitle>
           <CardDescription>Every submission this bot has ever made, success or failure.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
-          {historyQuery.isLoading && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
+          {historyQuery.isLoading && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
           {!historyQuery.isLoading && (historyQuery.data || []).length === 0 && (
-            <p className="text-sm text-slate-400">No submissions yet.</p>
+            <p className="text-sm text-muted-foreground">No submissions yet.</p>
           )}
           {(historyQuery.data || []).map((row) => (
-            <div key={row.id} className="flex items-center justify-between rounded-lg border border-white/10 p-3">
+            <div key={row.id} className="flex items-center justify-between rounded-lg border border-border p-3">
               <div>
-                <div className="text-white text-sm break-all">{row.vendor_url}</div>
-                <div className="text-xs text-slate-400">{new Date(row.created_at).toLocaleString()}</div>
+                <div className="text-foreground text-sm break-all">{row.vendor_url}</div>
+                <div className="text-xs text-muted-foreground">{new Date(row.created_at).toLocaleString()}</div>
               </div>
               <Badge variant={row.status === "submitted" ? "outline" : "destructive"}>{row.status}</Badge>
             </div>

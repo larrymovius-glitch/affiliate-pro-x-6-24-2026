@@ -51,8 +51,8 @@ export default function SocialConnect() {
           <Instagram className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-white font-display">Social Media & Payments</h1>
-          <p className="text-sm text-slate-400">
+          <h1 className="text-2xl font-bold text-foreground font-display">Social Media & Payments</h1>
+          <p className="text-sm text-muted-foreground">
             Connect your own Instagram or LinkedIn below and posts publish straight to it from the app.
             The rest have no self-serve connect flow for an app like this one, so each card links
             straight to the platform plus a copy-paste posting guide.
@@ -72,9 +72,9 @@ export default function SocialConnect() {
       </div>
 
       {/* Payment Setup */}
-      <Card className="border-white/10 bg-white/5">
+      <Card className="border-border bg-card">
         <CardHeader>
-          <CardTitle className="text-white text-base flex items-center gap-2">
+          <CardTitle className="text-foreground text-base flex items-center gap-2">
             <Settings className="w-5 h-5 text-blue-400" />
             Payment Setup (Get Paid Automatically)
           </CardTitle>
@@ -82,7 +82,7 @@ export default function SocialConnect() {
         <CardContent className="space-y-4">
           <div className="rounded-xl p-4 bg-blue-500/10 border border-blue-500/20">
             <p className="text-sm text-blue-300 font-semibold mb-1">💰 Automatic Commissions</p>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-muted-foreground">
               When a sale happens, commissions automatically route to your Stripe account.
               Veterans get FREE access with instant payouts!
             </p>
@@ -90,28 +90,28 @@ export default function SocialConnect() {
 
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <Label className="text-slate-300 text-sm">Payment Email</Label>
+              <Label className="text-foreground/80 text-sm">Payment Email</Label>
               <Input
                 type="email"
                 placeholder="your@email.com"
                 value={paymentEmail}
                 onChange={(e) => setPaymentEmail(e.target.value)}
-                className="bg-white/5 border-white/10 text-white placeholder:text-slate-500"
+                className="bg-card border-border text-foreground placeholder:text-muted-foreground"
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-slate-300 text-sm">
+              <Label className="text-foreground/80 text-sm">
                 Stripe Account ID
-                <span className="text-xs text-slate-500 ml-2">(starts with "acct_")</span>
+                <span className="text-xs text-muted-foreground ml-2">(starts with "acct_")</span>
               </Label>
               <Input
                 placeholder="acct_1234567890"
                 value={stripeAccount}
                 onChange={(e) => setStripeAccount(e.target.value)}
-                className="bg-white/5 border-white/10 text-white placeholder:text-slate-500 font-mono"
+                className="bg-card border-border text-foreground placeholder:text-muted-foreground font-mono"
               />
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground">
                 Don't have Stripe? Tell Atlas "I need to set up payments" and we'll help you!
               </p>
             </div>

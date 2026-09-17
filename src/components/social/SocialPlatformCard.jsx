@@ -61,16 +61,16 @@ export default function SocialPlatformCard({ platform, onGeneratePosts }) {
   };
 
   return (
-    <Card className="border-white/10 bg-white/5">
+    <Card className="border-border bg-card">
       <CardHeader>
-        <CardTitle className="text-white text-base flex items-center gap-2">
+        <CardTitle className="text-foreground text-base flex items-center gap-2">
           <Icon className="w-5 h-5" />
           {platform.name}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="rounded-xl p-4 bg-blue-500/10 border border-blue-500/20">
-          <p className="text-xs text-slate-400">{platform.tip}</p>
+          <p className="text-xs text-muted-foreground">{platform.tip}</p>
         </div>
 
         <div className="flex flex-wrap gap-2">

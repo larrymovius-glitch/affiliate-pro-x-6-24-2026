@@ -81,7 +81,7 @@ export default function InstagramConnect() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 text-slate-400 text-sm py-6 justify-center">
+      <div className="flex items-center gap-2 text-muted-foreground text-sm py-6 justify-center">
         <Loader2 className="w-4 h-4 animate-spin" /> Checking Instagram connection…
       </div>
     );
@@ -92,9 +92,9 @@ export default function InstagramConnect() {
   const expired = data?.connected && typeof daysLeft === "number" && daysLeft < 0;
 
   return (
-    <Card className="border-white/10 bg-white/5">
+    <Card className="border-border bg-card">
       <CardHeader>
-        <CardTitle className="text-white text-base flex items-center gap-2">
+        <CardTitle className="text-foreground text-base flex items-center gap-2">
           <Instagram className="w-5 h-5 text-pink-400" /> Instagram Auto-Posting
         </CardTitle>
       </CardHeader>
@@ -117,18 +117,18 @@ export default function InstagramConnect() {
             <AlertCircle className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
             <div className="space-y-2 min-w-0">
               <p className="text-sm font-semibold text-orange-300">Not set up yet</p>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Create a Meta app with the <span className="text-slate-300">Instagram</span> product, then set{" "}
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Create a Meta app with the <span className="text-foreground/80">Instagram</span> product, then set{" "}
                 <code className="text-orange-300">INSTAGRAM_APP_ID</code> and{" "}
                 <code className="text-orange-300">INSTAGRAM_APP_SECRET</code> in Vercel and redeploy. Accounts must
-                be Instagram <span className="text-slate-300">Business</span> accounts. Until the Meta app passes
+                be Instagram <span className="text-foreground/80">Business</span> accounts. Until the Meta app passes
                 App Review it only works for the app owner and accounts added as Instagram Testers — everyone else
                 will be turned away by Instagram, not by this page.
               </p>
               <div className="space-y-1">
-                <p className="text-xs text-slate-500">Add this exact redirect URI to the app:</p>
+                <p className="text-xs text-muted-foreground">Add this exact redirect URI to the app:</p>
                 <div className="flex items-stretch gap-2">
-                  <code className="flex-1 min-w-0 overflow-x-auto whitespace-nowrap rounded-lg bg-black/40 border border-white/10 px-3 py-2 text-xs text-orange-200">
+                  <code className="flex-1 min-w-0 overflow-x-auto whitespace-nowrap rounded-lg bg-black/40 border border-border px-3 py-2 text-xs text-orange-200">
                     {data?.redirect_uri}
                   </code>
                   <Button variant="outline" onClick={copyRedirect} className="flex-shrink-0 px-3" aria-label="Copy redirect URI">
@@ -142,7 +142,7 @@ export default function InstagramConnect() {
 
         {data?.configured && !data?.connected && (
           <>
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-muted-foreground">
               Connect your Instagram Business account once and generated posts publish straight to it — no
               copy-paste. If Instagram refuses, this app is still awaiting Meta App Review and your account
               needs adding as an Instagram Tester first.
@@ -174,7 +174,7 @@ export default function InstagramConnect() {
                 }`}>
                   {expired ? "Connection expired" : "Connected"}
                 </p>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   {expired
                     ? "An expired token cannot be refreshed — disconnect and connect again."
                     : `Access renews automatically. ${daysLeft} days left on the current token.`}

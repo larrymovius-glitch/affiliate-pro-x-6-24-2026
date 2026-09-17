@@ -125,7 +125,7 @@ export default function SmartSuggestions({ links = [], posts = [] }) {
         <button
           onClick={() => setRefreshKey(k => k + 1)}
           disabled={isLoading || isFetching}
-          className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-white/10 disabled:opacity-40"
+          className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-muted disabled:opacity-40"
         >
           <RefreshCw className={cn("w-4 h-4 text-muted-foreground", (isLoading || isFetching) && "animate-spin")} />
         </button>

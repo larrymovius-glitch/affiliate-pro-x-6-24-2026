@@ -233,8 +233,8 @@ export default function Admin() {
           <Crown className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-white font-display">Admin Control Panel</h1>
-          <p className="text-sm text-slate-400">Manage users, roles, and reviewer accounts</p>
+          <h1 className="text-2xl font-bold text-foreground font-display">Admin Control Panel</h1>
+          <p className="text-sm text-muted-foreground">Manage users, roles, and reviewer accounts</p>
         </div>
       </div>
 
@@ -246,15 +246,15 @@ export default function Admin() {
           { label: "Veterans", value: users.filter(u => u.veteran_status && u.veteran_status !== "regular").length, icon: Medal, color: "#10b981" },
           { label: "Reviewers", value: reviewers.length, icon: Star, color: "#10b981" },
         ].map(({ label, value, icon: Icon, color }) => (
-          <Card key={label} className="border-white/10 bg-white/5">
+          <Card key={label} className="border-border bg-card">
             <CardContent className="p-4 flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                 style={{ background: `${color}22`, border: `1px solid ${color}44` }}>
                 <Icon className="w-5 h-5" style={{ color }} />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">{value}</p>
-                <p className="text-xs text-slate-400">{label}</p>
+                <p className="text-2xl font-bold text-foreground">{value}</p>
+                <p className="text-xs text-muted-foreground">{label}</p>
               </div>
             </CardContent>
           </Card>
@@ -262,7 +262,7 @@ export default function Admin() {
       </div>
 
       <Tabs defaultValue="users">
-        <TabsList className="bg-white/5 border border-white/10 w-full max-w-full overflow-x-auto justify-start">
+        <TabsList className="bg-card border border-border w-full max-w-full overflow-x-auto justify-start">
           <TabsTrigger value="users" className="flex-shrink-0 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
             <Users className="w-4 h-4 mr-1.5" /> Users
           </TabsTrigger>
@@ -290,26 +290,26 @@ export default function Admin() {
         <TabsContent value="users" className="mt-4 space-y-3">
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Search by name or email…"
                 value={userSearch}
                 onChange={(e) => setUserSearch(e.target.value)}
-                className="pl-9 bg-white/5 border-white/10 text-white placeholder:text-slate-500"
+                className="pl-9 bg-card border-border text-foreground placeholder:text-muted-foreground"
               />
             </div>
-            <Button size="icon" variant="ghost" onClick={() => refetchUsers()} className="flex-shrink-0 text-slate-400 hover:text-white">
+            <Button size="icon" variant="ghost" onClick={() => refetchUsers()} className="flex-shrink-0 text-muted-foreground hover:text-foreground">
               <RefreshCw className="w-4 h-4" />
             </Button>
           </div>
 
           {loadingUsers ? (
             <div className="space-y-2">
-              {[...Array(4)].map((_, i) => <div key={i} className="h-16 rounded-xl bg-white/5 animate-pulse" />)}
+              {[...Array(4)].map((_, i) => <div key={i} className="h-16 rounded-xl bg-card animate-pulse" />)}
             </div>
           ) : filteredUsers.length === 0 ? (
-            <Card className="border-white/10 bg-white/5">
-              <CardContent className="py-10 text-center text-slate-400">
+            <Card className="border-border bg-card">
+              <CardContent className="py-10 text-center text-muted-foreground">
                 <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">No users found.</p>
               </CardContent>
@@ -317,7 +317,7 @@ export default function Admin() {
           ) : (
             <div className="space-y-2">
               {filteredUsers.map((u) => (
-                <Card key={u.id} className="border-white/10 bg-white/5 hover:bg-white/8 transition-colors">
+                <Card key={u.id} className="border-border bg-card hover:bg-muted transition-colors">
                   <CardContent className="p-4 flex items-center justify-between gap-3 flex-wrap">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm"
@@ -325,8 +325,8 @@ export default function Admin() {
                         {(u.full_name || u.email || "?")[0].toUpperCase()}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-white truncate">{u.full_name || "—"}</p>
-                        <p className="text-xs text-slate-400 truncate">{u.email}</p>
+                        <p className="text-sm font-semibold text-foreground truncate">{u.full_name || "—"}</p>
+                        <p className="text-xs text-muted-foreground truncate">{u.email}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -350,28 +350,28 @@ export default function Admin() {
                       {u.id !== user?.id ? (
                         <>
                           <Button size="sm" variant="ghost"
-                           className="h-8 w-8 p-0 text-slate-400 hover:text-emerald-400"
+                           className="h-8 w-8 p-0 text-muted-foreground hover:text-emerald-400"
                            title="Set Veteran Status"
                            onClick={() => setEditVeteranStatus(u)}
                           >
                            <Medal className="w-4 h-4" />
                           </Button>
                           <Button size="sm" variant="ghost"
-                           className="h-8 w-8 p-0 text-slate-400 hover:text-violet-400"
+                           className="h-8 w-8 p-0 text-muted-foreground hover:text-violet-400"
                            title="Set Subscription Tier"
                            onClick={() => setEditTier({ id: u.id, email: u.email, tier: u.subscription_tier || "free" })}
                           >
                            <Sparkles className="w-4 h-4" />
                           </Button>
                           <Button size="sm" variant="ghost"
-                           className="h-8 w-8 p-0 text-slate-400 hover:text-yellow-400"
+                           className="h-8 w-8 p-0 text-muted-foreground hover:text-yellow-400"
                            title={u.role === "admin" ? "Remove Admin" : "Make Admin"}
                            onClick={() => toggleRoleMutation.mutate({ id: u.id, role: u.role === "admin" ? "user" : "admin" })}
                           >
                            {u.role === "admin" ? <ShieldOff className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
                           </Button>
                           <Button size="sm" variant="ghost"
-                            className="h-8 w-8 p-0 text-slate-400 hover:text-red-400"
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-red-400"
                             title="Remove User"
                             onClick={() => setConfirmDelete(u)}
                           >
@@ -379,7 +379,7 @@ export default function Admin() {
                           </Button>
                         </>
                       ) : (
-                        <span className="text-xs text-slate-500 italic px-1">you</span>
+                        <span className="text-xs text-muted-foreground italic px-1">you</span>
                       )}
                     </div>
                   </CardContent>
@@ -391,28 +391,28 @@ export default function Admin() {
 
         {/* ── INVITE TAB ── */}
         <TabsContent value="invite" className="mt-4">
-          <Card className="border-white/10 bg-white/5">
+          <Card className="border-border bg-card">
             <CardHeader>
-              <CardTitle className="text-white text-base flex items-center gap-2">
+              <CardTitle className="text-foreground text-base flex items-center gap-2">
                 <UserPlus className="w-4 h-4 text-violet-400" /> Invite New User
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-5">
               <div className="space-y-2">
-                <Label className="text-slate-300 text-sm">Email Address</Label>
+                <Label className="text-foreground/80 text-sm">Email Address</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
                     placeholder="email@example.com"
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleInvite()}
-                    className="pl-9 bg-white/5 border-white/10 text-white placeholder:text-slate-500"
+                    className="pl-9 bg-card border-border text-foreground placeholder:text-muted-foreground"
                   />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label className="text-slate-300 text-sm">Role</Label>
+                <Label className="text-foreground/80 text-sm">Role</Label>
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { value: "user", label: "Regular User", desc: "Standard platform access", icon: Users },
@@ -424,14 +424,14 @@ export default function Admin() {
                       className={`p-3 rounded-xl text-left border transition-all ${
                         inviteRole === value
                           ? "border-violet-500 bg-violet-600/20"
-                          : "border-white/10 bg-white/5 hover:border-white/20"
+                          : "border-border bg-card hover:border-primary/40"
                       }`}
                     >
                       <div className="flex items-center gap-2 mb-1">
-                        <Icon className={`w-4 h-4 ${inviteRole === value ? "text-violet-400" : "text-slate-500"}`} />
-                        <span className={`text-sm font-medium ${inviteRole === value ? "text-white" : "text-slate-400"}`}>{label}</span>
+                        <Icon className={`w-4 h-4 ${inviteRole === value ? "text-violet-400" : "text-muted-foreground"}`} />
+                        <span className={`text-sm font-medium ${inviteRole === value ? "text-foreground" : "text-muted-foreground"}`}>{label}</span>
                       </div>
-                      <p className="text-xs text-slate-500">{desc}</p>
+                      <p className="text-xs text-muted-foreground">{desc}</p>
                     </button>
                   ))}
                 </div>
@@ -463,11 +463,11 @@ export default function Admin() {
         {/* ── PAYOUTS TAB ── */}
         <TabsContent value="payouts" className="mt-4 space-y-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-muted-foreground">
               {payouts.filter(p => p.status === "pending").length} pending · ${pendingPayoutTotal.toFixed(2)} awaiting review
             </p>
             <div className="flex items-center gap-2">
-              <Button size="icon" variant="ghost" onClick={() => refetchPayouts()} className="flex-shrink-0 text-slate-400 hover:text-white">
+              <Button size="icon" variant="ghost" onClick={() => refetchPayouts()} className="flex-shrink-0 text-muted-foreground hover:text-foreground">
                 <RefreshCw className="w-4 h-4" />
               </Button>
             </div>
@@ -480,8 +480,8 @@ export default function Admin() {
                 onClick={() => setPayoutFilter(f)}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium capitalize border transition-colors ${
                   payoutFilter === f
-                    ? "border-violet-500 bg-violet-600/30 text-white"
-                    : "border-white/10 bg-white/5 text-slate-400 hover:text-white"
+                    ? "border-violet-500 bg-violet-600/30 text-foreground"
+                    : "border-border bg-card text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {f}
@@ -491,11 +491,11 @@ export default function Admin() {
 
           {loadingPayouts ? (
             <div className="space-y-2">
-              {[...Array(3)].map((_, i) => <div key={i} className="h-20 rounded-xl bg-white/5 animate-pulse" />)}
+              {[...Array(3)].map((_, i) => <div key={i} className="h-20 rounded-xl bg-card animate-pulse" />)}
             </div>
           ) : filteredPayouts.length === 0 ? (
-            <Card className="border-white/10 bg-white/5">
-              <CardContent className="py-10 text-center text-slate-400">
+            <Card className="border-border bg-card">
+              <CardContent className="py-10 text-center text-muted-foreground">
                 <Wallet className="w-8 h-8 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">No {payoutFilter !== "all" ? payoutFilter : ""} payouts.</p>
               </CardContent>
@@ -506,19 +506,19 @@ export default function Admin() {
                 const recipient = usersById[p.user_id] || usersById[p.created_by_id];
                 const canPay = p.status === "approved" && recipient?.stripeAccountId;
                 return (
-                  <Card key={p.id} className="border-white/10 bg-white/5 hover:bg-white/8 transition-colors">
+                  <Card key={p.id} className="border-border bg-card hover:bg-muted transition-colors">
                     <CardContent className="p-4 flex items-center justify-between gap-3 flex-wrap">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-semibold text-white">${Number(p.amount).toFixed(2)}</p>
+                          <p className="text-sm font-semibold text-foreground">${Number(p.amount).toFixed(2)}</p>
                           <Badge className={`text-xs border ${PAYOUT_STATUS_COLORS[p.status] || PAYOUT_STATUS_COLORS.pending}`}>
                             {p.status}
                           </Badge>
                           {p.source === "auto" && (
-                            <Badge variant="outline" className="text-xs border-white/10 text-slate-400">auto</Badge>
+                            <Badge variant="outline" className="text-xs border-border text-muted-foreground">auto</Badge>
                           )}
                         </div>
-                        <p className="text-xs text-slate-400 truncate mt-0.5">
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">
                           {recipient?.email || p.payment_email || "Unknown recipient"} · {p.payment_method || "—"}
                         </p>
                         {p.status === "approved" && !recipient?.stripeAccountId && (
@@ -527,7 +527,7 @@ export default function Admin() {
                           </p>
                         )}
                         {p.status === "paid" && (
-                          <p className="text-xs text-slate-500 mt-0.5">
+                          <p className="text-xs text-muted-foreground mt-0.5">
                             Paid {p.paid_at ? new Date(p.paid_at).toLocaleDateString() : ""}{p.notes ? ` · ${p.notes}` : ""}
                           </p>
                         )}
@@ -571,7 +571,7 @@ export default function Admin() {
         {/* ── REVIEWERS TAB ── */}
         <TabsContent value="reviewers" className="mt-4 space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-slate-400">{reviewers.length} reviewer account{reviewers.length !== 1 ? "s" : ""}</p>
+            <p className="text-sm text-muted-foreground">{reviewers.length} reviewer account{reviewers.length !== 1 ? "s" : ""}</p>
             <Button size="sm" onClick={openAddReviewer} style={{ background: "linear-gradient(90deg, #7c3aed, #f59e0b)" }}>
               <UserPlus className="w-4 h-4 mr-1.5" /> Add Reviewer
             </Button>
@@ -579,14 +579,14 @@ export default function Admin() {
 
           {loadingReviewers ? (
             <div className="space-y-2">
-              {[...Array(3)].map((_, i) => <div key={i} className="h-16 rounded-xl bg-white/5 animate-pulse" />)}
+              {[...Array(3)].map((_, i) => <div key={i} className="h-16 rounded-xl bg-card animate-pulse" />)}
             </div>
           ) : reviewers.length === 0 ? (
-            <Card className="border-white/10 bg-white/5">
+            <Card className="border-border bg-card">
               <CardContent className="py-12 text-center">
                 <Star className="w-10 h-10 mx-auto mb-3 text-yellow-500/30" />
-                <p className="text-sm text-slate-400 mb-1">No reviewer accounts yet</p>
-                <p className="text-xs text-slate-500">Add Google accounts for Play Store reviewing</p>
+                <p className="text-sm text-muted-foreground mb-1">No reviewer accounts yet</p>
+                <p className="text-xs text-muted-foreground">Add Google accounts for Play Store reviewing</p>
                 <Button size="sm" className="mt-4" onClick={openAddReviewer}
                   style={{ background: "linear-gradient(90deg, #7c3aed, #f59e0b)" }}>
                   <UserPlus className="w-4 h-4 mr-1.5" /> Add First Reviewer
@@ -596,26 +596,26 @@ export default function Admin() {
           ) : (
             <div className="space-y-2">
               {reviewers.map((r) => (
-                <Card key={r.id} className="border-white/10 bg-white/5 hover:bg-white/8 transition-colors">
+                <Card key={r.id} className="border-border bg-card hover:bg-muted transition-colors">
                   <CardContent className="p-4 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-10 h-10 rounded-full bg-yellow-500/20 border border-yellow-500/30 flex items-center justify-center flex-shrink-0">
                         <Star className="w-4 h-4 text-yellow-400" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-white truncate">{r.name || "Unnamed"}</p>
-                        <p className="text-xs text-slate-400 truncate">{r.email}</p>
-                        {r.notes && <p className="text-xs text-slate-500 truncate mt-0.5">{r.notes}</p>}
+                        <p className="text-sm font-semibold text-foreground truncate">{r.name || "Unnamed"}</p>
+                        <p className="text-xs text-muted-foreground truncate">{r.email}</p>
+                        {r.notes && <p className="text-xs text-muted-foreground truncate mt-0.5">{r.notes}</p>}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <Button size="sm" variant="ghost"
-                        className="h-8 w-8 p-0 text-slate-400 hover:text-violet-400"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-violet-400"
                         onClick={() => openEditReviewer(r)}>
                         <Edit2 className="w-4 h-4" />
                       </Button>
                       <Button size="sm" variant="ghost"
-                        className="h-8 w-8 p-0 text-slate-400 hover:text-red-400"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-red-400"
                         onClick={() => deleteReviewerMutation.mutate(r.id)}>
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -633,7 +633,7 @@ export default function Admin() {
 
         {/* ── AVATARS TAB ── */}
         <TabsContent value="avatars" className="mt-4">
-          <Card className="border-white/10 bg-white/5">
+          <Card className="border-border bg-card">
             <CardContent className="p-6">
               <AvatarUploader />
             </CardContent>
@@ -642,9 +642,9 @@ export default function Admin() {
 
         {/* ── EBAY TAB ── */}
         <TabsContent value="ebay" className="mt-4 space-y-4">
-          <Card className="border-white/10 bg-white/5">
+          <Card className="border-border bg-card">
             <CardHeader>
-              <CardTitle className="text-white text-base flex items-center gap-2">
+              <CardTitle className="text-foreground text-base flex items-center gap-2">
                 <ShoppingBag className="w-5 h-5 text-yellow-400" /> eBay Trending Sync
               </CardTitle>
             </CardHeader>
@@ -658,7 +658,7 @@ export default function Admin() {
                   <p className={`text-sm font-semibold ${ebayCampaignId ? "text-green-300" : "text-orange-300"}`}>
                     {ebayCampaignId ? `Campaign ID saved: ${ebayCampaignId}` : "No EPN Campaign ID saved"}
                   </p>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {ebayCampaignId
                       ? "Real eBay products will be linked with this campaign so clicks are tracked and earn commission."
                       : "Save your eBay Partner Network Campaign ID on the Networks page before syncing."}
@@ -696,7 +696,7 @@ export default function Admin() {
                 <RefreshCw className={`w-4 h-4 ${syncEbayMutation.isPending ? "animate-spin" : ""}`} />
                 {syncEbayMutation.isPending ? "Syncing…" : "Sync Trending Products Now"}
               </Button>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground">
                 Also runs automatically every day. Pulls real trending eBay items via the Browse API and creates
                 tracked affiliate links using your saved Campaign ID.
               </p>
@@ -707,20 +707,20 @@ export default function Admin() {
 
       {/* Delete User Confirm Dialog */}
       <Dialog open={!!confirmDelete} onOpenChange={() => setConfirmDelete(null)}>
-        <DialogContent className="border-white/10 bg-slate-900 text-white">
+        <DialogContent className="border-border bg-popover text-popover-foreground">
           <DialogHeader>
             <DialogTitle className="text-red-400 flex items-center gap-2">
               <Trash2 className="w-5 h-5" /> Remove User
             </DialogTitle>
           </DialogHeader>
           <div className="py-2">
-            <p className="text-slate-300 text-sm">
-              Are you sure you want to remove <strong className="text-white">{confirmDelete?.email}</strong>?
+            <p className="text-foreground/80 text-sm">
+              Are you sure you want to remove <strong className="text-foreground">{confirmDelete?.email}</strong>?
             </p>
-            <p className="text-xs text-slate-500 mt-1">This action cannot be undone.</p>
+            <p className="text-xs text-muted-foreground mt-1">This action cannot be undone.</p>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="ghost" className="text-slate-400" onClick={() => setConfirmDelete(null)}>Cancel</Button>
+            <Button variant="ghost" className="text-muted-foreground" onClick={() => setConfirmDelete(null)}>Cancel</Button>
             <Button variant="destructive"
               disabled={deleteUserMutation.isPending}
               onClick={() => deleteUserMutation.mutate(confirmDelete.id)}>
@@ -732,7 +732,7 @@ export default function Admin() {
 
         {/* Veteran Status Dialog */}
         <Dialog open={!!editVeteranStatus} onOpenChange={() => setEditVeteranStatus(null)}>
-        <DialogContent className="border-white/10 bg-slate-900 text-white">
+        <DialogContent className="border-border bg-popover text-popover-foreground">
           <DialogHeader>
             <DialogTitle className="font-display flex items-center gap-2">
               <Medal className="w-5 h-5 text-emerald-500" />
@@ -752,21 +752,21 @@ export default function Admin() {
               {openVeteranDocumentMutation.isPending ? "Opening document..." : "Open verification document"}
             </Button>
             <div className="space-y-2">
-              <Label className="text-slate-300">Veteran Status</Label>
+              <Label className="text-foreground/80">Veteran Status</Label>
               <MobileSelect
                 value={editVeteranStatus?.veteranStatus || "regular"}
                 onValueChange={(val) => setEditVeteranStatus(prev => ({ ...prev, veteranStatus: val }))}
                 options={VETERAN_STATUS_OPTIONS}
-                className="bg-white/5 border-white/10 text-white"
+                className="bg-card border-border text-foreground"
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-slate-300">Admin Notes</Label>
+              <Label className="text-foreground/80">Admin Notes</Label>
               <textarea
                 value={editVeteranStatus?.veteranNotes || ""}
                 onChange={(e) => setEditVeteranStatus(prev => ({ ...prev, veteranNotes: e.target.value }))}
                 placeholder="Documentation notes..."
-                className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white min-h-[100px]"
+                className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground min-h-[100px]"
               />
             </div>
             <div className="flex justify-end gap-2 pt-2">
@@ -788,7 +788,7 @@ export default function Admin() {
 
         {/* Subscription Tier Dialog */}
         <Dialog open={!!editTier} onOpenChange={() => setEditTier(null)}>
-        <DialogContent className="border-white/10 bg-slate-900 text-white">
+        <DialogContent className="border-border bg-popover text-popover-foreground">
           <DialogHeader>
             <DialogTitle className="font-display flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-violet-400" />
@@ -797,16 +797,16 @@ export default function Admin() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="text-sm text-muted-foreground">{editTier?.email}</div>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               No feature in the app gates on this yet -- this records a tier for the account, it doesn't unlock or restrict anything today.
             </p>
             <div className="space-y-2">
-              <Label className="text-slate-300">Tier</Label>
+              <Label className="text-foreground/80">Tier</Label>
               <MobileSelect
                 value={editTier?.tier || "free"}
                 onValueChange={(val) => setEditTier(prev => ({ ...prev, tier: val }))}
                 options={TIER_OPTIONS}
-                className="bg-white/5 border-white/10 text-white"
+                className="bg-card border-border text-foreground"
               />
             </div>
             <div className="flex justify-end gap-2 pt-2">
@@ -824,7 +824,7 @@ export default function Admin() {
 
         {/* Pay Payout Confirm Dialog */}
         <Dialog open={!!confirmPay} onOpenChange={(open) => { if (!open) { setConfirmPay(null); setPayError(null); } }}>
-          <DialogContent className="border-white/10 bg-slate-900 text-white">
+          <DialogContent className="border-border bg-popover text-popover-foreground">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Send className="w-5 h-5 text-violet-400" />
@@ -832,9 +832,9 @@ export default function Admin() {
               </DialogTitle>
             </DialogHeader>
             <div className="py-2 space-y-2">
-              <p className="text-slate-300 text-sm">
-                Send <strong className="text-white">${confirmPay ? Number(confirmPay.amount).toFixed(2) : ""}</strong> to{" "}
-                <strong className="text-white">
+              <p className="text-foreground/80 text-sm">
+                Send <strong className="text-foreground">${confirmPay ? Number(confirmPay.amount).toFixed(2) : ""}</strong> to{" "}
+                <strong className="text-foreground">
                   {confirmPay ? (usersById[confirmPay.user_id] || usersById[confirmPay.created_by_id])?.email : ""}
                 </strong>{" "}
                 via Stripe? This transfers real money and cannot be undone from here.
@@ -846,7 +846,7 @@ export default function Admin() {
               )}
             </div>
             <DialogFooter className="gap-2">
-              <Button variant="ghost" className="text-slate-400" onClick={() => { setConfirmPay(null); setPayError(null); }}>Cancel</Button>
+              <Button variant="ghost" className="text-muted-foreground" onClick={() => { setConfirmPay(null); setPayError(null); }}>Cancel</Button>
               <Button
                 disabled={payPayoutMutation.isPending}
                 style={{ background: "linear-gradient(90deg, #7c3aed, #f59e0b)" }}
@@ -859,7 +859,7 @@ export default function Admin() {
 
         {/* Add/Edit Reviewer Dialog */}
       <Dialog open={showReviewerDialog} onOpenChange={setShowReviewerDialog}>
-        <DialogContent className="border-white/10 bg-slate-900 text-white">
+        <DialogContent className="border-border bg-popover text-popover-foreground">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Star className="w-5 h-5 text-yellow-400" />
@@ -868,26 +868,26 @@ export default function Admin() {
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-1.5">
-              <Label className="text-slate-300 text-sm">Name</Label>
+              <Label className="text-foreground/80 text-sm">Name</Label>
               <Input placeholder="Reviewer name" value={reviewerName}
                 onChange={(e) => setReviewerName(e.target.value)}
-                className="bg-white/5 border-white/10 text-white placeholder:text-slate-500" />
+                className="bg-card border-border text-foreground placeholder:text-muted-foreground" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-slate-300 text-sm">Google Account Email</Label>
+              <Label className="text-foreground/80 text-sm">Google Account Email</Label>
               <Input placeholder="reviewer@gmail.com" value={reviewerEmail}
                 onChange={(e) => setReviewerEmail(e.target.value)}
-                className="bg-white/5 border-white/10 text-white placeholder:text-slate-500" />
+                className="bg-card border-border text-foreground placeholder:text-muted-foreground" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-slate-300 text-sm">Notes (optional)</Label>
+              <Label className="text-foreground/80 text-sm">Notes (optional)</Label>
               <Input placeholder="e.g. Primary review account" value={reviewerNotes}
                 onChange={(e) => setReviewerNotes(e.target.value)}
-                className="bg-white/5 border-white/10 text-white placeholder:text-slate-500" />
+                className="bg-card border-border text-foreground placeholder:text-muted-foreground" />
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="ghost" className="text-slate-400" onClick={() => setShowReviewerDialog(false)}>Cancel</Button>
+            <Button variant="ghost" className="text-muted-foreground" onClick={() => setShowReviewerDialog(false)}>Cancel</Button>
             <Button onClick={() => saveReviewerMutation.mutate({ email: reviewerEmail.trim(), name: reviewerName.trim(), notes: reviewerNotes.trim() })}
               disabled={!reviewerEmail.trim() || saveReviewerMutation.isPending}
               style={{ background: "linear-gradient(90deg, #7c3aed, #f59e0b)" }}>

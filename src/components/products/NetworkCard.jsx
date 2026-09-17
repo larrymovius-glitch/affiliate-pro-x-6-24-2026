@@ -40,12 +40,12 @@ export default function NetworkCard({ network, savedId }) {
   };
 
   return (
-    <Card className="border-white/10 bg-white/5">
+    <Card className="border-border bg-card">
       <CardHeader>
-        <CardTitle className="text-white text-base flex items-center justify-between gap-2">
+        <CardTitle className="text-foreground text-base flex items-center justify-between gap-2">
           <span>{network.name}</span>
           {!network.instant && (
-            <span className="text-[10px] font-normal uppercase tracking-wide text-slate-400">approval required</span>
+            <span className="text-[10px] font-normal uppercase tracking-wide text-muted-foreground">approval required</span>
           )}
         </CardTitle>
       </CardHeader>

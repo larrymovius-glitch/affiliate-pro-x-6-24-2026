@@ -157,14 +157,14 @@ ${script.hashtags}`;
         </CardHeader>
         <CardContent className="grid sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label className="text-white font-semibold">Affiliate Link</Label>
+            <Label className="text-foreground font-semibold">Affiliate Link</Label>
             <Select value={selectedLink} onValueChange={setSelectedLink}>
-              <SelectTrigger className="bg-white/15 border-white/30 text-white h-12">
-                <SelectValue placeholder="Select a link..." className="text-white" />
+              <SelectTrigger className="bg-background border-border text-foreground h-12">
+                <SelectValue placeholder="Select a link..." className="text-foreground" />
               </SelectTrigger>
-              <SelectContent className="bg-slate-900 border-white/20">
+              <SelectContent className="bg-popover border-border">
                 {links.map(l => (
-                  <SelectItem key={l.id || l._id} value={l.id || l._id} className="text-white focus:bg-white/20">
+                  <SelectItem key={l.id || l._id} value={l.id || l._id} className="text-popover-foreground focus:bg-accent focus:text-accent-foreground">
                     {l.product_name || l.title || l.short_code}
                   </SelectItem>
                 ))}
@@ -173,14 +173,14 @@ ${script.hashtags}`;
           </div>
 
           <div className="space-y-2">
-            <Label className="text-white font-semibold">Tone</Label>
+            <Label className="text-foreground font-semibold">Tone</Label>
             <Select value={tone} onValueChange={setTone}>
-              <SelectTrigger className="bg-white/15 border-white/30 text-white h-12">
-                <SelectValue className="text-white" />
+              <SelectTrigger className="bg-background border-border text-foreground h-12">
+                <SelectValue className="text-foreground" />
               </SelectTrigger>
-              <SelectContent className="bg-slate-900 border-white/20">
+              <SelectContent className="bg-popover border-border">
                 {tones.map(t => (
-                  <SelectItem key={t} value={t} className="capitalize text-white focus:bg-white/20">
+                  <SelectItem key={t} value={t} className="capitalize text-popover-foreground focus:bg-accent focus:text-accent-foreground">
                     {t}
                   </SelectItem>
                 ))}
@@ -224,7 +224,7 @@ ${script.hashtags}`;
                         <span className="text-lg">🪝</span>
                         <span className="text-sm font-semibold text-pink-300">HOOK (0-3s)</span>
                       </div>
-                      <p className="text-sm text-white">{post.script.hook}</p>
+                      <p className="text-sm text-foreground">{post.script.hook}</p>
                     </div>
 
                     <div className="bg-muted/30 rounded-xl p-4 space-y-2">
@@ -237,14 +237,14 @@ ${script.hashtags}`;
                           <Music className="w-3 h-3 text-purple-400" />
                           <span className="text-xs font-semibold text-purple-300">Audio Suggestion</span>
                         </div>
-                        <p className="text-xs text-white">{post.script.audio_suggestion}</p>
+                        <p className="text-xs text-foreground">{post.script.audio_suggestion}</p>
                       </div>
                       <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3">
                         <div className="flex items-center gap-2 mb-1">
                           <Video className="w-3 h-3 text-blue-400" />
                           <span className="text-xs font-semibold text-blue-300">Text Overlay</span>
                         </div>
-                        <p className="text-xs text-white">{post.script.text_overlay}</p>
+                        <p className="text-xs text-foreground">{post.script.text_overlay}</p>
                       </div>
                     </div>
 

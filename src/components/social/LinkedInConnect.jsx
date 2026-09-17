@@ -70,7 +70,7 @@ export default function LinkedInConnect() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 text-slate-400 text-sm py-6 justify-center">
+      <div className="flex items-center gap-2 text-muted-foreground text-sm py-6 justify-center">
         <Loader2 className="w-4 h-4 animate-spin" /> Checking LinkedIn connection…
       </div>
     );
@@ -82,9 +82,9 @@ export default function LinkedInConnect() {
   const expiringSoon = data?.connected && hasDays && !expired && daysLeft <= 10;
 
   return (
-    <Card className="border-white/10 bg-white/5">
+    <Card className="border-border bg-card">
       <CardHeader>
-        <CardTitle className="text-white text-base flex items-center gap-2">
+        <CardTitle className="text-foreground text-base flex items-center gap-2">
           <Linkedin className="w-5 h-5 text-sky-400" /> LinkedIn Posting
         </CardTitle>
       </CardHeader>
@@ -107,17 +107,17 @@ export default function LinkedInConnect() {
             <AlertCircle className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
             <div className="space-y-2 min-w-0">
               <p className="text-sm font-semibold text-orange-300">Not set up yet</p>
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <p className="text-xs text-muted-foreground leading-relaxed">
                 Create an app at linkedin.com/developers (LinkedIn requires linking it to a LinkedIn Page), add
-                the <span className="text-slate-300">Share on LinkedIn</span> and{" "}
-                <span className="text-slate-300">Sign In with LinkedIn using OpenID Connect</span> products, then
+                the <span className="text-foreground/80">Share on LinkedIn</span> and{" "}
+                <span className="text-foreground/80">Sign In with LinkedIn using OpenID Connect</span> products, then
                 set <code className="text-orange-300">LINKEDIN_CLIENT_ID</code> and{" "}
                 <code className="text-orange-300">LINKEDIN_CLIENT_SECRET</code> in Vercel and redeploy.
               </p>
               <div className="space-y-1">
-                <p className="text-xs text-slate-500">Add this exact redirect URL on the app’s Auth tab:</p>
+                <p className="text-xs text-muted-foreground">Add this exact redirect URL on the app’s Auth tab:</p>
                 <div className="flex items-stretch gap-2">
-                  <code className="flex-1 min-w-0 overflow-x-auto whitespace-nowrap rounded-lg bg-black/40 border border-white/10 px-3 py-2 text-xs text-orange-200">
+                  <code className="flex-1 min-w-0 overflow-x-auto whitespace-nowrap rounded-lg bg-black/40 border border-border px-3 py-2 text-xs text-orange-200">
                     {data?.redirect_uri}
                   </code>
                   <Button variant="outline" onClick={copyRedirect} className="flex-shrink-0 px-3" aria-label="Copy redirect URL">
@@ -131,7 +131,7 @@ export default function LinkedInConnect() {
 
         {data?.configured && !data?.connected && (
           <>
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-muted-foreground">
               Connect your LinkedIn once, then “Post to LinkedIn” on Make Money publishes straight to your
               profile — no copy-paste.
             </p>
@@ -162,7 +162,7 @@ export default function LinkedInConnect() {
                 }`}>
                   {expired ? "Connection expired" : "Connected"}
                 </p>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   {expired
                     ? "LinkedIn connections last 60 days. Reconnect to keep posting."
                     : hasDays
