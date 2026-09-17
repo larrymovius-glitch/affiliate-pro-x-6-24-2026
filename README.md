@@ -65,14 +65,13 @@ schedules six daily jobs (times in UTC):
 | `syncTrendingLinks`       | 06:00 | Adds links for currently trending ClickBank products    |
 | `syncEbayTrending`        | 07:00 | Adds links for currently trending eBay products         |
 | `optimizeAutopilotPosts`  | 09:00 | Autopilot's 48-hour keep-what-earned rotation           |
-| `dailyPerformanceSummary` | 12:00 | Emails each user their daily summary                    |
+| `dailyPerformanceSummary` | 12:00 | Emails admins a summary of links, clicks and earnings   |
 | `processAutoPayouts`      | 13:00 | Creates payouts that are due under users' schedules     |
 
 Three depend on integrations beyond the basics: the eBay sync needs
 `EBAY_APP_ID`, `EBAY_CERT_ID` and an eBay Partner Network campaign ID saved on
 the Networks page; the Instagram refresh needs `INSTAGRAM_APP_SECRET`; and the
-daily summary sends through Resend, so without `RESEND_API_KEY` its emails are
-skipped.
+daily summary sends through Resend (see below).
 
 Scheduled runs authenticate with `CRON_SECRET`, not a user token. It can be any
 long random string, but Vercel refuses to deploy if it has leading or trailing
@@ -94,3 +93,25 @@ whitespace.
   `invoice.payment_succeeded`. Its signing secret (`whsec_…`) goes in
   `STRIPE_WEBHOOK_SECRET`. Without the webhook, customers pay but are never
   upgraded.
+
+## Email setup
+
+`api/_lib/email.js` sends through [Resend](https://resend.com). Email is the
+only integration here that fails soft on purpose — a send that cannot go out
+logs and returns false rather than taking down the job that asked for it — so
+misconfiguration is quiet by design. Two variables control it:
+
+- `RESEND_API_KEY` — the `re_…` value from Resend → API Keys. Resend shows a
+  key once, at creation; there is no way to read it back later. Without this,
+  nothing is sent at all.
+- `RESEND_FROM` — optional. Defaults to `Affiliate Pro X
+  <onboarding@resend.dev>`, Resend's shared sender, which works on an account
+  with no DNS configured. Point it at your own address only after verifying
+  that domain in Resend → Domains, which means adding the DKIM, SPF and return
+  path records it gives you. Resend rejects any `From` on an unverified domain,
+  so setting this ahead of verification turns every send into a 403.
+
+Only `dailyPerformanceSummary` sends mail today, and only to profiles with
+`role = 'admin'`. Nothing in the app emails end users, so an unverified domain
+is not currently a limitation — Resend's shared sender delivers to the account
+owner's own address, which is who the summary is for.
