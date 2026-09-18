@@ -160,6 +160,15 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
         });
         if (!mountedRef.current || initRunId !== runIdRef.current) return;
         conversationRef.current = convo;
+      } catch (error) {
+        // Without this the failure escaped as an unhandled rejection: the
+        // button dropped its "Starting session" label and read "Tap mic to
+        // speak", but startListening bails on a null conversation, so every
+        // tap did nothing and nothing said why.
+        console.error(`${name} session failed to start:`, error);
+        if (mountedRef.current && initRunId === runIdRef.current) {
+          setMicError(`Couldn't start a session with ${name}. Refresh the page to try again.`);
+        }
       } finally {
         if (mountedRef.current && initRunId === runIdRef.current) setIsInitializing(false);
       }
@@ -386,7 +395,11 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
 
   const startListening = useCallback(() => {
     if (speaking) stopSpeaking();
-    if (!supported || isInitializing || !conversationRef.current) return;
+    if (!supported || isInitializing) return;
+    if (!conversationRef.current) {
+      setMicError(`${name} isn't connected yet. Refresh the page to try again.`);
+      return;
+    }
     setMicError("");
     if (recognitionRef.current) recognitionRef.current.abort();
 
@@ -413,11 +426,18 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       setListening(false);
       setPulse(false);
       if (silenceTimer) clearTimeout(silenceTimer);
-      // no-speech is the ordinary "didn't catch anything, timed out" case --
-      // everything else means the mic itself never worked, which used to
-      // fail totally silently and look identical to Maya just not hearing
-      // anything at all.
-      if (e.error === "no-speech" || e.error === "aborted") return;
+      // aborted is us: startListening aborts the previous run before a new one.
+      // Everything else means the mic never delivered speech, which used to
+      // fail silently and look identical to the assistant just not listening.
+      if (e.error === "aborted") return;
+      if (e.error === "no-speech") {
+        // Chrome only reports no-speech after hearing nothing for the whole
+        // run. Once in a while that's someone who didn't speak; when it keeps
+        // happening it's nearly always Windows feeding the browser the wrong
+        // or a muted input device, which permission errors never catch.
+        setMicError("I didn't hear anything. Tap the mic and try again. If this keeps happening, your computer may be listening to a different or muted microphone.");
+        return;
+      }
       if (e.error === "not-allowed" || e.error === "service-not-allowed") {
         setMicError("Microphone access is blocked. Check your browser's site permissions to allow the mic, then tap the mic again.");
       } else if (e.error === "audio-capture") {
@@ -436,7 +456,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       if (result.isFinal) { setTranscript(textVal); sendMessage(textVal); }
     };
     recognition.start();
-  }, [supported, isInitializing, speaking, sendMessage, stopSpeaking]);
+  }, [supported, isInitializing, speaking, sendMessage, stopSpeaking, name]);
 
   const stopListening = useCallback(() => {
     recognitionRef.current?.stop();
