@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 const ICON_MAP = {
   opportunity: { icon: TrendingUp, color: "text-emerald-700 dark:text-emerald-400", bg: "rgba(16,185,129,0.15)", border: "rgba(16,185,129,0.3)" },
   warning: { icon: AlertCircle, color: "text-amber-700 dark:text-amber-400", bg: "rgba(245,158,11,0.15)", border: "rgba(245,158,11,0.3)" },
-  tip: { icon: Lightbulb, color: "text-violet-700 dark:text-violet-400", bg: "rgba(124,58,237,0.15)", border: "rgba(124,58,237,0.3)" },
+  tip: { icon: Lightbulb, color: "text-violet-700 dark:text-violet-300", bg: "rgba(124,58,237,0.15)", border: "rgba(124,58,237,0.3)" },
 };
 
 function getInsightAction(title = "", detail = "") {

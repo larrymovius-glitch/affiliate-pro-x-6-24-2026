@@ -13,7 +13,7 @@ export default function StatCard({ label, value, icon: Icon, trend, trendUp, cla
             {value}
           </p>
           {trend && (
-            <p className={cn("text-xs font-semibold mt-2", trendUp ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400")}>
+            <p className={cn("text-xs font-semibold mt-2", trendUp ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-300")}>
               {trendUp ? "↑" : "↓"} {trend}
             </p>
           )}

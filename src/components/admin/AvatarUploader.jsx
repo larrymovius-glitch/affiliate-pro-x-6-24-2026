@@ -171,7 +171,7 @@ export default function AvatarUploader() {
             <Button
               variant="ghost"
               disabled={deleteMutation.isPending}
-              className="h-11 text-red-700 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-500/10"
+              className="h-11 text-red-700 dark:text-red-300 hover:text-red-700 dark:hover:text-red-200 hover:bg-red-500/10"
               onClick={handleReset}
             >
               <Trash2 className="w-4 h-4 mr-2" />
@@ -184,7 +184,7 @@ export default function AvatarUploader() {
           <div className={`flex items-center gap-2 text-sm rounded-xl p-3 ${
             uploadMsg.type === "success"
               ? "bg-green-500/10 text-green-700 dark:text-green-400 border border-green-500/20"
-              : "bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20"
+              : "bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/20"
           }`}>
             {uploadMsg.type === "success" ? <CheckCircle className="w-4 h-4 flex-shrink-0" /> : <ImageIcon className="w-4 h-4 flex-shrink-0" />}
             {uploadMsg.text}

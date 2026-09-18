@@ -100,7 +100,7 @@ export default function PostbackSetup() {
       <Card className="border-border bg-card">
         <CardHeader>
           <CardTitle className="text-foreground text-base flex items-center gap-2">
-            <Radio className="w-5 h-5 text-violet-700 dark:text-violet-400" /> Conversion Tracking
+            <Radio className="w-5 h-5 text-violet-700 dark:text-violet-300" /> Conversion Tracking
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -115,7 +115,7 @@ export default function PostbackSetup() {
               <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
                 <DollarSign className="w-3.5 h-3.5" /> Sales recorded
               </div>
-              <p className={`text-2xl font-bold mt-1 ${noSales ? "text-orange-700 dark:text-orange-400" : "text-green-700 dark:text-green-400"}`}>
+              <p className={`text-2xl font-bold mt-1 ${noSales ? "text-orange-700 dark:text-orange-300" : "text-green-700 dark:text-green-400"}`}>
                 {status.total_conversions ?? 0}
               </p>
             </div>
@@ -123,7 +123,7 @@ export default function PostbackSetup() {
 
           {!data?.configured && (
             <div className="flex items-start gap-2 rounded-xl p-4 bg-red-500/10 border border-red-500/20">
-              <AlertCircle className="w-5 h-5 text-red-700 dark:text-red-400 flex-shrink-0 mt-0.5" />
+              <AlertCircle className="w-5 h-5 text-red-700 dark:text-red-300 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm font-semibold text-red-700 dark:text-red-300">CONVERSION_SECRET is not set</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -136,7 +136,7 @@ export default function PostbackSetup() {
 
           {data?.configured && noSales && (
             <div className="flex items-start gap-2 rounded-xl p-4 bg-orange-500/10 border border-orange-500/20">
-              <AlertCircle className="w-5 h-5 text-orange-700 dark:text-orange-400 flex-shrink-0 mt-0.5" />
+              <AlertCircle className="w-5 h-5 text-orange-700 dark:text-orange-300 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm font-semibold text-orange-700 dark:text-orange-300">No sale has ever been recorded</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -209,7 +209,7 @@ export default function PostbackSetup() {
                 <div className={`flex items-start gap-2 rounded-xl p-3 mt-3 text-sm ${
                   testResult.ok
                     ? "bg-green-500/10 text-green-700 dark:text-green-300 border border-green-500/20"
-                    : "bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20"
+                    : "bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/20"
                 }`}>
                   {testResult.ok
                     ? <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />

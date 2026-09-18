@@ -263,7 +263,7 @@ export default function Links() {
     <div className="space-y-6" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
       {/* Pull-to-refresh indicator */}
       <div className="ptr-indicator" style={{ height: pullDistance }}>
-        <RefreshCw className={`w-5 h-5 text-violet-700 dark:text-violet-400 transition-transform ${pulling ? "animate-spin" : ""}`} style={{ transform: `rotate(${pullDistance * 2}deg)` }} />
+        <RefreshCw className={`w-5 h-5 text-violet-700 dark:text-violet-300 transition-transform ${pulling ? "animate-spin" : ""}`} style={{ transform: `rotate(${pullDistance * 2}deg)` }} />
       </div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -280,7 +280,7 @@ export default function Links() {
         <Dialog open={cbDialogOpen} onOpenChange={setCbDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" className="gap-2 h-11" style={{ userSelect: "none" }}>
-              <ShoppingBag className="w-4 h-4 text-orange-700 dark:text-orange-400" /> ClickBank
+              <ShoppingBag className="w-4 h-4 text-orange-700 dark:text-orange-300" /> ClickBank
             </Button>
           </DialogTrigger>
           <DialogContent>
@@ -318,7 +318,7 @@ export default function Links() {
         <Dialog open={dsDialogOpen} onOpenChange={setDsDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" className="gap-2 h-11" style={{ userSelect: "none" }}>
-              <ShoppingBag className="w-4 h-4 text-blue-700 dark:text-blue-400" /> Digistore24
+              <ShoppingBag className="w-4 h-4 text-blue-700 dark:text-blue-300" /> Digistore24
             </Button>
           </DialogTrigger>
           <DialogContent>

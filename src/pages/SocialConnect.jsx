@@ -75,7 +75,7 @@ export default function SocialConnect() {
       <Card className="border-border bg-card">
         <CardHeader>
           <CardTitle className="text-foreground text-base flex items-center gap-2">
-            <Settings className="w-5 h-5 text-blue-700 dark:text-blue-400" />
+            <Settings className="w-5 h-5 text-blue-700 dark:text-blue-300" />
             Payment Setup (Get Paid Automatically)
           </CardTitle>
         </CardHeader>

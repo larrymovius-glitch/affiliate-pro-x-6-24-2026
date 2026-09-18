@@ -9,7 +9,7 @@ import { TrendingUp, Copy, CheckCheck, Trash2, Star } from "lucide-react";
 
 const statusColors = {
   draft: "bg-muted text-muted-foreground",
-  approved: "bg-blue-500/20 text-blue-700 dark:text-blue-400 border-blue-500/30",
+  approved: "bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/30",
   posted: "bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/30",
   archived: "bg-muted/50 text-muted-foreground/50"
 };

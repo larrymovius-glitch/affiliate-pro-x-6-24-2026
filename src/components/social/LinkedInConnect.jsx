@@ -93,7 +93,7 @@ export default function LinkedInConnect() {
           <div className={`flex items-start gap-2 rounded-xl p-3 text-sm ${
             outcome.ok
               ? "bg-green-500/10 text-green-700 dark:text-green-300 border border-green-500/20"
-              : "bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20"
+              : "bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/20"
           }`}>
             {outcome.ok
               ? <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -104,7 +104,7 @@ export default function LinkedInConnect() {
 
         {!data?.configured && (
           <div className="flex items-start gap-2 rounded-xl p-4 bg-orange-500/10 border border-orange-500/20">
-            <AlertCircle className="w-5 h-5 text-orange-700 dark:text-orange-400 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-orange-700 dark:text-orange-300 flex-shrink-0 mt-0.5" />
             <div className="space-y-2 min-w-0">
               <p className="text-sm font-semibold text-orange-700 dark:text-orange-300">Not set up yet</p>
               <p className="text-xs text-muted-foreground leading-relaxed">
@@ -154,8 +154,8 @@ export default function LinkedInConnect() {
                   : "bg-green-500/10 border border-green-500/20"
             }`}>
               {expired
-                ? <AlertCircle className="w-5 h-5 text-red-700 dark:text-red-400 flex-shrink-0" />
-                : <CheckCircle className={`w-5 h-5 flex-shrink-0 ${expiringSoon ? "text-orange-700 dark:text-orange-400" : "text-green-700 dark:text-green-400"}`} />}
+                ? <AlertCircle className="w-5 h-5 text-red-700 dark:text-red-300 flex-shrink-0" />
+                : <CheckCircle className={`w-5 h-5 flex-shrink-0 ${expiringSoon ? "text-orange-700 dark:text-orange-300" : "text-green-700 dark:text-green-400"}`} />}
               <div className="min-w-0">
                 <p className={`text-sm font-semibold ${
                   expired ? "text-red-700 dark:text-red-300" : expiringSoon ? "text-orange-700 dark:text-orange-300" : "text-green-700 dark:text-green-300"
@@ -180,7 +180,7 @@ export default function LinkedInConnect() {
                   </Button>
                 </a>
               )}
-              <Button variant="outline" className="flex-1 gap-2 text-red-700 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-500/10"
+              <Button variant="outline" className="flex-1 gap-2 text-red-700 dark:text-red-300 hover:text-red-700 dark:hover:text-red-200 hover:bg-red-500/10"
                 disabled={disconnect.isPending} onClick={() => disconnect.mutate()}>
                 <Unlink className="w-4 h-4" />
                 {disconnect.isPending ? "Disconnecting…" : "Disconnect"}

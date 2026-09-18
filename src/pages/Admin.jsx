@@ -357,7 +357,7 @@ export default function Admin() {
                            <Medal className="w-4 h-4" />
                           </Button>
                           <Button size="sm" variant="ghost"
-                           className="h-8 w-8 p-0 text-muted-foreground hover:text-violet-700 dark:hover:text-violet-400"
+                           className="h-8 w-8 p-0 text-muted-foreground hover:text-violet-700 dark:hover:text-violet-300"
                            title="Set Subscription Tier"
                            onClick={() => setEditTier({ id: u.id, email: u.email, tier: u.subscription_tier || "free" })}
                           >
@@ -371,7 +371,7 @@ export default function Admin() {
                            {u.role === "admin" ? <ShieldOff className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
                           </Button>
                           <Button size="sm" variant="ghost"
-                            className="h-8 w-8 p-0 text-muted-foreground hover:text-red-700 dark:hover:text-red-400"
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-red-700 dark:hover:text-red-300"
                             title="Remove User"
                             onClick={() => setConfirmDelete(u)}
                           >
@@ -394,7 +394,7 @@ export default function Admin() {
           <Card className="border-border bg-card">
             <CardHeader>
               <CardTitle className="text-foreground text-base flex items-center gap-2">
-                <UserPlus className="w-4 h-4 text-violet-700 dark:text-violet-400" /> Invite New User
+                <UserPlus className="w-4 h-4 text-violet-700 dark:text-violet-300" /> Invite New User
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-5">
@@ -428,7 +428,7 @@ export default function Admin() {
                       }`}
                     >
                       <div className="flex items-center gap-2 mb-1">
-                        <Icon className={`w-4 h-4 ${inviteRole === value ? "text-violet-700 dark:text-violet-400" : "text-muted-foreground"}`} />
+                        <Icon className={`w-4 h-4 ${inviteRole === value ? "text-violet-700 dark:text-violet-300" : "text-muted-foreground"}`} />
                         <span className={`text-sm font-medium ${inviteRole === value ? "text-foreground" : "text-muted-foreground"}`}>{label}</span>
                       </div>
                       <p className="text-xs text-muted-foreground">{desc}</p>
@@ -441,7 +441,7 @@ export default function Admin() {
                 <div className={`flex items-center gap-2 text-sm rounded-xl p-3 ${
                   inviteMsg.type === "success"
                     ? "bg-green-500/10 text-green-700 dark:text-green-400 border border-green-500/20"
-                    : "bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20"
+                    : "bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/20"
                 }`}>
                   {inviteMsg.type === "success" ? <CheckCircle className="w-4 h-4 flex-shrink-0" /> : <AlertCircle className="w-4 h-4 flex-shrink-0" />}
                   {inviteMsg.text}
@@ -522,7 +522,7 @@ export default function Admin() {
                           {recipient?.email || p.payment_email || "Unknown recipient"} · {p.payment_method || "—"}
                         </p>
                         {p.status === "approved" && !recipient?.stripeAccountId && (
-                          <p className="text-xs text-orange-700 dark:text-orange-400 mt-0.5 flex items-center gap-1">
+                          <p className="text-xs text-orange-700 dark:text-orange-300 mt-0.5 flex items-center gap-1">
                             <AlertCircle className="w-3 h-3" /> Recipient hasn't connected Stripe yet
                           </p>
                         )}
@@ -542,7 +542,7 @@ export default function Admin() {
                               <CheckCircle className="w-4 h-4 mr-1" /> Approve
                             </Button>
                             <Button size="sm" variant="ghost"
-                              className="h-8 text-red-700 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-500/10"
+                              className="h-8 text-red-700 dark:text-red-300 hover:text-red-700 dark:hover:text-red-200 hover:bg-red-500/10"
                               disabled={rejectPayoutMutation.isPending}
                               onClick={() => rejectPayoutMutation.mutate(p.id)}>
                               <XCircle className="w-4 h-4 mr-1" /> Reject
@@ -610,12 +610,12 @@ export default function Admin() {
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <Button size="sm" variant="ghost"
-                        className="h-8 w-8 p-0 text-muted-foreground hover:text-violet-700 dark:hover:text-violet-400"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-violet-700 dark:hover:text-violet-300"
                         onClick={() => openEditReviewer(r)}>
                         <Edit2 className="w-4 h-4" />
                       </Button>
                       <Button size="sm" variant="ghost"
-                        className="h-8 w-8 p-0 text-muted-foreground hover:text-red-700 dark:hover:text-red-400"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-red-700 dark:hover:text-red-300"
                         onClick={() => deleteReviewerMutation.mutate(r.id)}>
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -653,7 +653,7 @@ export default function Admin() {
               <div className={`flex items-center gap-3 rounded-xl p-4 ${ebayCampaignId ? "bg-green-500/10 border border-green-500/20" : "bg-orange-500/10 border border-orange-500/20"}`}>
                 {ebayCampaignId
                   ? <CheckCircle className="w-5 h-5 text-green-700 dark:text-green-400 flex-shrink-0" />
-                  : <AlertCircle className="w-5 h-5 text-orange-700 dark:text-orange-400 flex-shrink-0" />}
+                  : <AlertCircle className="w-5 h-5 text-orange-700 dark:text-orange-300 flex-shrink-0" />}
                 <div className="min-w-0">
                   <p className={`text-sm font-semibold ${ebayCampaignId ? "text-green-700 dark:text-green-300" : "text-orange-700 dark:text-orange-300"}`}>
                     {ebayCampaignId ? `Campaign ID saved: ${ebayCampaignId}` : "No EPN Campaign ID saved"}
@@ -678,7 +678,7 @@ export default function Admin() {
                 <div className={`flex items-start gap-2 rounded-xl p-3 text-sm ${
                   ebaySyncResult.type === "success"
                     ? "bg-green-500/10 text-green-700 dark:text-green-300 border border-green-500/20"
-                    : "bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20"
+                    : "bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/20"
                 }`}>
                   {ebaySyncResult.type === "success"
                     ? <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -709,7 +709,7 @@ export default function Admin() {
       <Dialog open={!!confirmDelete} onOpenChange={() => setConfirmDelete(null)}>
         <DialogContent className="border-border bg-popover text-popover-foreground">
           <DialogHeader>
-            <DialogTitle className="text-red-700 dark:text-red-400 flex items-center gap-2">
+            <DialogTitle className="text-red-700 dark:text-red-300 flex items-center gap-2">
               <Trash2 className="w-5 h-5" /> Remove User
             </DialogTitle>
           </DialogHeader>
@@ -791,7 +791,7 @@ export default function Admin() {
         <DialogContent className="border-border bg-popover text-popover-foreground">
           <DialogHeader>
             <DialogTitle className="font-display flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-violet-700 dark:text-violet-400" />
+              <Sparkles className="w-5 h-5 text-violet-700 dark:text-violet-300" />
               Set Subscription Tier
             </DialogTitle>
           </DialogHeader>
@@ -827,7 +827,7 @@ export default function Admin() {
           <DialogContent className="border-border bg-popover text-popover-foreground">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Send className="w-5 h-5 text-violet-700 dark:text-violet-400" />
+                <Send className="w-5 h-5 text-violet-700 dark:text-violet-300" />
                 Confirm Payout
               </DialogTitle>
             </DialogHeader>
@@ -840,7 +840,7 @@ export default function Admin() {
                 via Stripe? This transfers real money and cannot be undone from here.
               </p>
               {payError && (
-                <div className="flex items-center gap-2 text-sm rounded-xl p-3 bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20">
+                <div className="flex items-center gap-2 text-sm rounded-xl p-3 bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/20">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" /> {payError}
                 </div>
               )}
