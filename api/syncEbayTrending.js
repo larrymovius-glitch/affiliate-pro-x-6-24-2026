@@ -152,12 +152,18 @@ Return ONLY real, verified products that are currently trending on eBay. Do NOT 
         productId = product.id;
       }
 
-      const slug = r.name.replace(/\s+/g, "_").toLowerCase().substring(0, 15);
+      // Letters and digits only: this becomes the /r/<code> path people share,
+      // and a product name's apostrophes and ampersands ("Levi's", "B&W") make
+      // for a link that breaks when pasted into a post.
+      const slug = r.name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").substring(0, 15);
       await D.AffiliateLink.create({
         created_by_id: owner.id,
         product_id: productId,
         product_name: r.name,
         destination_url: r.url,
+        // Set explicitly: affiliate_links.network defaults to 'clickbank', so
+        // leaving it off labelled every eBay link a ClickBank one.
+        network: "ebay",
         short_code: `ebay_trend_${slug}_${Math.random().toString(36).slice(2, 6)}`,
         clicks: 0, conversions: 0, earnings: 0,
       });

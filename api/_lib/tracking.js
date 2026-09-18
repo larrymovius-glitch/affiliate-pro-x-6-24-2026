@@ -14,12 +14,19 @@
 //                                                  segment, not a query param.
 //                                                  sid1 is also set, since S2S
 //                                                  postbacks can return either.
+//   eBay (EPN)   ?customid=<code>                  EPN's own per-link field. The
+//                                                  Browse API hands back links
+//                                                  with it present but empty.
 //   anything else ?subid=<code>                    common convention -- CONFIRM
 //                                                  against your network's docs
 //                                                  before trusting it.
 //
+// Which row applies is decided by the destination's HOST, not the link's
+// stored `network`. See detectNetwork below for why.
+//
 // Sources: ClickBank "Affiliate Tracking Parameters"; Digistore24 "Track
-// advertising campaigns with tracking and campaign key".
+// advertising campaigns with tracking and campaign key"; eBay Partner Network
+// "Custom ID".
 
 // The network reports the tracking id back to us as free text, and some
 // networks strip punctuation. Compare codes through this on both sides so a
@@ -35,16 +42,35 @@ function hostMatches(host, domain) {
   return host === domain || host.endsWith(`.${domain}`);
 }
 
-function isClickBank(host, network) {
-  return network === "clickbank" || hostMatches(host, "hop.clickbank.net");
-}
+// eBay marketplaces an EPN link can point at. Listed rather than matched with
+// a pattern, because /(^|\.)ebay\./ would also accept "ebay.evil.com".
+const EBAY_DOMAINS = [
+  "ebay.com", "ebay.co.uk", "ebay.ca", "ebay.com.au", "ebay.de", "ebay.fr",
+  "ebay.it", "ebay.es", "ebay.ie", "ebay.at", "ebay.ch", "ebay.nl", "ebay.be", "ebay.pl",
+];
 
-function isDigistore(host, network) {
-  return (
-    network === "digistore24" ||
-    hostMatches(host, "digistore24.com") ||
-    hostMatches(host, "checkout-ds24.com")
-  );
+/**
+ * Which network's tracking rules apply to a destination.
+ *
+ * The host decides whenever it is one we recognise; the stored label only
+ * breaks the tie for hosts we don't (a vendor's own sales page, a ClickBank
+ * direct-tracking link). That order matters because the label is unreliable:
+ * affiliate_links.network defaults to 'clickbank' in the database, and most
+ * code paths that create links never set it. Trusting the label first sent
+ * Digistore24 promolinks out with a ClickBank `tid` and an empty campaign key,
+ * so Digistore24 could never report their sales back, and sent eBay links out
+ * with a `tid` eBay ignores.
+ *
+ * @param {string} host lowercased hostname of the destination
+ * @param {string} [label] the link's stored network, if any
+ * @returns {string} "clickbank" | "digistore24" | "ebay" | the label | ""
+ */
+export function detectNetwork(host, label) {
+  const h = String(host || "").toLowerCase();
+  if (hostMatches(h, "hop.clickbank.net")) return "clickbank";
+  if (hostMatches(h, "digistore24.com") || hostMatches(h, "checkout-ds24.com")) return "digistore24";
+  if (EBAY_DOMAINS.some((d) => hostMatches(h, d))) return "ebay";
+  return String(label || "").toLowerCase();
 }
 
 // Digistore24 promolinks look like /redir/<productId>/<affiliate>/<campaignKey>.
@@ -78,15 +104,16 @@ export function applyTrackingCode(destinationUrl, shortCode, network) {
     return destinationUrl; // not parseable: redirect untouched rather than break the click
   }
 
-  const host = url.hostname.toLowerCase();
-  const net = String(network || "").toLowerCase();
+  const net = detectNetwork(url.hostname, network);
 
-  if (isClickBank(host, net)) {
+  if (net === "clickbank") {
     url.searchParams.set("tid", normalizeTrackingCode(shortCode).slice(0, 50));
-  } else if (isDigistore(host, net)) {
+  } else if (net === "digistore24") {
     const code = normalizeTrackingCode(shortCode);
-    if (!setDigistoreCampaignKey(url, code)) url.searchParams.set("sid1", code);
-    else url.searchParams.set("sid1", code);
+    setDigistoreCampaignKey(url, code);
+    url.searchParams.set("sid1", code);
+  } else if (net === "ebay") {
+    url.searchParams.set("customid", normalizeTrackingCode(shortCode).slice(0, 256));
   } else {
     url.searchParams.set("subid", shortCode);
   }
