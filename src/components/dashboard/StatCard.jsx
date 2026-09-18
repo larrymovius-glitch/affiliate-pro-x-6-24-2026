@@ -13,7 +13,7 @@ export default function StatCard({ label, value, icon: Icon, trend, trendUp, cla
             {value}
           </p>
           {trend && (
-            <p className={cn("text-xs font-semibold mt-2", trendUp ? "text-emerald-400" : "text-red-400")}>
+            <p className={cn("text-xs font-semibold mt-2", trendUp ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400")}>
               {trendUp ? "↑" : "↓"} {trend}
             </p>
           )}
@@ -22,7 +22,7 @@ export default function StatCard({ label, value, icon: Icon, trend, trendUp, cla
           className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
           style={{ background: "linear-gradient(135deg, rgba(124,58,237,0.3), rgba(245,158,11,0.2))", border: "1px solid rgba(245,158,11,0.3)" }}
         >
-          <Icon className="w-5 h-5 text-amber-400" />
+          <Icon className="w-5 h-5 text-amber-700 dark:text-amber-400" />
         </div>
       </div>
       {/* Bottom shimmer on hover */}

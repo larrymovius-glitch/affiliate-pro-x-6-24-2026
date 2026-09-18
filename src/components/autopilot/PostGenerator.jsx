@@ -233,7 +233,7 @@ Return a JSON object with:
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="capitalize">{post.platform}</Badge>
                     <Badge variant="outline" className="capitalize">{post.tone}</Badge>
-                    {post.status === "posted" && <Badge className="bg-green-500/20 text-green-400 border-green-500/30">Posted</Badge>}
+                    {post.status === "posted" && <Badge className="bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/30">Posted</Badge>}
                   </div>
                   <div className="flex items-center gap-1">
                     <span className="text-xs text-muted-foreground">AI Score:</span>

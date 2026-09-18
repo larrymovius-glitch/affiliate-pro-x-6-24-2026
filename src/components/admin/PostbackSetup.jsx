@@ -30,11 +30,11 @@ function CopyRow({ value }) {
   };
   return (
     <div className="flex items-stretch gap-2">
-      <code className="flex-1 min-w-0 overflow-x-auto whitespace-nowrap rounded-lg bg-black/40 border border-border px-3 py-2.5 text-xs text-violet-200">
+      <code className="flex-1 min-w-0 overflow-x-auto whitespace-nowrap rounded-lg bg-black/40 border border-border px-3 py-2.5 text-xs text-violet-700 dark:text-violet-200">
         {value}
       </code>
       <Button variant="outline" onClick={copy} className="flex-shrink-0 gap-1.5 px-3" aria-label="Copy postback URL">
-        {copied ? <CheckCheck className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+        {copied ? <CheckCheck className="w-4 h-4 text-green-700 dark:text-green-400" /> : <Copy className="w-4 h-4" />}
         <span className="hidden sm:inline">{copied ? "Copied" : "Copy"}</span>
       </Button>
     </div>
@@ -84,7 +84,7 @@ export default function PostbackSetup() {
 
   if (error) {
     return (
-      <div className="flex items-start gap-2 rounded-xl p-4 bg-red-500/10 border border-red-500/20 text-red-300 text-sm">
+      <div className="flex items-start gap-2 rounded-xl p-4 bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-300 text-sm">
         <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
         <span>{error?.message || "Could not load tracking setup."}</span>
       </div>
@@ -100,7 +100,7 @@ export default function PostbackSetup() {
       <Card className="border-border bg-card">
         <CardHeader>
           <CardTitle className="text-foreground text-base flex items-center gap-2">
-            <Radio className="w-5 h-5 text-violet-400" /> Conversion Tracking
+            <Radio className="w-5 h-5 text-violet-700 dark:text-violet-400" /> Conversion Tracking
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -115,7 +115,7 @@ export default function PostbackSetup() {
               <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
                 <DollarSign className="w-3.5 h-3.5" /> Sales recorded
               </div>
-              <p className={`text-2xl font-bold mt-1 ${noSales ? "text-orange-400" : "text-green-400"}`}>
+              <p className={`text-2xl font-bold mt-1 ${noSales ? "text-orange-700 dark:text-orange-400" : "text-green-700 dark:text-green-400"}`}>
                 {status.total_conversions ?? 0}
               </p>
             </div>
@@ -123,9 +123,9 @@ export default function PostbackSetup() {
 
           {!data?.configured && (
             <div className="flex items-start gap-2 rounded-xl p-4 bg-red-500/10 border border-red-500/20">
-              <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+              <AlertCircle className="w-5 h-5 text-red-700 dark:text-red-400 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-semibold text-red-300">CONVERSION_SECRET is not set</p>
+                <p className="text-sm font-semibold text-red-700 dark:text-red-300">CONVERSION_SECRET is not set</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Add it to the Vercel project&apos;s environment variables and redeploy. Until then the endpoint
                   rejects every postback, so no sale can be recorded.
@@ -136,9 +136,9 @@ export default function PostbackSetup() {
 
           {data?.configured && noSales && (
             <div className="flex items-start gap-2 rounded-xl p-4 bg-orange-500/10 border border-orange-500/20">
-              <AlertCircle className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
+              <AlertCircle className="w-5 h-5 text-orange-700 dark:text-orange-400 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-semibold text-orange-300">No sale has ever been recorded</p>
+                <p className="text-sm font-semibold text-orange-700 dark:text-orange-300">No sale has ever been recorded</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Expected until a network is pointed at the URL below. Clicks count on their own; sales only
                   arrive if a network is told where to report them. Until one is, earnings stay at $0 and no
@@ -150,8 +150,8 @@ export default function PostbackSetup() {
 
           {!noSales && status.last_conversion_at && (
             <div className="flex items-center gap-2 rounded-xl p-3 bg-green-500/10 border border-green-500/20">
-              <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
-              <p className="text-sm text-green-300">
+              <CheckCircle className="w-4 h-4 text-green-700 dark:text-green-400 flex-shrink-0" />
+              <p className="text-sm text-green-700 dark:text-green-300">
                 Last sale recorded {new Date(status.last_conversion_at).toLocaleString()}
               </p>
             </div>
@@ -170,7 +170,7 @@ export default function PostbackSetup() {
           <CardContent className="space-y-5">
             <p className="text-xs text-muted-foreground">
               Paste the matching URL into the network&apos;s postback field. Any URL below carrying a
-              <code className="text-violet-300"> secret=</code> holds the app&apos;s conversion secret — treat
+              <code className="text-violet-700 dark:text-violet-300"> secret=</code> holds the app&apos;s conversion secret — treat
               those like a password and never share one with an affiliate.
             </p>
 
@@ -179,8 +179,8 @@ export default function PostbackSetup() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-semibold text-foreground">{t.name}</span>
                   {t.supported
-                    ? <Badge className="bg-green-500/20 text-green-300 border-green-500/30">Ready</Badge>
-                    : <Badge className="bg-red-500/20 text-red-300 border-red-500/30">Not supported yet</Badge>}
+                    ? <Badge className="bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/30">Ready</Badge>
+                    : <Badge className="bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/30">Not supported yet</Badge>}
                 </div>
                 <p className="text-xs text-muted-foreground">{t.where}</p>
                 {t.url && <CopyRow value={t.url} />}
@@ -208,8 +208,8 @@ export default function PostbackSetup() {
               {testResult && (
                 <div className={`flex items-start gap-2 rounded-xl p-3 mt-3 text-sm ${
                   testResult.ok
-                    ? "bg-green-500/10 text-green-300 border border-green-500/20"
-                    : "bg-red-500/10 text-red-400 border border-red-500/20"
+                    ? "bg-green-500/10 text-green-700 dark:text-green-300 border border-green-500/20"
+                    : "bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20"
                 }`}>
                   {testResult.ok
                     ? <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -235,9 +235,9 @@ export default function PostbackSetup() {
           {(data?.param_contract || []).map((p) => (
             <div key={p.param} className="rounded-xl bg-card border border-border p-3">
               <div className="flex items-center gap-2 flex-wrap">
-                <code className="text-sm font-semibold text-violet-300">{p.param}</code>
+                <code className="text-sm font-semibold text-violet-700 dark:text-violet-300">{p.param}</code>
                 {p.required
-                  ? <Badge className="bg-red-500/20 text-red-300 border-red-500/30">Required</Badge>
+                  ? <Badge className="bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/30">Required</Badge>
                   : <Badge className="bg-muted text-foreground/80 border-border">Optional</Badge>}
               </div>
               {p.accepts.length > 1 && (

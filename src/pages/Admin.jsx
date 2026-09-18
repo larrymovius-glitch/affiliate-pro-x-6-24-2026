@@ -30,8 +30,8 @@ const VETERAN_STATUS_OPTIONS = [
 ];
 
 const ROLE_COLORS = {
-  admin: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
-  user: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+  admin: "bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 border-yellow-500/30",
+  user: "bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/30",
 };
 
 // profiles.subscription_tier already existed in the schema before this UI
@@ -48,10 +48,10 @@ const TIER_OPTIONS = [
 ];
 
 const PAYOUT_STATUS_COLORS = {
-  pending: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
-  approved: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-  paid: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-  rejected: "bg-red-500/20 text-red-300 border-red-500/30",
+  pending: "bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 border-yellow-500/30",
+  approved: "bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/30",
+  paid: "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+  rejected: "bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/30",
 };
 
 const PAYOUT_FILTERS = ["pending", "approved", "paid", "rejected", "all"];
@@ -335,13 +335,13 @@ export default function Admin() {
                          {u.role || "user"}
                        </Badge>
                        {u.veteran_status && u.veteran_status !== "regular" && (
-                         <Badge className="text-xs border bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
+                         <Badge className="text-xs border bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30">
                            <Medal className="w-3 h-3 mr-1" />
                            {u.veteran_status.replace("_", " ")}
                          </Badge>
                        )}
                        {u.subscription_tier && u.subscription_tier !== "free" && (
-                         <Badge className="text-xs border bg-violet-500/20 text-violet-300 border-violet-500/30">
+                         <Badge className="text-xs border bg-violet-500/20 text-violet-700 dark:text-violet-300 border-violet-500/30">
                            <Sparkles className="w-3 h-3 mr-1" />
                            {TIER_OPTIONS.find(t => t.value === u.subscription_tier)?.label || u.subscription_tier}
                          </Badge>
@@ -350,28 +350,28 @@ export default function Admin() {
                       {u.id !== user?.id ? (
                         <>
                           <Button size="sm" variant="ghost"
-                           className="h-8 w-8 p-0 text-muted-foreground hover:text-emerald-400"
+                           className="h-8 w-8 p-0 text-muted-foreground hover:text-emerald-700 dark:hover:text-emerald-400"
                            title="Set Veteran Status"
                            onClick={() => setEditVeteranStatus(u)}
                           >
                            <Medal className="w-4 h-4" />
                           </Button>
                           <Button size="sm" variant="ghost"
-                           className="h-8 w-8 p-0 text-muted-foreground hover:text-violet-400"
+                           className="h-8 w-8 p-0 text-muted-foreground hover:text-violet-700 dark:hover:text-violet-400"
                            title="Set Subscription Tier"
                            onClick={() => setEditTier({ id: u.id, email: u.email, tier: u.subscription_tier || "free" })}
                           >
                            <Sparkles className="w-4 h-4" />
                           </Button>
                           <Button size="sm" variant="ghost"
-                           className="h-8 w-8 p-0 text-muted-foreground hover:text-yellow-400"
+                           className="h-8 w-8 p-0 text-muted-foreground hover:text-yellow-700 dark:hover:text-yellow-400"
                            title={u.role === "admin" ? "Remove Admin" : "Make Admin"}
                            onClick={() => toggleRoleMutation.mutate({ id: u.id, role: u.role === "admin" ? "user" : "admin" })}
                           >
                            {u.role === "admin" ? <ShieldOff className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
                           </Button>
                           <Button size="sm" variant="ghost"
-                            className="h-8 w-8 p-0 text-muted-foreground hover:text-red-400"
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-red-700 dark:hover:text-red-400"
                             title="Remove User"
                             onClick={() => setConfirmDelete(u)}
                           >
@@ -394,7 +394,7 @@ export default function Admin() {
           <Card className="border-border bg-card">
             <CardHeader>
               <CardTitle className="text-foreground text-base flex items-center gap-2">
-                <UserPlus className="w-4 h-4 text-violet-400" /> Invite New User
+                <UserPlus className="w-4 h-4 text-violet-700 dark:text-violet-400" /> Invite New User
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-5">
@@ -428,7 +428,7 @@ export default function Admin() {
                       }`}
                     >
                       <div className="flex items-center gap-2 mb-1">
-                        <Icon className={`w-4 h-4 ${inviteRole === value ? "text-violet-400" : "text-muted-foreground"}`} />
+                        <Icon className={`w-4 h-4 ${inviteRole === value ? "text-violet-700 dark:text-violet-400" : "text-muted-foreground"}`} />
                         <span className={`text-sm font-medium ${inviteRole === value ? "text-foreground" : "text-muted-foreground"}`}>{label}</span>
                       </div>
                       <p className="text-xs text-muted-foreground">{desc}</p>
@@ -440,8 +440,8 @@ export default function Admin() {
               {inviteMsg && (
                 <div className={`flex items-center gap-2 text-sm rounded-xl p-3 ${
                   inviteMsg.type === "success"
-                    ? "bg-green-500/10 text-green-400 border border-green-500/20"
-                    : "bg-red-500/10 text-red-400 border border-red-500/20"
+                    ? "bg-green-500/10 text-green-700 dark:text-green-400 border border-green-500/20"
+                    : "bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20"
                 }`}>
                   {inviteMsg.type === "success" ? <CheckCircle className="w-4 h-4 flex-shrink-0" /> : <AlertCircle className="w-4 h-4 flex-shrink-0" />}
                   {inviteMsg.text}
@@ -522,7 +522,7 @@ export default function Admin() {
                           {recipient?.email || p.payment_email || "Unknown recipient"} · {p.payment_method || "—"}
                         </p>
                         {p.status === "approved" && !recipient?.stripeAccountId && (
-                          <p className="text-xs text-orange-400 mt-0.5 flex items-center gap-1">
+                          <p className="text-xs text-orange-700 dark:text-orange-400 mt-0.5 flex items-center gap-1">
                             <AlertCircle className="w-3 h-3" /> Recipient hasn't connected Stripe yet
                           </p>
                         )}
@@ -536,13 +536,13 @@ export default function Admin() {
                         {p.status === "pending" && (
                           <>
                             <Button size="sm" variant="ghost"
-                              className="h-8 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+                              className="h-8 text-emerald-700 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-500/10"
                               disabled={approvePayoutMutation.isPending}
                               onClick={() => approvePayoutMutation.mutate(p.id)}>
                               <CheckCircle className="w-4 h-4 mr-1" /> Approve
                             </Button>
                             <Button size="sm" variant="ghost"
-                              className="h-8 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                              className="h-8 text-red-700 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-500/10"
                               disabled={rejectPayoutMutation.isPending}
                               onClick={() => rejectPayoutMutation.mutate(p.id)}>
                               <XCircle className="w-4 h-4 mr-1" /> Reject
@@ -600,7 +600,7 @@ export default function Admin() {
                   <CardContent className="p-4 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-10 h-10 rounded-full bg-yellow-500/20 border border-yellow-500/30 flex items-center justify-center flex-shrink-0">
-                        <Star className="w-4 h-4 text-yellow-400" />
+                        <Star className="w-4 h-4 text-yellow-700 dark:text-yellow-400" />
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-foreground truncate">{r.name || "Unnamed"}</p>
@@ -610,12 +610,12 @@ export default function Admin() {
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <Button size="sm" variant="ghost"
-                        className="h-8 w-8 p-0 text-muted-foreground hover:text-violet-400"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-violet-700 dark:hover:text-violet-400"
                         onClick={() => openEditReviewer(r)}>
                         <Edit2 className="w-4 h-4" />
                       </Button>
                       <Button size="sm" variant="ghost"
-                        className="h-8 w-8 p-0 text-muted-foreground hover:text-red-400"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-red-700 dark:hover:text-red-400"
                         onClick={() => deleteReviewerMutation.mutate(r.id)}>
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -645,17 +645,17 @@ export default function Admin() {
           <Card className="border-border bg-card">
             <CardHeader>
               <CardTitle className="text-foreground text-base flex items-center gap-2">
-                <ShoppingBag className="w-5 h-5 text-yellow-400" /> eBay Trending Sync
+                <ShoppingBag className="w-5 h-5 text-yellow-700 dark:text-yellow-400" /> eBay Trending Sync
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Campaign ID status */}
               <div className={`flex items-center gap-3 rounded-xl p-4 ${ebayCampaignId ? "bg-green-500/10 border border-green-500/20" : "bg-orange-500/10 border border-orange-500/20"}`}>
                 {ebayCampaignId
-                  ? <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
-                  : <AlertCircle className="w-5 h-5 text-orange-400 flex-shrink-0" />}
+                  ? <CheckCircle className="w-5 h-5 text-green-700 dark:text-green-400 flex-shrink-0" />
+                  : <AlertCircle className="w-5 h-5 text-orange-700 dark:text-orange-400 flex-shrink-0" />}
                 <div className="min-w-0">
-                  <p className={`text-sm font-semibold ${ebayCampaignId ? "text-green-300" : "text-orange-300"}`}>
+                  <p className={`text-sm font-semibold ${ebayCampaignId ? "text-green-700 dark:text-green-300" : "text-orange-700 dark:text-orange-300"}`}>
                     {ebayCampaignId ? `Campaign ID saved: ${ebayCampaignId}` : "No EPN Campaign ID saved"}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
@@ -677,8 +677,8 @@ export default function Admin() {
               {ebaySyncResult && (
                 <div className={`flex items-start gap-2 rounded-xl p-3 text-sm ${
                   ebaySyncResult.type === "success"
-                    ? "bg-green-500/10 text-green-300 border border-green-500/20"
-                    : "bg-red-500/10 text-red-400 border border-red-500/20"
+                    ? "bg-green-500/10 text-green-700 dark:text-green-300 border border-green-500/20"
+                    : "bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20"
                 }`}>
                   {ebaySyncResult.type === "success"
                     ? <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -709,7 +709,7 @@ export default function Admin() {
       <Dialog open={!!confirmDelete} onOpenChange={() => setConfirmDelete(null)}>
         <DialogContent className="border-border bg-popover text-popover-foreground">
           <DialogHeader>
-            <DialogTitle className="text-red-400 flex items-center gap-2">
+            <DialogTitle className="text-red-700 dark:text-red-400 flex items-center gap-2">
               <Trash2 className="w-5 h-5" /> Remove User
             </DialogTitle>
           </DialogHeader>
@@ -791,7 +791,7 @@ export default function Admin() {
         <DialogContent className="border-border bg-popover text-popover-foreground">
           <DialogHeader>
             <DialogTitle className="font-display flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-violet-400" />
+              <Sparkles className="w-5 h-5 text-violet-700 dark:text-violet-400" />
               Set Subscription Tier
             </DialogTitle>
           </DialogHeader>
@@ -827,7 +827,7 @@ export default function Admin() {
           <DialogContent className="border-border bg-popover text-popover-foreground">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Send className="w-5 h-5 text-violet-400" />
+                <Send className="w-5 h-5 text-violet-700 dark:text-violet-400" />
                 Confirm Payout
               </DialogTitle>
             </DialogHeader>
@@ -840,7 +840,7 @@ export default function Admin() {
                 via Stripe? This transfers real money and cannot be undone from here.
               </p>
               {payError && (
-                <div className="flex items-center gap-2 text-sm rounded-xl p-3 bg-red-500/10 text-red-400 border border-red-500/20">
+                <div className="flex items-center gap-2 text-sm rounded-xl p-3 bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" /> {payError}
                 </div>
               )}
@@ -862,7 +862,7 @@ export default function Admin() {
         <DialogContent className="border-border bg-popover text-popover-foreground">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Star className="w-5 h-5 text-yellow-400" />
+              <Star className="w-5 h-5 text-yellow-700 dark:text-yellow-400" />
               {editReviewer ? "Edit Reviewer" : "Add Google Reviewer"}
             </DialogTitle>
           </DialogHeader>

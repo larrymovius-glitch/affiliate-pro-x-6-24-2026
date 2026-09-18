@@ -135,7 +135,7 @@ export default function VendorApplications() {
           <CardContent className="space-y-5">
             {(draft.readyToFill || []).length > 0 && (
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-emerald-400 text-sm font-medium">
+                <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 text-sm font-medium">
                   <CheckCircle2 className="w-4 h-4" /> Ready to fill (drafted with high confidence)
                 </div>
                 {draft.readyToFill.map((m) => (
@@ -156,7 +156,7 @@ export default function VendorApplications() {
 
             {(draft.needsReview || []).length > 0 && (
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-amber-400 text-sm font-medium">
+                <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-sm font-medium">
                   <AlertTriangle className="w-4 h-4" /> Needs your review -- nothing here is filled in automatically
                 </div>
                 {draft.needsReview.map((m) => (

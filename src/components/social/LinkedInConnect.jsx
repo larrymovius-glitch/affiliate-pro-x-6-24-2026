@@ -85,15 +85,15 @@ export default function LinkedInConnect() {
     <Card className="border-border bg-card">
       <CardHeader>
         <CardTitle className="text-foreground text-base flex items-center gap-2">
-          <Linkedin className="w-5 h-5 text-sky-400" /> LinkedIn Posting
+          <Linkedin className="w-5 h-5 text-sky-700 dark:text-sky-400" /> LinkedIn Posting
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {outcome && (
           <div className={`flex items-start gap-2 rounded-xl p-3 text-sm ${
             outcome.ok
-              ? "bg-green-500/10 text-green-300 border border-green-500/20"
-              : "bg-red-500/10 text-red-400 border border-red-500/20"
+              ? "bg-green-500/10 text-green-700 dark:text-green-300 border border-green-500/20"
+              : "bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20"
           }`}>
             {outcome.ok
               ? <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -104,24 +104,24 @@ export default function LinkedInConnect() {
 
         {!data?.configured && (
           <div className="flex items-start gap-2 rounded-xl p-4 bg-orange-500/10 border border-orange-500/20">
-            <AlertCircle className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-orange-700 dark:text-orange-400 flex-shrink-0 mt-0.5" />
             <div className="space-y-2 min-w-0">
-              <p className="text-sm font-semibold text-orange-300">Not set up yet</p>
+              <p className="text-sm font-semibold text-orange-700 dark:text-orange-300">Not set up yet</p>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Create an app at linkedin.com/developers (LinkedIn requires linking it to a LinkedIn Page), add
                 the <span className="text-foreground/80">Share on LinkedIn</span> and{" "}
                 <span className="text-foreground/80">Sign In with LinkedIn using OpenID Connect</span> products, then
-                set <code className="text-orange-300">LINKEDIN_CLIENT_ID</code> and{" "}
-                <code className="text-orange-300">LINKEDIN_CLIENT_SECRET</code> in Vercel and redeploy.
+                set <code className="text-orange-700 dark:text-orange-300">LINKEDIN_CLIENT_ID</code> and{" "}
+                <code className="text-orange-700 dark:text-orange-300">LINKEDIN_CLIENT_SECRET</code> in Vercel and redeploy.
               </p>
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">Add this exact redirect URL on the app’s Auth tab:</p>
                 <div className="flex items-stretch gap-2">
-                  <code className="flex-1 min-w-0 overflow-x-auto whitespace-nowrap rounded-lg bg-black/40 border border-border px-3 py-2 text-xs text-orange-200">
+                  <code className="flex-1 min-w-0 overflow-x-auto whitespace-nowrap rounded-lg bg-black/40 border border-border px-3 py-2 text-xs text-orange-700 dark:text-orange-200">
                     {data?.redirect_uri}
                   </code>
                   <Button variant="outline" onClick={copyRedirect} className="flex-shrink-0 px-3" aria-label="Copy redirect URL">
-                    {copied ? <CheckCheck className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+                    {copied ? <CheckCheck className="w-4 h-4 text-green-700 dark:text-green-400" /> : <Copy className="w-4 h-4" />}
                   </Button>
                 </div>
               </div>
@@ -154,11 +154,11 @@ export default function LinkedInConnect() {
                   : "bg-green-500/10 border border-green-500/20"
             }`}>
               {expired
-                ? <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-                : <CheckCircle className={`w-5 h-5 flex-shrink-0 ${expiringSoon ? "text-orange-400" : "text-green-400"}`} />}
+                ? <AlertCircle className="w-5 h-5 text-red-700 dark:text-red-400 flex-shrink-0" />
+                : <CheckCircle className={`w-5 h-5 flex-shrink-0 ${expiringSoon ? "text-orange-700 dark:text-orange-400" : "text-green-700 dark:text-green-400"}`} />}
               <div className="min-w-0">
                 <p className={`text-sm font-semibold ${
-                  expired ? "text-red-300" : expiringSoon ? "text-orange-300" : "text-green-300"
+                  expired ? "text-red-700 dark:text-red-300" : expiringSoon ? "text-orange-700 dark:text-orange-300" : "text-green-700 dark:text-green-300"
                 }`}>
                   {expired ? "Connection expired" : "Connected"}
                 </p>
@@ -180,7 +180,7 @@ export default function LinkedInConnect() {
                   </Button>
                 </a>
               )}
-              <Button variant="outline" className="flex-1 gap-2 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+              <Button variant="outline" className="flex-1 gap-2 text-red-700 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-500/10"
                 disabled={disconnect.isPending} onClick={() => disconnect.mutate()}>
                 <Unlink className="w-4 h-4" />
                 {disconnect.isPending ? "Disconnecting…" : "Disconnect"}

@@ -8,9 +8,9 @@ import { Sparkles, TrendingUp, AlertCircle, Lightbulb, RefreshCw } from "lucide-
 import { cn } from "@/lib/utils";
 
 const ICON_MAP = {
-  opportunity: { icon: TrendingUp, color: "text-emerald-400", bg: "rgba(16,185,129,0.15)", border: "rgba(16,185,129,0.3)" },
-  warning: { icon: AlertCircle, color: "text-amber-400", bg: "rgba(245,158,11,0.15)", border: "rgba(245,158,11,0.3)" },
-  tip: { icon: Lightbulb, color: "text-violet-400", bg: "rgba(124,58,237,0.15)", border: "rgba(124,58,237,0.3)" },
+  opportunity: { icon: TrendingUp, color: "text-emerald-700 dark:text-emerald-400", bg: "rgba(16,185,129,0.15)", border: "rgba(16,185,129,0.3)" },
+  warning: { icon: AlertCircle, color: "text-amber-700 dark:text-amber-400", bg: "rgba(245,158,11,0.15)", border: "rgba(245,158,11,0.3)" },
+  tip: { icon: Lightbulb, color: "text-violet-700 dark:text-violet-400", bg: "rgba(124,58,237,0.15)", border: "rgba(124,58,237,0.3)" },
 };
 
 function getInsightAction(title = "", detail = "") {
@@ -115,7 +115,7 @@ export default function SmartSuggestions({ links = [], posts = [] }) {
             className="w-10 h-10 rounded-xl flex items-center justify-center"
             style={{ background: "linear-gradient(135deg, rgba(124,58,237,0.4), rgba(245,158,11,0.25))", border: "1px solid rgba(245,158,11,0.3)" }}
           >
-            <Sparkles className="w-5 h-5 text-amber-400" />
+            <Sparkles className="w-5 h-5 text-amber-700 dark:text-amber-400" />
           </div>
           <div>
             <h3 className="font-display font-bold text-card-foreground text-base">AI Insights</h3>

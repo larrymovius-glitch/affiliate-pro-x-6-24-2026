@@ -56,11 +56,11 @@ export default function NetworkCard({ network, savedId }) {
           }`}
         >
           {connected ? (
-            <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+            <CheckCircle className="w-4 h-4 text-green-700 dark:text-green-400 flex-shrink-0" />
           ) : (
-            <AlertCircle className="w-4 h-4 text-orange-400 flex-shrink-0" />
+            <AlertCircle className="w-4 h-4 text-orange-700 dark:text-orange-400 flex-shrink-0" />
           )}
-          <p className={`text-sm ${connected ? "text-green-300" : "text-orange-300"}`}>
+          <p className={`text-sm ${connected ? "text-green-700 dark:text-green-300" : "text-orange-700 dark:text-orange-300"}`}>
             {connected ? `Connected as ${savedId}` : "Not connected"}
           </p>
         </div>

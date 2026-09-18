@@ -186,7 +186,7 @@ export default function ApplicationProfile() {
         {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCheck className="w-4 h-4" />} Save Profile
       </Button>
       {lastSavedAt && (
-        <p className="text-center text-xs text-emerald-400 flex items-center justify-center gap-1.5">
+        <p className="text-center text-xs text-emerald-700 dark:text-emerald-400 flex items-center justify-center gap-1.5">
           <CheckCheck className="w-3.5 h-3.5" /> Saved at {lastSavedAt.toLocaleTimeString()}
         </p>
       )}

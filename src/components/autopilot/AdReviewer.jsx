@@ -188,12 +188,12 @@ Be honest. Don't sugarcoat. The goal is helping this person make money.`;
             </Card>
 
             <Card className="bg-card border-border">
-              <CardHeader><CardTitle className="text-sm text-green-400">✅ What's Working</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-sm text-green-700 dark:text-green-400">✅ What's Working</CardTitle></CardHeader>
               <CardContent><p className="text-sm text-muted-foreground">{result.strengths}</p></CardContent>
             </Card>
 
             <Card className="bg-card border-border">
-              <CardHeader><CardTitle className="text-sm text-yellow-400">⚡ How to Improve It</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-sm text-yellow-700 dark:text-yellow-400">⚡ How to Improve It</CardTitle></CardHeader>
               <CardContent><p className="text-sm text-muted-foreground whitespace-pre-line">{result.improvements}</p></CardContent>
             </Card>
 

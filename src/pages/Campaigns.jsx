@@ -108,7 +108,7 @@ export default function Campaigns() {
   return (
     <div className="space-y-6" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
       <div className="ptr-indicator" style={{ height: pullDistance }}>
-        <RefreshCw className={`w-5 h-5 text-violet-400 transition-transform ${pulling ? "animate-spin" : ""}`} style={{ transform: `rotate(${pullDistance * 2}deg)` }} />
+        <RefreshCw className={`w-5 h-5 text-violet-700 dark:text-violet-400 transition-transform ${pulling ? "animate-spin" : ""}`} style={{ transform: `rotate(${pullDistance * 2}deg)` }} />
       </div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
