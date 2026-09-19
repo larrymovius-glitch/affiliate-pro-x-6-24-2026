@@ -1,5 +1,6 @@
 import { db } from "./db.js";
 import { getClickBankAffiliateId, applyClickBankAffiliateId } from "./affiliates.js";
+import { networkForDestination } from "./tracking.js";
 import { invokeLLM } from "./llm.js";
 import { AFFILIATE_NETWORKS, connectedNetworkIds } from "./affiliateNetworks.js";
 import { adminClient } from "./supabase.js";
@@ -278,11 +279,13 @@ export async function executeTool(name, input = {}, ctx = {}) {
           code = Math.random().toString(36).slice(2, 8).toUpperCase();
         } while (taken.has(code));
 
+        const destination = applyClickBankAffiliateId(product.url, getClickBankAffiliateId(user));
         const link = await D.AffiliateLink.create({
           created_by_id: user.id,
           product_id: product.id,
           product_name: product.name,
-          destination_url: applyClickBankAffiliateId(product.url, getClickBankAffiliateId(user)),
+          destination_url: destination,
+          network: networkForDestination(destination, product.category),
           short_code: code,
           clicks: 0,
           conversions: 0,

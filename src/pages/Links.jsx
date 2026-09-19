@@ -18,6 +18,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { applyClickBankAffiliateId, getClickBankAffiliateId } from "@/lib/affiliate-id";
 import { getTrackableUrl as buildTrackingUrl } from "@/lib/links";
 import { getDigistoreAffiliateId, parseDigistoreInput } from "../../api/_lib/affiliates.js";
+import { networkForDestination } from "../../api/_lib/tracking.js";
 
 function sanitizeShortCode(value) {
   return String(value || "link")
@@ -84,10 +85,12 @@ export default function Links() {
     mutationFn: async (productId) => {
       const product = products.find(p => p.id === productId);
       if (!product) throw new Error("Product not found");
+      const destination = applyClickBankAffiliateId(product.url, affiliateId);
       return base44.entities.AffiliateLink.create({
         product_id: product.id,
         product_name: product.name,
-        destination_url: applyClickBankAffiliateId(product.url, affiliateId),
+        destination_url: destination,
+        network: networkForDestination(destination, product.category),
         short_code: generateShortCode(links),
         clicks: 0,
         conversions: 0,
@@ -165,6 +168,7 @@ export default function Links() {
         product_id: productId,
         product_name: vendor,
         destination_url: hopLink,
+        network: "clickbank",
         short_code: makeUniqueShortCode(`cb_${vendor}`, links),
         clicks: 0, conversions: 0, earnings: 0,
       });
@@ -245,6 +249,7 @@ export default function Links() {
         product_id: productEntityId,
         product_name: name,
         destination_url: url,
+        network: networkForDestination(url),
         short_code: makeUniqueShortCode(`link_${name}`, links),
         clicks: 0, conversions: 0, earnings: 0,
       });

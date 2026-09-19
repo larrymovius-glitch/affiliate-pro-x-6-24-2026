@@ -76,6 +76,38 @@ export function detectNetwork(host, label) {
   return String(label || "").toLowerCase();
 }
 
+// The networks this file has specific tracking rules for.
+const KNOWN_NETWORKS = ["clickbank", "digistore24", "ebay"];
+
+/**
+ * The `network` to store on a new AffiliateLink, or null when nothing proves
+ * one. Every code path that creates a link should set it through this: left
+ * unset, the column's 'clickbank' default labels eBay and Warrior Plus links
+ * ClickBank, and a host we don't recognise then goes out with ClickBank's tid
+ * instead of the generic subid its postback expects.
+ *
+ * `hint` is what the app already knows about the product -- the category that
+ * the ClickBank, Digistore24 and trending flows stamp on products they create
+ * ("digistore24", "clickbank_trending", ...). That is how a Digistore24
+ * vendor's own sales page, whose host proves nothing, still gets Digistore24's
+ * rules. Any other category, such as a niche like "Health & Fitness", says
+ * nothing about the network and is ignored.
+ *
+ * @param {string} destinationUrl
+ * @param {string} [hint] the product's category, if any
+ * @returns {string | null}
+ */
+export function networkForDestination(destinationUrl, hint) {
+  let host = "";
+  try {
+    host = new URL(destinationUrl).hostname;
+  } catch {
+    // not a URL: only the hint can say anything
+  }
+  const h = String(hint || "").toLowerCase().replace(/_trending$/, "");
+  return detectNetwork(host, KNOWN_NETWORKS.includes(h) ? h : "") || null;
+}
+
 // Digistore24 promolinks look like /redir/<productId>/<affiliate>/<campaignKey>.
 // The app builds them with an empty campaign-key slot, which is exactly where
 // the short code belongs.

@@ -11,6 +11,7 @@ import NicheAutopilot from "@/components/make-money/NicheAutopilot";
 import { ArrowRight, Loader2, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { applyClickBankAffiliateId, getClickBankAffiliateId } from "@/lib/affiliate-id";
+import { networkForDestination } from "../../api/_lib/tracking.js";
 
 function cleanCode(value) {
   return String(value || "product").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 18) || "product";
@@ -86,10 +87,12 @@ export default function MakeMoney() {
     try {
       let link = links.find(item => item.product_id === selectedProduct.id);
       if (!link) {
+        const destination = applyClickBankAffiliateId(selectedProduct.url, affiliateId);
         link = await base44.entities.AffiliateLink.create({
           product_id: selectedProduct.id,
           product_name: selectedProduct.name,
-          destination_url: applyClickBankAffiliateId(selectedProduct.url, affiliateId),
+          destination_url: destination,
+          network: networkForDestination(destination, selectedProduct.category),
           short_code: uniqueCode(selectedProduct, links),
           clicks: 0,
           conversions: 0,

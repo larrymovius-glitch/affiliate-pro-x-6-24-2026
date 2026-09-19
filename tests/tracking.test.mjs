@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applyTrackingCode, detectNetwork, normalizeTrackingCode } from "../api/_lib/tracking.js";
+import { applyTrackingCode, detectNetwork, networkForDestination, normalizeTrackingCode } from "../api/_lib/tracking.js";
 import { digistorePromoLink } from "../api/_lib/affiliates.js";
 
 // applyTrackingCode decides whether a sale can ever be credited to a link: the
@@ -79,6 +79,37 @@ test("the host outranks the label, and the label only breaks ties", () => {
   assert.equal(detectNetwork("checkout-ds24.com", "clickbank"), "digistore24");
   assert.equal(detectNetwork("x.y.hop.clickbank.net", "digistore24"), "clickbank");
   assert.equal(detectNetwork("vendor.com", "ClickBank"), "clickbank");
+});
+
+test("a new link is labelled by where it goes, not by the column default", () => {
+  // The DJI outlet link added through "Add any link" was saved as ClickBank.
+  const DJI =
+    "https://www.ebay.com/e/_electronics/dji-brand-outlet?mkcid=1&mkrid=711-53200-19255-0" +
+    "&siteid=0&campid=5339155721&toolid=20014&customid=&mkevt=1";
+  assert.equal(networkForDestination(DJI), "ebay");
+  assert.equal(networkForDestination("https://www.checkout-ds24.com/redir/609741/Here4_you/"), "digistore24");
+  assert.equal(networkForDestination("https://apxalaska.javaburn.hop.clickbank.net"), "clickbank");
+});
+
+test("the host outranks the product's category when labelling a new link", () => {
+  assert.equal(networkForDestination(EBAY_ITEM, "clickbank"), "ebay");
+});
+
+test("a vendor's own page takes its network from the category the app stamped on it", () => {
+  const vendorPage = "https://hydroleanxt.com/ds/go/indexvs.php#aff=Here4_you";
+  assert.equal(networkForDestination(vendorPage, "digistore24"), "digistore24");
+  assert.equal(networkForDestination(vendorPage, "digistore24_trending"), "digistore24");
+  assert.equal(networkForDestination("https://vendor.com/", "clickbank_trending"), "clickbank");
+});
+
+test("a link that proves no network is labelled with none, rather than guessed", () => {
+  // A niche category says nothing about the network.
+  assert.equal(networkForDestination("https://warriorplus.com/o2/a/abc/0", "Health & Fitness"), null);
+  assert.equal(networkForDestination("https://shop.example.com/p"), null);
+  assert.equal(networkForDestination("not a url"), null);
+  assert.equal(networkForDestination("", "general"), null);
+  // ...and with no label, the redirect falls back to the generic subid.
+  assert.equal(params(applyTrackingCode("https://shop.example.com/p", "code_1", null)).get("subid"), "code_1");
 });
 
 test("an unparseable destination is passed through rather than breaking the click", () => {
