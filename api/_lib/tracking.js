@@ -14,6 +14,9 @@
 //                                                  segment, not a query param.
 //                                                  sid1 is also set, since S2S
 //                                                  postbacks can return either.
+//                vendor page ?cam=<code>           a vendor's own page (with
+//                                                  #aff=) has no path slot, so
+//                                                  the key goes in as cam.
 //   eBay (EPN)   ?customid=<code>                  EPN's own per-link field. The
 //                                                  Browse API hands back links
 //                                                  with it present but empty.
@@ -110,7 +113,11 @@ export function applyTrackingCode(destinationUrl, shortCode, network) {
     url.searchParams.set("tid", normalizeTrackingCode(shortCode).slice(0, 50));
   } else if (net === "digistore24") {
     const code = normalizeTrackingCode(shortCode);
-    setDigistoreCampaignKey(url, code);
+    // A promolink carries the campaign key in its path. A link to a vendor's
+    // own page has no such slot, so hand the code over as `cam` -- the
+    // Digistore24 script on that page reads cam alongside aff and carries both
+    // to checkout, which is what makes {campaignkey} come back on the sale.
+    if (!setDigistoreCampaignKey(url, code)) url.searchParams.set("cam", code);
     url.searchParams.set("sid1", code);
   } else if (net === "ebay") {
     url.searchParams.set("customid", normalizeTrackingCode(shortCode).slice(0, 256));

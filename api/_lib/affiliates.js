@@ -28,6 +28,13 @@ export function digistorePromoLink(productId, affiliateId = DIGISTORE_AFFILIATE_
   return `https://www.digistore24.com/redir/${productId}/${affiliateId}/`;
 }
 
+// Digistore24 product numbers are all digits. The trending search sometimes
+// hands back a placeholder instead -- "VERIFY_IN_MARKETPLACE" was saved as a
+// product once -- and a promolink built from one can never work.
+export function isDigistoreProductId(value) {
+  return /^\d+$/.test(String(value ?? "").trim());
+}
+
 /**
  * The user's own Digistore24 ID if they saved one on /networks
  * (profiles.affiliate_network_ids.digistore24), else the house account.
@@ -37,6 +44,76 @@ export function digistorePromoLink(productId, affiliateId = DIGISTORE_AFFILIATE_
  */
 export function getDigistoreAffiliateId(user) {
   return user?.affiliate_network_ids?.digistore24?.trim() || DIGISTORE_AFFILIATE_ID;
+}
+
+// One shape for every outcome, so callers read .url / .error without first
+// narrowing a union -- which checkJs will not do for them.
+const ok = (url, productId) => ({ url, productId, error: null });
+const fail = (error) => ({ url: null, productId: null, error });
+
+/**
+ * Turns whatever was typed into "Add Digistore24 link" into a destination.
+ *
+ * This used to treat every input as a product number, so a pasted vendor link
+ * got wrapped whole into digistore24.com/redir/<the entire URL>/..., which
+ * Digistore24 answers with a 403. That is how the busiest link in the app
+ * sent 50 clicks to an error page.
+ *
+ * The link has to be taken as given, because the VENDOR decides its shape and
+ * Digistore24 enforces it. Checked in a real browser against products this
+ * account is approved for:
+ *   - many vendors refuse www.digistore24.com/redir/... outright ("Incorrect
+ *     domain in the link") and require their own domain instead, e.g.
+ *     digital-success.pages.dev/redir/581314/<aff>/;
+ *   - some route promolinks through checkout-ds24.com;
+ *   - some hand affiliates their own page carrying #aff=<id>, which
+ *     Digistore24's digistore.js there reads (with cam, sid1..5) and carries
+ *     to checkout.
+ * And the domain Digistore24's error page suggests is not reliable either --
+ * two of four tried were 404s. So nothing here rebuilds a pasted link onto a
+ * different host; the source of truth is the product's "Go to advertising
+ * media" link in Digistore24.
+ *
+ *   "571423"                          -> the standard promolink (fine for
+ *                                        vendors without their own domain)
+ *   <any host>/redir/<number>/<aff>/  -> used exactly as pasted
+ *   a vendor page carrying aff=       -> used exactly as pasted
+ *
+ * Anything else is refused rather than guessed at: a link that looks fine and
+ * credits nobody is worse than an error message.
+ *
+ * @returns {{url: string|null, productId: string|null, error: string|null}}
+ */
+export function parseDigistoreInput(input, affiliateId = DIGISTORE_AFFILIATE_ID) {
+  const raw = String(input || "").trim();
+  if (!raw) return fail("Enter a product number, or paste the product's affiliate link from Digistore24.");
+  if (/^\d+$/.test(raw)) return ok(digistorePromoLink(raw, affiliateId), raw);
+
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    return fail("That isn't a product number or a link. Paste the product's link from Digistore24 → Go to advertising media.");
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    return fail("Paste a web link starting with https://.");
+  }
+
+  // A promolink, on whichever domain the vendor chose. Kept as-is.
+  const promo = url.pathname.match(/\/redir\/(\d+)\/[^/]+/);
+  if (promo) return ok(raw, promo[1]);
+
+  // Anything else on Digistore24's own domains is a malformed promolink -- the
+  // wrapped-URL shape above lands here, since its "product number" is "https:".
+  if (/(^|\.)(digistore24\.com|checkout-ds24\.com)$/.test(url.hostname.toLowerCase())) {
+    return fail("That Digistore24 link has no product number and affiliate ID in it. Copy the link from Digistore24 → Go to advertising media.");
+  }
+
+  // A vendor's own page is only an affiliate link if it names the affiliate.
+  if (!/(^|[#?&])aff=[^&]+/.test(`${url.search}&${url.hash}`)) {
+    return fail("That link has no affiliate ID in it (no aff=), so a sale through it would credit nobody. Copy the link from Digistore24 → Go to advertising media.");
+  }
+  return ok(raw, null);
 }
 
 // The two below moved here from src/lib/affiliate-id.js so the serverless side

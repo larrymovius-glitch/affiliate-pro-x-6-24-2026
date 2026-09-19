@@ -17,7 +17,7 @@ import AffiliateDisclosure from "@/components/AffiliateDisclosure";
 import { useAuth } from "@/lib/AuthContext";
 import { applyClickBankAffiliateId, getClickBankAffiliateId } from "@/lib/affiliate-id";
 import { getTrackableUrl as buildTrackingUrl } from "@/lib/links";
-import { digistorePromoLink, getDigistoreAffiliateId } from "../../api/_lib/affiliates.js";
+import { getDigistoreAffiliateId, parseDigistoreInput } from "../../api/_lib/affiliates.js";
 
 function sanitizeShortCode(value) {
   return String(value || "link")
@@ -59,6 +59,9 @@ export default function Links() {
   const [dsDialogOpen, setDsDialogOpen] = useState(false);
   const [dsProductId, setDsProductId] = useState("");
   const [dsProductName, setDsProductName] = useState("");
+  // Parsed on every keystroke so the dialog shows exactly what will be saved,
+  // or why it won't be, before anything is created.
+  const dsParsed = dsProductId.trim() ? parseDigistoreInput(dsProductId, getDigistoreAffiliateId(user)) : null;
   const [jvProductName, setJvProductName] = useState("");
   const [jvProductUrl, setJvProductUrl] = useState("");
   const [search, setSearch] = useState("");
@@ -178,9 +181,14 @@ export default function Links() {
 
   const addDigistoreMutation = useMutation({
     mutationFn: async () => {
-      const productId = dsProductId.trim();
-      const name = dsProductName.trim() || `DS24 Product ${productId}`;
-      const url = digistorePromoLink(productId, getDigistoreAffiliateId(user));
+      const parsed = parseDigistoreInput(dsProductId, getDigistoreAffiliateId(user));
+      if (parsed.error) throw new Error(parsed.error);
+      const { url, productId } = parsed;
+      // A vendor-page link has no product number, so name and code it after
+      // the vendor's site -- not after the pasted text, which is how a link
+      // came out as "ds_https_hydrolean".
+      const site = new URL(url).hostname.replace(/^www\./, "").split(".")[0];
+      const name = dsProductName.trim() || (productId ? `DS24 Product ${productId}` : site);
       const existing = await base44.entities.Product.filter({ url });
       let productEntityId;
       if (existing.length > 0) {
@@ -189,7 +197,7 @@ export default function Links() {
         const product = await base44.entities.Product.create({
           name,
           url,
-          description: `Digistore24 product — ID: ${productId}`,
+          description: productId ? `Digistore24 product — ID: ${productId}` : `Digistore24 product — vendor page on ${site}`,
           category: "digistore24",
         });
         productEntityId = product.id;
@@ -198,7 +206,10 @@ export default function Links() {
         product_id: productEntityId,
         product_name: name,
         destination_url: url,
-        short_code: makeUniqueShortCode(`ds_${productId}`, links),
+        // Explicit: affiliate_links.network defaults to 'clickbank', and a
+        // vendor's own domain gives the redirect no other way to tell.
+        network: "digistore24",
+        short_code: makeUniqueShortCode(`ds_${productId || site}`, links),
         clicks: 0, conversions: 0, earnings: 0,
       });
     },
@@ -210,7 +221,7 @@ export default function Links() {
       setDsProductName("");
       toast.success("Digistore24 link added!");
     },
-    onError: () => toast.error("Failed to add Digistore24 link"),
+    onError: (error) => toast.error(error?.message || "Failed to add Digistore24 link"),
   });
 
   const addAnyLinkMutation = useMutation({
@@ -326,7 +337,11 @@ export default function Links() {
               <DialogTitle className="font-display">Add Digistore24 Link</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">Enter the <strong>product ID</strong> from the Digistore24 product page URL.</p>
+              <p className="text-sm text-muted-foreground">
+                Paste the product&apos;s link from Digistore24 → <strong>Go to advertising media</strong>. Many vendors
+                only accept links on their own domain, and that page has the one they expect. A plain product number
+                works for vendors that don&apos;t.
+              </p>
               <div className="space-y-2">
                 <Label>Product Name</Label>
                 <Input
@@ -336,23 +351,28 @@ export default function Links() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Product ID</Label>
+                <Label>Affiliate Link or Product Number</Label>
                 <Input
-                  placeholder="e.g. 123456"
+                  placeholder="https://vendor.com/redir/123456/YourID/  or  123456"
                   value={dsProductId}
                   onChange={e => setDsProductId(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && dsProductId.trim() && addDigistoreMutation.mutate()}
+                  onKeyDown={e => e.key === "Enter" && dsParsed?.url && addDigistoreMutation.mutate()}
                 />
               </div>
-              {dsProductId.trim() && (
+              {dsParsed?.error && (
+                <div className="p-3 rounded-lg text-xs bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-300">
+                  {dsParsed.error}
+                </div>
+              )}
+              {dsParsed?.url && (
                 <div className="p-3 rounded-lg bg-muted text-xs">
                   <p className="text-muted-foreground">Your affiliate link will be:</p>
-                  <p className="font-mono text-foreground break-all mt-1">{digistorePromoLink(dsProductId, getDigistoreAffiliateId(user))}</p>
+                  <p className="font-mono text-foreground break-all mt-1">{dsParsed.url}</p>
                 </div>
               )}
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={() => setDsDialogOpen(false)}>Cancel</Button>
-                <Button onClick={() => addDigistoreMutation.mutate()} disabled={addDigistoreMutation.isPending || !dsProductId.trim()}>
+                <Button onClick={() => addDigistoreMutation.mutate()} disabled={addDigistoreMutation.isPending || !dsParsed?.url}>
                   {addDigistoreMutation.isPending ? "Adding..." : "Add Link"}
                 </Button>
               </div>

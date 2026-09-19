@@ -5,6 +5,7 @@ import {
   CLICKBANK_AFFILIATE_ID,
   DIGISTORE_AFFILIATE_ID,
   digistorePromoLink,
+  isDigistoreProductId,
 } from "./_lib/affiliates.js";
 
 export default async function handler(req, res) {
@@ -49,7 +50,7 @@ Return ONLY real, verified products that are currently trending. Do NOT make up 
       newTrendingUrls.add(`https://${cbNickname}.${item.vendor.trim().toLowerCase()}.hop.clickbank.net`);
     }
     for (const item of trendingResult.digistore24 || []) {
-      if (!item.product_id) continue;
+      if (!isDigistoreProductId(item.product_id)) continue;
       newTrendingUrls.add(digistorePromoLink(item.product_id));
     }
 
@@ -85,7 +86,7 @@ Return ONLY real, verified products that are currently trending. Do NOT make up 
     }
 
     for (const item of trendingResult.digistore24 || []) {
-      if (!item.product_id) continue;
+      if (!isDigistoreProductId(item.product_id)) continue;
       const dsUrl = digistorePromoLink(item.product_id);
       if (existingLinkUrls.has(dsUrl)) continue;
 
