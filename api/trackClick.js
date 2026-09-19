@@ -1,5 +1,6 @@
 import { db, incrementLinkStats } from "./_lib/db.js";
 import { applyTrackingCode } from "./_lib/tracking.js";
+import { isAutomatedVisit } from "./_lib/bots.js";
 
 // Public click tracker. Reachable at /r/<short_code> (the link we ask people
 // to share), and at /api/trackClick?code=<short_code> and the legacy
@@ -21,18 +22,23 @@ export default async function handler(req, res) {
     const link = links[0];
     const now = new Date().toISOString();
 
-    await incrementLinkStats(link.id, { clicks: 1 });
+    // Preview crawlers and scripts are redirected like anyone else -- a
+    // Facebook post's link card is drawn by following this link -- but they
+    // are not people, so they are not counted. See api/_lib/bots.js.
+    if (!isAutomatedVisit(req)) {
+      await incrementLinkStats(link.id, { clicks: 1 });
 
-    await D.ClickEvent.create({
-      created_by_id: link.created_by_id,
-      owner_user_id: link.created_by_id,
-      link_id: link.id,
-      short_code: link.short_code,
-      product_name: link.product_name || "",
-      clicked_at: now,
-      referrer: req.headers.referer || "",
-      source: req.query?.source || "",
-    });
+      await D.ClickEvent.create({
+        created_by_id: link.created_by_id,
+        owner_user_id: link.created_by_id,
+        link_id: link.id,
+        short_code: link.short_code,
+        product_name: link.product_name || "",
+        clicked_at: now,
+        referrer: req.headers.referer || "",
+        source: req.query?.source || "",
+      });
+    }
 
     const destination = applyTrackingCode(link.destination_url, link.short_code, link.network);
     res.writeHead(302, { Location: destination });
