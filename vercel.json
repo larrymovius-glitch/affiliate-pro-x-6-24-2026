@@ -17,6 +17,10 @@
       "destination": "/api/trackClick?code=:code"
     },
     {
+      "source": "/go/:handle",
+      "destination": "/api/bioPage?handle=:handle"
+    },
+    {
       "source": "/api/:path*",
       "destination": "/api/:path*"
     },

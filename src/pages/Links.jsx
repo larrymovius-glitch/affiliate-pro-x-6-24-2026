@@ -8,12 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Link2, Copy, Trash2, ExternalLink, Search, MousePointerClick, RefreshCw, ShoppingBag } from "lucide-react";
+import { Plus, Link2, Copy, Trash2, ExternalLink, Search, MousePointerClick, RefreshCw, ShoppingBag, Star } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import AffiliateDisclosure from "@/components/AffiliateDisclosure";
+import SharePageCard from "@/components/links/SharePageCard";
 import { useAuth } from "@/lib/AuthContext";
 import { applyClickBankAffiliateId, getClickBankAffiliateId } from "@/lib/affiliate-id";
 import { getTrackableUrl as buildTrackingUrl } from "@/lib/links";
@@ -265,6 +266,33 @@ export default function Links() {
     onError: () => toast.error("Failed to add link"),
   });
 
+  // Starring a link puts it on the public share page; starring it again moves
+  // it back to the top there, since the page orders by this timestamp.
+  const featureMutation = useMutation({
+    mutationFn: (/** @type {any} */ link) =>
+      base44.entities.AffiliateLink.update(link.id, {
+        bio_featured_at: link.bio_featured_at ? null : new Date().toISOString(),
+      }),
+    onMutate: async (link) => {
+      await queryClient.cancelQueries({ queryKey: ["links"] });
+      const previous = queryClient.getQueryData(["links"]);
+      queryClient.setQueryData(["links"], (/** @type {any} */ old) =>
+        (old || []).map((l) =>
+          l.id === link.id ? { ...l, bio_featured_at: link.bio_featured_at ? null : new Date().toISOString() } : l
+        )
+      );
+      return { previous, wasFeatured: !!link.bio_featured_at };
+    },
+    onError: (_err, _link, context) => {
+      queryClient.setQueryData(["links"], context.previous);
+      toast.error("Couldn't update your share page");
+    },
+    onSuccess: (_data, _link, context) => {
+      queryClient.invalidateQueries({ queryKey: ["links"] });
+      toast.success(context.wasFeatured ? "Removed from your share page" : "Added to your share page");
+    },
+  });
+
   const copyLink = (link) => {
     navigator.clipboard.writeText(buildTrackingUrl(link));
     toast.success("Tracking link copied to clipboard!");
@@ -289,6 +317,8 @@ export default function Links() {
       </div>
 
       <AffiliateDisclosure />
+
+      <SharePageCard links={links} />
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex gap-2 flex-wrap">
@@ -476,6 +506,19 @@ export default function Links() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => featureMutation.mutate(link)}
+                          aria-pressed={!!link.bio_featured_at}
+                          aria-label={`${link.bio_featured_at ? "Remove" : "Add"} ${link.product_name || "link"} ${link.bio_featured_at ? "from" : "to"} your share page`}
+                          title={link.bio_featured_at ? "On your share page" : "Add to your share page"}
+                        >
+                          <Star
+                            className={`w-3.5 h-3.5 ${link.bio_featured_at ? "fill-amber-400 text-amber-500" : "text-muted-foreground"}`}
+                          />
+                        </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => copyLink(link)} aria-label={`Copy tracking link for ${link.product_name || "product"}`}>
                           <Copy className="w-3.5 h-3.5" />
                         </Button>
