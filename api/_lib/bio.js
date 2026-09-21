@@ -73,7 +73,7 @@ function initials(name) {
 // rendered above the links, not buried in the footer, because the rule is that
 // it has to be seen before the click, not after.
 export const DISCLOSURE =
-  "Some links below are affiliate links. If you buy through one, I may earn a commission at no extra cost to you.";
+  "Some links below are affiliate links. If you buy through one of them, I may earn a commission at no extra cost to you.";
 
 const STYLES = `
 *{box-sizing:border-box;margin:0;padding:0}
