@@ -77,6 +77,38 @@ const cleanSpeechForVoice = (text) => text
   .replace(/\s+/g, " ")
   .trim();
 
+// Speech recognition reports every refusal as the same "not-allowed", but a
+// refusal has three different causes with three different fixes:
+//   - this site's own Permissions-Policy header (nothing the user can change);
+//   - the browser's permission for this site;
+//   - the operating system's microphone privacy setting.
+// Naming the browser one alone cost this app's owner a full browser and laptop
+// reset for a block that was the header, so ask what the cause is instead.
+const MIC_FIX_SITE =
+  "The app itself is blocking the microphone, so no browser or computer setting will help. Please report this message.";
+const MIC_FIX_BROWSER =
+  "Your browser is blocking the mic for this site. Click the icon at the left of the address bar, open Site settings, set Microphone to Allow, then reload the page and tap the mic again.";
+const MIC_FIX_SYSTEM =
+  "The browser is allowed to use the mic, so the block is coming from your computer. On Windows: Settings > Privacy & security > Microphone, and turn on both \"Microphone access\" and \"Let desktop apps access your microphone\". On a Mac: System Settings > Privacy & Security > Microphone.";
+
+async function describeMicBlock() {
+  const policy = /** @type {any} */ (document).featurePolicy;
+  try {
+    if (policy && !policy.allowsFeature("microphone")) return MIC_FIX_SITE;
+  } catch {
+    // Older browsers throw on an unknown feature name -- fall through.
+  }
+  try {
+    const status = await navigator.permissions.query(/** @type {any} */ ({ name: "microphone" }));
+    if (status.state === "denied") return MIC_FIX_BROWSER;
+    return MIC_FIX_SYSTEM;
+  } catch {
+    // Firefox and Safari don't answer for "microphone": name both fixes rather
+    // than pick one, since a wrong instruction here wastes hours.
+    return `${MIC_FIX_BROWSER} If it is already set to Allow: ${MIC_FIX_SYSTEM}`;
+  }
+}
+
 function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, experienceLevel, themeMode }) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const supported = !!SpeechRecognition;
@@ -439,7 +471,15 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
         return;
       }
       if (e.error === "not-allowed" || e.error === "service-not-allowed") {
-        setMicError("Microphone access is blocked. Check your browser's site permissions to allow the mic, then tap the mic again.");
+        // "Blocked" has three different causes and only one of them is the
+        // browser's site permission -- sending everyone to that one setting
+        // sent this user through a full browser and laptop reset for a block
+        // that was actually this site's own Permissions-Policy header. Ask
+        // the browser which it is instead of guessing.
+        setMicError("Microphone access is blocked. Checking why...");
+        describeMicBlock().then((message) => {
+          if (mountedRef.current) setMicError(message);
+        });
       } else if (e.error === "audio-capture") {
         setMicError("No microphone found. Check that one is connected and enabled.");
       } else if (e.error === "network") {
