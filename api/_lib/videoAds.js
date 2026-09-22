@@ -64,30 +64,74 @@ export function estimateDurationSeconds(script) {
   return Math.min(30, Math.max(8, Math.round(words / 2.5) + 1));
 }
 
-function buildMovie({ imageUrl, audioUrl, caption, duration }) {
+// Shapes an ad can be rendered in. Vertical is the default and the one that
+// matters here: TikTok, Reels and Shorts are all 9:16 full-screen, and a
+// landscape video posted there shows as a letterboxed strip through the middle
+// of the phone with black above and below -- which is what every ad this file
+// produced before would have done.
+//
+// "resolution" takes named presets too, but their exact pixel sizes are not
+// documented, so the sizes are given outright.
+export const AD_FORMATS = {
+  vertical: { width: 1080, height: 1920, where: "TikTok, Reels, Shorts" },
+  square: { width: 1080, height: 1080, where: "Facebook and Instagram feed" },
+  landscape: { width: 1920, height: 1080, where: "YouTube" },
+};
+
+export function adFormat(name) {
+  return AD_FORMATS[String(name || "").trim().toLowerCase()] || AD_FORMATS.vertical;
+}
+
+export function buildMovie({ imageUrl, audioUrl, caption, duration, format }) {
+  const { width, height } = adFormat(format);
+  const vertical = height > width;
   return {
-    resolution: "full-hd",
+    resolution: "custom",
+    width,
+    height,
     scenes: [
       {
         elements: [
-          // zoom: 1-10, a slow Ken-Burns-style push-in over a single still
-          // image -- the only visual movement a one-image ad has to work with.
-          { type: "image", src: imageUrl, duration, zoom: 3 },
+          // cover fills the frame rather than leaving bars around a photo that
+          // isn't this shape -- product images are mostly square or landscape.
+          // zoom: 1-10, a slow Ken-Burns-style push-in, the only visual
+          // movement a one-image ad has to work with.
+          { type: "image", src: imageUrl, duration, resize: "cover", zoom: 3 },
           { type: "audio", src: audioUrl, duration },
-          { type: "text", text: caption, duration },
+          // Kept in the upper third on purpose: on TikTok the bottom of the
+          // screen is covered by the poster's name and caption, and the right
+          // edge by the like/comment/share buttons. Text centred or low gets
+          // sat on by the app's own interface.
+          {
+            type: "text",
+            text: caption,
+            duration,
+            position: "custom",
+            x: "center",
+            y: vertical ? "15%" : "8%",
+            width: Math.round(width * 0.86),
+            settings: {
+              "font-family": "Roboto",
+              "font-size": vertical ? "64px" : "48px",
+              color: "#FFFFFF",
+              "text-align": "center",
+              // Product photos are often pale, and white on white is invisible.
+              "text-shadow": "0 4px 18px rgba(0,0,0,0.85)",
+            },
+          },
         ],
       },
     ],
   };
 }
 
-export async function submitAdVideoRender({ imageUrl, audioUrl, caption, duration }) {
+export async function submitAdVideoRender({ imageUrl, audioUrl, caption, duration, format }) {
   const apiKey = process.env.JSON2VIDEO_API_KEY;
   if (!apiKey) throw new Error("JSON2VIDEO_API_KEY not configured");
   const res = await fetch(`${JSON2VIDEO_BASE}/movies`, {
     method: "POST",
     headers: { "x-api-key": apiKey, "Content-Type": "application/json" },
-    body: JSON.stringify(buildMovie({ imageUrl, audioUrl, caption, duration })),
+    body: JSON.stringify(buildMovie({ imageUrl, audioUrl, caption, duration, format })),
   });
   const body = await res.json();
   if (!res.ok || !body?.success || !body?.project) throw new Error(`Render submit failed: ${JSON.stringify(body)}`);

@@ -135,6 +135,11 @@ export const TOOL_DEFINITIONS = [
       properties: {
         product_id: { type: "string", description: "id from list_my_products." },
         script: { type: "string", description: "Optional ad script/voiceover text, roughly 2-4 short sentences. Omit to have one written automatically." },
+        format: {
+          type: "string",
+          description:
+            "Shape of the video: 'vertical' (default -- TikTok, Reels, Shorts), 'square' (Facebook/Instagram feed) or 'landscape' (YouTube). Leave it out unless the user names a platform that needs another shape.",
+        },
       },
       required: ["product_id"],
     },
@@ -148,6 +153,7 @@ export const TOOL_DEFINITIONS = [
       properties: {
         render_id: { type: "string", description: "render_id returned by create_video_ad." },
         product_id: { type: "string", description: "The same product_id passed to create_video_ad, so the saved creative gets the right title." },
+        format: { type: "string", description: "The same format passed to create_video_ad, so the saved creative records which platform it is shaped for." },
       },
       required: ["render_id"],
     },
@@ -390,13 +396,21 @@ export async function executeTool(name, input = {}, ctx = {}) {
         const audioBuffer = await videoAds.synthesizeSpeechBuffer(script);
         const audioUrl = await videoAds.uploadPublicAsset(storageClient(), audioBuffer, `${product.id}.mp3`, "audio/mpeg");
         const duration = videoAds.estimateDurationSeconds(script);
-        const renderId = await videoAds.submitAdVideoRender({ imageUrl: product.image_url, audioUrl, caption: product.name, duration });
+        const format = videoAds.adFormat(input.format);
+        const renderId = await videoAds.submitAdVideoRender({
+          imageUrl: product.image_url,
+          audioUrl,
+          caption: product.name,
+          duration,
+          format: input.format,
+        });
 
         return {
           render_id: renderId,
           product_id: product.id,
           product_name: product.name,
           script,
+          format: `${format.width}x${format.height} (${format.where})`,
           estimated_wait_seconds: 60,
           message: "Rendering started -- call check_video_ad with this render_id in about a minute.",
         };
@@ -419,14 +433,18 @@ export async function executeTool(name, input = {}, ctx = {}) {
           if (owned[0]) title = `${owned[0].name} -- AI video ad`;
         }
 
+        // Only columns ad_assets actually has. A `source` field was being sent
+        // too, and Postgres rejects an insert naming a column that isn't
+        // there -- so every finished render failed at the last step and no ad
+        // creative was ever saved.
+        const shape = videoAds.adFormat(input.format);
         const asset = await D.AdAsset.create({
           created_by_id: user.id,
           title,
           file_url: status.url,
           file_type: "video",
-          platform: "general",
-          notes: `Rendered via JSON2Video (render ${renderId}).`,
-          source: "ai_generated_video",
+          platform: shape.where,
+          notes: `AI-generated video ad, ${shape.width}x${shape.height}. Rendered via JSON2Video (render ${renderId}).`,
         });
 
         return { status: "done", url: status.url, ad_asset_id: asset.id, message: "Saved to your ad creatives." };

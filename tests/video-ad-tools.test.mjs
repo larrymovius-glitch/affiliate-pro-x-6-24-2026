@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { executeTool } from "../api/_lib/assistantTools.js";
+import { adFormat } from "../api/_lib/videoAds.js";
 
 function fakeDb({ products = [], assets = [] } = {}) {
   const seen = [];
@@ -24,8 +25,11 @@ const fakeStorage = () => ({
   },
 });
 
-const notConfigured = { videoAdsConfigured: () => false };
+// adFormat is the real one throughout: which shape an ad is rendered in is
+// exactly what these tests are checking, so stubbing it would prove nothing.
+const notConfigured = { videoAdsConfigured: () => false, adFormat };
 const configured = {
+  adFormat,
   videoAdsConfigured: () => true,
   synthesizeSpeechBuffer: async () => Buffer.from("fake-audio"),
   uploadPublicAsset: async () => "https://uploads.test/audio.mp3",
@@ -114,4 +118,33 @@ test("check_video_ad saves a completed render as an AdAsset owned by the caller"
   assert.equal(insert.created_by_id, "me");
   assert.equal(insert.file_type, "video");
   assert.match(insert.title, /Mine/);
+  // ad_assets has no `source` column, and Postgres rejects the whole insert
+  // when one is named -- which is why no finished render was ever saved.
+  assert.deepEqual(
+    Object.keys(insert).filter((k) => !["created_by_id", "title", "file_url", "file_type", "platform", "notes"].includes(k)),
+    [],
+    "only columns ad_assets actually has"
+  );
+  assert.match(insert.platform, /TikTok/, "a vertical ad is recorded against where it is for");
+  assert.match(insert.notes, /1080x1920/);
+});
+
+test("a finished landscape ad is saved as a landscape one", async () => {
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png" }] });
+  await executeTool("check_video_ad", { render_id: "r1", product_id: "p1", format: "landscape" }, ctxFor(D, { videoAds: configured }));
+  assert.match(D.seen[0].platform, /YouTube/);
+  assert.match(D.seen[0].notes, /1920x1080/);
+});
+
+test("create_video_ad renders vertical unless told otherwise, and says which shape it used", async () => {
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png" }] });
+  const submitted = [];
+  const videoAds = { ...configured, submitAdVideoRender: async (args) => { submitted.push(args); return "render-123"; } };
+
+  const r = await executeTool("create_video_ad", { product_id: "p1" }, ctxFor(D, { videoAds }));
+  assert.equal(submitted[0].format, undefined, "no format passed through means the renderer's own default");
+  assert.match(r.format, /1080x1920/);
+
+  await executeTool("create_video_ad", { product_id: "p1", format: "square" }, ctxFor(D, { videoAds }));
+  assert.equal(submitted[1].format, "square");
 });
