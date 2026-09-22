@@ -29,14 +29,28 @@ export function videoAdsConfigured() {
  * fetches movie assets by URL, not inline, so the caller must upload this
  * somewhere public (see uploadPublicAsset) before using it in a render.
  */
-export async function synthesizeSpeechBuffer(text, voice = "alloy") {
+// gpt-4o-mini-tts takes plain-English direction on delivery, which is the
+// difference between an ad that sounds like a phone menu and one that sounds
+// like a person. Without it the read is flat and evenly paced -- the single
+// clearest giveaway that nobody was behind the microphone.
+export const AD_VOICE = "nova";
+export const AD_VOICE_DIRECTION =
+  "Speak like a real person recommending something to a friend: warm, upbeat and unhurried, with natural emphasis on the details that matter. Not an announcer, not a hard sell, no shouting.";
+
+export async function synthesizeSpeechBuffer(text, voice = AD_VOICE, instructions = AD_VOICE_DIRECTION) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY not configured");
-  const selectedVoice = OPENAI_VOICES.includes(voice) ? voice : "alloy";
+  const selectedVoice = OPENAI_VOICES.includes(voice) ? voice : AD_VOICE;
   const res = await fetch("https://api.openai.com/v1/audio/speech", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "gpt-4o-mini-tts", input: text, voice: selectedVoice, response_format: "mp3" }),
+    body: JSON.stringify({
+      model: "gpt-4o-mini-tts",
+      input: text,
+      voice: selectedVoice,
+      response_format: "mp3",
+      ...(instructions ? { instructions: String(instructions).slice(0, 1000) } : {}),
+    }),
   });
   if (!res.ok) throw new Error(`TTS failed: ${await res.text()}`);
   return Buffer.from(await res.arrayBuffer());

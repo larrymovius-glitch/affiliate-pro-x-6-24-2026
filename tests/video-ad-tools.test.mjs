@@ -161,3 +161,40 @@ test("create_video_ad renders vertical unless told otherwise, and says which sha
   await executeTool("create_video_ad", { product_id: "p1", format: "square" }, ctxFor(D, { videoAds }));
   assert.equal(submitted[1].format, "square");
 });
+
+test("the script is told to use the listing's facts and invent nothing", async () => {
+  const D = fakeDb({ products: [{
+    id: "p1", created_by_id: "me", name: "Sony PlayStation 5",
+    image_url: "https://x.com/i.png",
+    description: "eBay trending product — electronics. Condition: New. Ships from: US. Shipping: free",
+  }] });
+  const prompts = [];
+  const videoAds = { ...configured, submitAdVideoRender: async () => "r1" };
+  await executeTool("create_video_ad", { product_id: "p1" }, ctxFor(D, {
+    videoAds,
+    invokeLLM: async ({ prompt }) => { prompts.push(prompt); return { text: "script" }; },
+  }));
+
+  const prompt = prompts[0];
+  assert.match(prompt, /Condition: New/, "the listing's own facts are given to the writer");
+  assert.match(prompt, /Ships from: US/);
+  assert.match(prompt, /Invent nothing/i);
+  assert.match(prompt, /Never state a price/i);
+});
+
+test("the voiceover takes a voice and a delivery direction", async () => {
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png" }] });
+  const spoken = [];
+  const videoAds = {
+    ...configured,
+    submitAdVideoRender: async () => "r1",
+    synthesizeSpeechBuffer: async (text, voice, instructions) => { spoken.push({ text, voice, instructions }); return Buffer.from(""); },
+  };
+
+  await executeTool("create_video_ad", { product_id: "p1", script: "Hello." }, ctxFor(D, { videoAds }));
+  assert.deepEqual([spoken[0].voice, spoken[0].instructions], [undefined, undefined], "left to the renderer's own default");
+
+  await executeTool("create_video_ad", { product_id: "p1", script: "Hello.", voice: "onyx", tone: "calm and serious" }, ctxFor(D, { videoAds }));
+  assert.equal(spoken[1].voice, "onyx");
+  assert.equal(spoken[1].instructions, "calm and serious");
+});

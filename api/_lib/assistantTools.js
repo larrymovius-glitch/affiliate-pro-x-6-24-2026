@@ -165,6 +165,16 @@ export const TOOL_DEFINITIONS = [
           description:
             "Shape of the video: 'vertical' (default -- TikTok, Reels, Shorts), 'square' (Facebook/Instagram feed) or 'landscape' (YouTube). Leave it out unless the user names a platform that needs another shape.",
         },
+        voice: {
+          type: "string",
+          description:
+            "Voiceover voice: alloy, ash, ballad, coral, echo, fable, onyx, nova, sage, shimmer or verse. Defaults to nova. Pass one only if the user asks for a different voice.",
+        },
+        tone: {
+          type: "string",
+          description:
+            "Plain-English direction for how the voice should read it, e.g. 'calm and serious' or 'excited, fast, like a friend who just found a deal'. Defaults to warm and conversational.",
+        },
         captions: {
           type: "boolean",
           description:
@@ -444,13 +454,25 @@ export async function executeTool(name, input = {}, ctx = {}) {
         let script = String(input.script || "").trim();
         if (!script) {
           const written = await callLLM({
-            prompt: `Write a short, energetic 15-20 second video ad voiceover script for this affiliate product. 2-4 short sentences, spoken out loud, no stage directions, no emoji, no hashtags. End with a clear call to action.\n\nProduct: ${product.name}\nDescription: ${product.description || "N/A"}\nCategory: ${product.category || "N/A"}`,
+            prompt: `Write a short 15-20 second video ad voiceover script for this affiliate product. 2-4 short sentences, spoken out loud, no stage directions, no emoji, no hashtags. End with a clear call to action.
+
+Say the things a buyer decides on -- condition, where it ships from, shipping cost or speed, what's included -- but ONLY where they appear in the details below. Never state a price: this video outlives the listing's price.
+
+Invent nothing. No "fast free shipping", no "brand new sealed", no "limited time", no guarantees, no health or income claims, unless the words are in the details below. A claim that isn't in the listing is the kind of thing that gets an affiliate account closed.
+
+Product: ${product.name}
+Details: ${product.description || "none recorded"}
+Category: ${product.category || "N/A"}`,
           });
           script = String(written.text || "").trim();
           if (!script) return { error: "Couldn't write a script for this product. Try passing your own." };
         }
 
-        const audioBuffer = await videoAds.synthesizeSpeechBuffer(script);
+        const audioBuffer = await videoAds.synthesizeSpeechBuffer(
+          script,
+          String(input.voice || "").trim() || undefined,
+          String(input.tone || "").trim() || undefined
+        );
         const audioUrl = await videoAds.uploadPublicAsset(storageClient(), audioBuffer, `${product.id}.mp3`, "audio/mpeg");
         const duration = videoAds.estimateDurationSeconds(script);
         const format = videoAds.adFormat(input.format);

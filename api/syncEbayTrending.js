@@ -43,6 +43,26 @@ async function searchTopEbayItem(token, campaignId, query) {
   return data.itemSummaries?.[0] || null;
 }
 
+// What a buyer actually decides on, in the listing's own words: condition,
+// where it ships from, whether shipping is free. Recorded on the product so
+// the ad script can say them -- and, just as much, so it cannot say them when
+// eBay hasn't. "New in sealed box, ships free from the US" is a great line in
+// an ad and a serious problem when it isn't true of the listing.
+//
+// Deliberately no price: a video outlives the price it quotes.
+export function listingFacts(item) {
+  const facts = [];
+  if (item?.condition) facts.push(`Condition: ${item.condition}`);
+  const country = item?.itemLocation?.country;
+  if (country) facts.push(`Ships from: ${country}`);
+  const shipping = (item?.shippingOptions || [])[0];
+  if (shipping?.shippingCostType === "FIXED" && Number(shipping?.shippingCost?.value) === 0) {
+    facts.push("Shipping: free");
+  }
+  if (item?.seller?.feedbackPercentage) facts.push(`Seller feedback: ${item.seller.feedbackPercentage}%`);
+  return facts.join(". ");
+}
+
 function affiliateUrlFor(item, campaignId) {
   if (item.itemAffiliateWebUrl) return item.itemAffiliateWebUrl;
   if (!item.itemWebUrl) return null;
@@ -111,6 +131,7 @@ Return ONLY real, verified products that are currently trending on eBay. Do NOT 
         category: item.category,
         url,
         image: largestEbayImage(topItem.image?.imageUrl || ""),
+        facts: listingFacts(topItem),
       });
     }
 
@@ -145,7 +166,10 @@ Return ONLY real, verified products that are currently trending on eBay. Do NOT 
           created_by_id: owner.id,
           name: r.name,
           url: r.url,
-          description: `eBay trending product — ${r.category || "general"}`,
+          // The listing's own facts, so an ad script has something true to
+          // say about condition and shipping instead of reaching for
+          // "fast free shipping" on its own.
+          description: [`eBay trending product — ${r.category || "general"}`, r.facts].filter(Boolean).join(". "),
           category: "ebay_trending",
           image_url: r.image,
           commission_rate: 0,
