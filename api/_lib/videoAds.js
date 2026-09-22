@@ -86,7 +86,13 @@ export function adFormat(name) {
   return AD_FORMATS[String(name || "").trim().toLowerCase()] || AD_FORMATS.vertical;
 }
 
-export function buildMovie({ imageUrl, audioUrl, caption, duration, format }) {
+/**
+ * `captions: false` leaves the spoken words off the picture. That is the
+ * version to take into an editor -- CapCut and the TikTok editor both add
+ * their own captions and trending audio, and burned-in text can't be moved or
+ * restyled once it is part of the frame.
+ */
+export function buildMovie({ imageUrl, audioUrl, caption, duration, format, captions = true }) {
   const { width, height } = adFormat(format);
   const vertical = height > width;
   return {
@@ -95,12 +101,28 @@ export function buildMovie({ imageUrl, audioUrl, caption, duration, format }) {
     height,
     scenes: [
       {
+        // A deliberate dark backdrop rather than the default black, so the
+        // picture sits on something that looks chosen.
+        "background-color": "#0B0B10",
         elements: [
-          // cover fills the frame rather than leaving bars around a photo that
-          // isn't this shape -- product images are mostly square or landscape.
-          // zoom: 1-10, a slow Ken-Burns-style push-in, the only visual
-          // movement a one-image ad has to work with.
-          { type: "image", src: imageUrl, duration, resize: "cover", zoom: 3 },
+          // "fit", not "cover": a product photo is square or landscape, and
+          // covering a 9:16 frame with one crops away a third of the width --
+          // half the LEGO box, or the label off a bottle. The whole product
+          // stays visible, in the upper two thirds where the eye lands.
+          // zoom: 1-10, a slow Ken-Burns push-in, the only movement a
+          // one-image ad has.
+          {
+            type: "image",
+            src: imageUrl,
+            duration,
+            resize: "fit",
+            zoom: 2,
+            position: "custom",
+            x: "center",
+            y: vertical ? "46%" : "center",
+            width: Math.round(width * 0.92),
+            height: Math.round(height * (vertical ? 0.58 : 0.82)),
+          },
           { type: "audio", src: audioUrl, duration },
           // Kept in the upper third on purpose: on TikTok the bottom of the
           // screen is covered by the poster's name and caption, and the right
@@ -112,7 +134,7 @@ export function buildMovie({ imageUrl, audioUrl, caption, duration, format }) {
             duration,
             position: "custom",
             x: "center",
-            y: vertical ? "15%" : "8%",
+            y: vertical ? "8%" : "6%",
             width: Math.round(width * 0.86),
             settings: {
               "font-family": "Roboto",
@@ -123,19 +145,43 @@ export function buildMovie({ imageUrl, audioUrl, caption, duration, format }) {
               "text-shadow": "0 4px 18px rgba(0,0,0,0.85)",
             },
           },
+          // Spoken words burned onto the picture, highlighted as they are
+          // said. Most of a short-video audience watches with the sound off,
+          // so an ad whose whole message is in a voiceover says nothing to
+          // them; this is also what the platform's own viewers are used to
+          // seeing. Transcribed from the voiceover we just made, so it cannot
+          // drift out of sync with it.
+          ...(captions ? [{
+            type: "subtitles",
+            language: "en",
+            settings: {
+              style: "classic-progressive",
+              "font-family": "Roboto",
+              "font-size": vertical ? 90 : 70,
+              "line-color": "#FFFFFF",
+              "word-color": "#FFE100",
+              "outline-color": "#000000",
+              "outline-width": 8,
+              position: "custom",
+              x: Math.round(width / 2),
+              // Middle of the frame, not the bottom: the bottom fifth of a
+              // phone screen is the app's own caption and username.
+              y: Math.round(height * 0.78),
+            },
+          }] : []),
         ],
       },
     ],
   };
 }
 
-export async function submitAdVideoRender({ imageUrl, audioUrl, caption, duration, format }) {
+export async function submitAdVideoRender({ imageUrl, audioUrl, caption, duration, format, captions }) {
   const apiKey = process.env.JSON2VIDEO_API_KEY;
   if (!apiKey) throw new Error("JSON2VIDEO_API_KEY not configured");
   const res = await fetch(`${JSON2VIDEO_BASE}/movies`, {
     method: "POST",
     headers: { "x-api-key": apiKey, "Content-Type": "application/json" },
-    body: JSON.stringify(buildMovie({ imageUrl, audioUrl, caption, duration, format })),
+    body: JSON.stringify(buildMovie({ imageUrl, audioUrl, caption, duration, format, captions })),
   });
   const body = await res.json();
   if (!res.ok || !body?.success || !body?.project) throw new Error(`Render submit failed: ${JSON.stringify(body)}`);

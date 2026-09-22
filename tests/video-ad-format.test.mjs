@@ -39,19 +39,15 @@ test("square and landscape are available for the platforms that want them", () =
   assert.equal(movie({ format: "LANDSCAPE" }).width, 1920, "case doesn't matter");
 });
 
-test("the product image fills the frame instead of leaving black bars", () => {
-  // Product photos are square or landscape; dropped into a 9:16 frame
-  // untouched they leave most of the screen empty.
-  const image = byType(movie(), "image");
-  assert.equal(image.resize, "cover");
-  assert.equal(image.src, "https://img.test/product.jpg");
+test("the ad is built from the product's own photo", () => {
+  assert.equal(byType(movie(), "image").src, "https://img.test/product.jpg");
 });
 
-test("the caption sits clear of TikTok's own interface", () => {
+test("the product name sits clear of TikTok's own interface", () => {
   // TikTok covers the bottom of the screen with the poster's name and caption,
   // and the right edge with the like/comment/share buttons.
   const text = byType(movie(), "text");
-  assert.equal(text.y, "15%");
+  assert.equal(text.y, "8%");
   assert.equal(text.x, "center");
   assert.ok(parseInt(text.settings["font-size"], 10) >= 48, "readable on a phone held at arm's length");
   assert.ok(text.width <= 1080 * 0.9, "not running under the side buttons");
@@ -98,4 +94,29 @@ test("an image that isn't one of eBay's sized paths is left exactly as it is", (
     assert.equal(largestEbayImage(url), url);
   }
   assert.equal(largestEbayImage(null), "");
+});
+
+test("the whole product stays in frame instead of being cropped away", () => {
+  // "cover" on a square product photo in a 9:16 frame crops a third of the
+  // width -- half the LEGO box, or the label off a bottle.
+  const image = byType(movie(), "image");
+  assert.equal(image.resize, "fit");
+  assert.ok(image.width <= 1080);
+  assert.equal(byType(movie(), "image").zoom, 2, "a push-in, not a lurch");
+  assert.equal(movie().scenes[0]["background-color"], "#0B0B10", "a chosen backdrop, not default black");
+});
+
+test("the voiceover is also written on screen, because most people watch muted", () => {
+  const subs = byType(movie(), "subtitles");
+  assert.ok(subs, "captions are on by default");
+  assert.equal(subs.settings.style, "classic-progressive");
+  assert.ok(subs.settings["outline-width"] > 0, "readable over a photo");
+  assert.ok(subs.settings.y < 1920 * 0.85, "clear of TikTok's own caption bar");
+});
+
+test("captions can be left off for a video that will be edited in CapCut", () => {
+  const m = movie({ captions: false });
+  assert.equal(byType(m, "subtitles"), undefined);
+  // Everything else still there -- it is the same ad, minus burned-in text.
+  assert.ok(byType(m, "image") && byType(m, "audio") && byType(m, "text"));
 });

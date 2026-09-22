@@ -140,6 +140,11 @@ export const TOOL_DEFINITIONS = [
           description:
             "Shape of the video: 'vertical' (default -- TikTok, Reels, Shorts), 'square' (Facebook/Instagram feed) or 'landscape' (YouTube). Leave it out unless the user names a platform that needs another shape.",
         },
+        captions: {
+          type: "boolean",
+          description:
+            "On-screen captions of the voiceover, on by default. Pass false when the user says they'll edit the video themselves in CapCut or TikTok's editor -- those add their own captions, and burned-in text can't be restyled or moved afterwards.",
+        },
       },
       required: ["product_id"],
     },
@@ -403,6 +408,7 @@ export async function executeTool(name, input = {}, ctx = {}) {
           caption: product.name,
           duration,
           format: input.format,
+          captions: input.captions !== false,
         });
 
         return {
