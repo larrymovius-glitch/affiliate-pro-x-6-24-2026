@@ -1,6 +1,14 @@
 import { db } from "./db.js";
 import { getClickBankAffiliateId, applyClickBankAffiliateId } from "./affiliates.js";
-import { networkForDestination } from "./tracking.js";
+import { detectNetwork, networkForDestination } from "./tracking.js";
+
+function hostOf(url) {
+  try {
+    return new URL(String(url || "")).hostname;
+  } catch {
+    return "";
+  }
+}
 import { invokeLLM } from "./llm.js";
 import { AFFILIATE_NETWORKS, connectedNetworkIds } from "./affiliateNetworks.js";
 import { adminClient } from "./supabase.js";
@@ -402,6 +410,10 @@ export async function executeTool(name, input = {}, ctx = {}) {
         const audioUrl = await videoAds.uploadPublicAsset(storageClient(), audioBuffer, `${product.id}.mp3`, "audio/mpeg");
         const duration = videoAds.estimateDurationSeconds(script);
         const format = videoAds.adFormat(input.format);
+        // eBay is the one network here that hands affiliates a logo and asks
+        // for it to be used exactly as supplied; the file is served from this
+        // app's own /brand, unmodified from their Creative Gallery download.
+        const goesToEbay = detectNetwork(hostOf(product.url), product.category?.split("_")[0]) === "ebay";
         const renderId = await videoAds.submitAdVideoRender({
           imageUrl: product.image_url,
           audioUrl,
@@ -409,6 +421,7 @@ export async function executeTool(name, input = {}, ctx = {}) {
           duration,
           format: input.format,
           captions: input.captions !== false,
+          badgeUrl: goesToEbay && origin ? `${origin}/brand/ebay-logo.png` : undefined,
         });
 
         return {

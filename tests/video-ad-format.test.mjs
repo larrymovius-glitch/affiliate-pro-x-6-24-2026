@@ -155,3 +155,15 @@ test("the suggested caption says #ad, the commission, and that it is AI-made", (
   assert.match(caption, /Link in bio/);
   assert.match(suggestedAdCaption("X", "apx.amhere4utoday.com/go/apx"), /go\/apx/);
 });
+
+test("a network's logo is shown only when there is one, and never in the app's own corners", () => {
+  const plain = movie();
+  assert.equal(elements(plain).filter((e) => e.type === "image").length, 1, "product photo only");
+
+  const branded = movie({ badgeUrl: "https://apx.test/brand/ebay-logo.png" });
+  const badge = elements(branded).filter((e) => e.type === "image").find((e) => e.src.includes("ebay-logo"));
+  assert.ok(badge);
+  assert.equal(badge.x, "center", "corners belong to TikTok's buttons and caption");
+  assert.equal(badge.width, badge.height, "square as supplied -- eBay requires their logo unaltered");
+  assert.ok(badge.width <= 1080 * 0.12, "a mark, not a billboard");
+});

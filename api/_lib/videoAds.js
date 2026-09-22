@@ -114,7 +114,7 @@ export function suggestedAdCaption(productName, linkHint = "Link in bio") {
  * their own captions and trending audio, and burned-in text can't be moved or
  * restyled once it is part of the frame.
  */
-export function buildMovie({ imageUrl, audioUrl, caption, duration, format, captions = true }) {
+export function buildMovie({ imageUrl, audioUrl, caption, duration, format, captions = true, badgeUrl }) {
   const { width, height } = adFormat(format);
   const vertical = height > width;
   return {
@@ -185,6 +185,22 @@ export function buildMovie({ imageUrl, audioUrl, caption, duration, format, capt
               "text-shadow": "0 3px 12px rgba(0,0,0,0.9)",
             },
           },
+          // A network's own logo, when that network gives affiliates one.
+          // Centred rather than tucked in a corner: the corners of a phone
+          // screen belong to the app -- buttons down the right, name and
+          // caption along the bottom. Square, unscaled in proportion and
+          // unrecoloured, because eBay's terms require their logo to be used
+          // exactly as supplied in the Creative Gallery.
+          ...(badgeUrl ? [{
+            type: "image",
+            src: badgeUrl,
+            duration,
+            position: "custom",
+            x: "center",
+            y: vertical ? "20%" : "17%",
+            width: Math.round(width * 0.1),
+            height: Math.round(width * 0.1),
+          }] : []),
           // Spoken words burned onto the picture, highlighted as they are
           // said. Most of a short-video audience watches with the sound off,
           // so an ad whose whole message is in a voiceover says nothing to
@@ -215,13 +231,13 @@ export function buildMovie({ imageUrl, audioUrl, caption, duration, format, capt
   };
 }
 
-export async function submitAdVideoRender({ imageUrl, audioUrl, caption, duration, format, captions }) {
+export async function submitAdVideoRender({ imageUrl, audioUrl, caption, duration, format, captions, badgeUrl }) {
   const apiKey = process.env.JSON2VIDEO_API_KEY;
   if (!apiKey) throw new Error("JSON2VIDEO_API_KEY not configured");
   const res = await fetch(`${JSON2VIDEO_BASE}/movies`, {
     method: "POST",
     headers: { "x-api-key": apiKey, "Content-Type": "application/json" },
-    body: JSON.stringify(buildMovie({ imageUrl, audioUrl, caption, duration, format, captions })),
+    body: JSON.stringify(buildMovie({ imageUrl, audioUrl, caption, duration, format, captions, badgeUrl })),
   });
   const body = await res.json();
   if (!res.ok || !body?.success || !body?.project) throw new Error(`Render submit failed: ${JSON.stringify(body)}`);
