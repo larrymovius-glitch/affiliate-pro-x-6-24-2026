@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { adFormat, buildMovie } from "../api/_lib/videoAds.js";
+import { AD_DISCLOSURE, adFormat, buildMovie, suggestedAdCaption } from "../api/_lib/videoAds.js";
 import { largestEbayImage } from "../api/syncEbayTrending.js";
 
 // The shape of the video decides whether it can be posted at all. TikTok,
@@ -119,4 +119,39 @@ test("captions can be left off for a video that will be edited in CapCut", () =>
   assert.equal(byType(m, "subtitles"), undefined);
   // Everything else still there -- it is the same ad, minus burned-in text.
   assert.ok(byType(m, "image") && byType(m, "audio") && byType(m, "text"));
+});
+
+test("every ad carries the disclosure on the picture itself", () => {
+  // Digistore24's terms ban undisclosed AI-generated promotional content, and
+  // the FTC wants the commission disclosed where the recommendation is. On the
+  // frame, so it survives a download, a re-edit and a repost.
+  const shown = elements(movie()).filter((e) => e.type === "text").map((e) => e.text);
+  assert.ok(shown.includes(AD_DISCLOSURE));
+  assert.match(AD_DISCLOSURE, /AI-generated/i);
+  assert.match(AD_DISCLOSURE, /[Aa]ffiliate/);
+});
+
+test("the disclosure stays out of the area the app covers, in every shape", () => {
+  for (const format of ["vertical", "square", "landscape"]) {
+    const m = movie({ format });
+    const line = elements(m).find((e) => e.type === "text" && e.text === AD_DISCLOSURE);
+    assert.ok(parseFloat(line.y) < 20, `${format}: ${line.y} is in the top fifth`);
+  }
+});
+
+test("the disclosure survives turning captions off for CapCut", () => {
+  // The edited version is the one most likely to be posted, so it must not be
+  // the one that loses the disclosure.
+  const texts = elements(movie({ captions: false })).filter((e) => e.type === "text").map((e) => e.text);
+  assert.ok(texts.includes(AD_DISCLOSURE));
+});
+
+test("the suggested caption says #ad, the commission, and that it is AI-made", () => {
+  const caption = suggestedAdCaption("Advanced Amino Formula");
+  assert.match(caption, /#ad/);
+  assert.match(caption, /commission/i);
+  assert.match(caption, /AI-generated/i);
+  assert.match(caption, /Advanced Amino Formula/);
+  assert.match(caption, /Link in bio/);
+  assert.match(suggestedAdCaption("X", "apx.amhere4utoday.com/go/apx"), /go\/apx/);
 });

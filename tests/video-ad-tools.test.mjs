@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { executeTool } from "../api/_lib/assistantTools.js";
-import { adFormat } from "../api/_lib/videoAds.js";
+import { adFormat, suggestedAdCaption } from "../api/_lib/videoAds.js";
 
 function fakeDb({ products = [], assets = [] } = {}) {
   const seen = [];
@@ -27,9 +27,10 @@ const fakeStorage = () => ({
 
 // adFormat is the real one throughout: which shape an ad is rendered in is
 // exactly what these tests are checking, so stubbing it would prove nothing.
-const notConfigured = { videoAdsConfigured: () => false, adFormat };
+const notConfigured = { videoAdsConfigured: () => false, adFormat, suggestedAdCaption };
 const configured = {
   adFormat,
+  suggestedAdCaption,
   videoAdsConfigured: () => true,
   synthesizeSpeechBuffer: async () => Buffer.from("fake-audio"),
   uploadPublicAsset: async () => "https://uploads.test/audio.mp3",

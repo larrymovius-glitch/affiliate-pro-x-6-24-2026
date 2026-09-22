@@ -86,6 +86,28 @@ export function adFormat(name) {
   return AD_FORMATS[String(name || "").trim().toLowerCase()] || AD_FORMATS.vertical;
 }
 
+// Burned into every ad, not left to whoever posts it to remember.
+//
+// Two separate obligations, both met by one line. Digistore24's terms ban
+// "undisclosed AI-generated promotional content" outright, alongside deepfakes
+// and synthetic spokespeople -- and every ad this file makes is an AI script
+// read by an AI voice. The FTC (16 CFR Part 255) requires the commission to be
+// disclosed where the recommendation is, which on a muted, scrolled video
+// means on the picture, not only in a caption someone taps to expand.
+//
+// It sits on the frame itself so it survives being downloaded, re-edited in
+// CapCut and posted somewhere none of us chose.
+export const AD_DISCLOSURE = "AI-generated ad · Affiliate link — I may earn a commission";
+
+/**
+ * The caption to post alongside the video. The on-screen line covers the
+ * viewer who never reads captions; this covers the platforms that look for
+ * the words, and #ad is what TikTok and Instagram actually scan for.
+ */
+export function suggestedAdCaption(productName, linkHint = "Link in bio") {
+  return `${String(productName || "").trim()} — ${linkHint}.\n\n#ad Affiliate link: I may earn a commission if you buy through it, at no extra cost to you. This ad's voiceover and script were AI-generated.`;
+}
+
 /**
  * `captions: false` leaves the spoken words off the picture. That is the
  * version to take into an editor -- CapCut and the TikTok editor both add
@@ -143,6 +165,24 @@ export function buildMovie({ imageUrl, audioUrl, caption, duration, format, capt
               "text-align": "center",
               // Product photos are often pale, and white on white is invisible.
               "text-shadow": "0 4px 18px rgba(0,0,0,0.85)",
+            },
+          },
+          // Directly under the product name, where the eye already is, and
+          // never in the bottom fifth that the app's own interface covers.
+          {
+            type: "text",
+            text: AD_DISCLOSURE,
+            duration,
+            position: "custom",
+            x: "center",
+            y: vertical ? "14%" : "13%",
+            width: Math.round(width * 0.86),
+            settings: {
+              "font-family": "Roboto",
+              "font-size": vertical ? "34px" : "28px",
+              color: "#F2F2F5",
+              "text-align": "center",
+              "text-shadow": "0 3px 12px rgba(0,0,0,0.9)",
             },
           },
           // Spoken words burned onto the picture, highlighted as they are

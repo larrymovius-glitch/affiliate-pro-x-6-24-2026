@@ -417,8 +417,14 @@ export async function executeTool(name, input = {}, ctx = {}) {
           product_name: product.name,
           script,
           format: `${format.width}x${format.height} (${format.where})`,
+          // Handed over with the video rather than left to the user to write:
+          // the on-screen line covers the muted scroller, this covers the
+          // platform's own check for #ad and the AI-content wording
+          // Digistore24's terms require.
+          suggested_caption: videoAds.suggestedAdCaption(product.name),
           estimated_wait_seconds: 60,
-          message: "Rendering started -- call check_video_ad with this render_id in about a minute.",
+          message:
+            "Rendering started -- call check_video_ad with this render_id in about a minute. Give the user the suggested_caption to post with it; the video already carries the disclosure on screen.",
         };
       }
 
