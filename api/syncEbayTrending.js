@@ -4,6 +4,15 @@ import { invokeLLM } from "./_lib/llm.js";
 
 const EBAY_API_BASE = "https://api.ebay.com";
 
+// The Browse API hands back a thumbnail -- .../s-l225.jpg, 225px wide. That is
+// fine beside a row of text and useless as the picture in a 1080x1920 video
+// ad, where it is blown up to five times its size. eBay's image host serves
+// the same picture at other sizes from the same path, so ask for the large
+// one. Anything that isn't one of those sized paths is left alone.
+export function largestEbayImage(url) {
+  return String(url || "").replace(/\/s-l\d+\.(jpg|jpeg|png|webp)(\?|$)/i, "/s-l1600.$1$2");
+}
+
 // App-level OAuth (client_credentials) -- separate from a user's own eBay
 // login. This is all the Browse API needs; it doesn't require anyone to
 // "connect an eBay account".
@@ -109,7 +118,7 @@ Return ONLY real, verified products that are currently trending on eBay. Do NOT 
         name: topItem.title || item.name || item.search_term,
         category: item.category,
         url,
-        image: topItem.image?.imageUrl || "",
+        image: largestEbayImage(topItem.image?.imageUrl || ""),
       });
     }
 

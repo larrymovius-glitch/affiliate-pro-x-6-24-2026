@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { adFormat, buildMovie } from "../api/_lib/videoAds.js";
+import { largestEbayImage } from "../api/syncEbayTrending.js";
 
 // The shape of the video decides whether it can be posted at all. TikTok,
 // Reels and Shorts are full-screen 9:16; a 16:9 video posted there is a small
@@ -73,4 +74,28 @@ test("adFormat names where each shape is meant to be posted", () => {
   assert.match(adFormat("vertical").where, /TikTok/);
   assert.match(adFormat("square").where, /Instagram/);
   assert.match(adFormat("landscape").where, /YouTube/);
+});
+
+test("an eBay thumbnail is upgraded to the full-size image before it becomes a video", () => {
+  // The Browse API returns a 225px thumbnail; stretched over a 1080x1920 frame
+  // that is a blurry mess. Same picture, same path, bigger size.
+  assert.equal(
+    largestEbayImage("https://i.ebayimg.com/images/g/xKIAAeSwxl5qsLhL/s-l225.jpg"),
+    "https://i.ebayimg.com/images/g/xKIAAeSwxl5qsLhL/s-l1600.jpg"
+  );
+  assert.equal(
+    largestEbayImage("https://i.ebayimg.com/images/g/abc/s-l500.webp?x=1"),
+    "https://i.ebayimg.com/images/g/abc/s-l1600.webp?x=1"
+  );
+});
+
+test("an image that isn't one of eBay's sized paths is left exactly as it is", () => {
+  for (const url of [
+    "https://audifort.com/assets/img/bottle-label.webp",
+    "https://i.ebayimg.com/thumbs/images/g/abc/photo.jpg",
+    "",
+  ]) {
+    assert.equal(largestEbayImage(url), url);
+  }
+  assert.equal(largestEbayImage(null), "");
 });
