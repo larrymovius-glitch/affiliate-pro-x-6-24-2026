@@ -1,6 +1,7 @@
 import { db } from "./db.js";
 import { getClickBankAffiliateId, applyClickBankAffiliateId } from "./affiliates.js";
 import { detectNetwork, networkForDestination } from "./tracking.js";
+import { largestEbayImage } from "./images.js";
 
 function hostOf(url) {
   try {
@@ -132,6 +133,22 @@ export const TOOL_DEFINITIONS = [
         network: { type: "string", description: `Optional: scope results to one network id -- ${AFFILIATE_NETWORKS.map((n) => n.id).join(", ")}.` },
       },
       required: [],
+    },
+  },
+  {
+    name: "update_product",
+    description:
+      "Change one of the user's own products: its name, description, category, or the image the video ads are built from. Use this instead of telling the user to go and edit the product themselves. It cannot change a product's affiliate URL -- that decides where a sale is credited, so it stays a deliberate edit the user makes on the Products page.",
+    input_schema: {
+      type: "object",
+      properties: {
+        product_id: { type: "string", description: "id from list_my_products." },
+        name: { type: "string", description: "New product name. Use the vendor's own name for it -- never invent a catchier one." },
+        description: { type: "string" },
+        category: { type: "string" },
+        image_url: { type: "string", description: "Web address of a picture (https). Used as the picture in video ads." },
+      },
+      required: ["product_id"],
     },
   },
   {
@@ -387,6 +404,33 @@ export async function executeTool(name, input = {}, ctx = {}) {
         return { products };
       }
 
+      case "update_product": {
+        const owned = await D.Product.filter({ created_by_id: user.id, id: String(input.product_id || "") });
+        const product = owned[0];
+        if (!product) return { error: "No product of yours with that id. Call list_my_products first." };
+
+        /** @type {Record<string, any>} */
+        const patch = {};
+        if (typeof input.name === "string" && input.name.trim()) patch.name = input.name.trim().slice(0, 200);
+        if (typeof input.description === "string") patch.description = input.description.slice(0, 500);
+        if (typeof input.category === "string" && input.category.trim()) patch.category = input.category.trim().slice(0, 60);
+        if (typeof input.image_url === "string" && input.image_url.trim()) {
+          const image = input.image_url.trim();
+          if (!/^https:\/\//i.test(image)) {
+            return { error: "The image address has to start with https:// -- a file on your computer can't be reached by the renderer." };
+          }
+          // A picture copied out of an eBay listing is usually the 500px one;
+          // the ad needs the full-size version of the same photo.
+          patch.image_url = largestEbayImage(image);
+        }
+        if (!Object.keys(patch).length) {
+          return { error: "Nothing to change. Pass a name, description, category or image_url." };
+        }
+
+        const updated = await D.Product.update(product.id, patch);
+        return { product: productSummary(updated || { ...product, ...patch }), changed: Object.keys(patch) };
+      }
+
       case "create_video_ad": {
         const owned = await D.Product.filter({ created_by_id: user.id, id: String(input.product_id || "") });
         const product = owned[0];
@@ -415,7 +459,7 @@ export async function executeTool(name, input = {}, ctx = {}) {
         // app's own /brand, unmodified from their Creative Gallery download.
         const goesToEbay = detectNetwork(hostOf(product.url), product.category?.split("_")[0]) === "ebay";
         const renderId = await videoAds.submitAdVideoRender({
-          imageUrl: product.image_url,
+          imageUrl: largestEbayImage(product.image_url),
           audioUrl,
           caption: product.name,
           duration,

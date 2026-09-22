@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { AD_DISCLOSURE, adFormat, buildMovie, suggestedAdCaption } from "../api/_lib/videoAds.js";
-import { largestEbayImage } from "../api/syncEbayTrending.js";
+import { largestEbayImage } from "../api/_lib/images.js";
 
 // The shape of the video decides whether it can be posted at all. TikTok,
 // Reels and Shorts are full-screen 9:16; a 16:9 video posted there is a small
