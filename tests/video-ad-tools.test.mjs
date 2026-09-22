@@ -125,15 +125,27 @@ test("check_video_ad saves a completed render as an AdAsset owned by the caller"
     [],
     "only columns ad_assets actually has"
   );
-  assert.match(insert.platform, /TikTok/, "a vertical ad is recorded against where it is for");
+  assert.equal(insert.platform, "tiktok", "a vertical ad is recorded against where it is for");
   assert.match(insert.notes, /1080x1920/);
 });
 
-test("a finished landscape ad is saved as a landscape one", async () => {
+test("the saved platform is always one the database accepts", async () => {
+  // ad_assets.platform has a CHECK constraint. A descriptive phrase written
+  // there ("TikTok, Reels, Shorts") failed the insert and threw away a render
+  // that had already been paid for and had finished.
+  const ALLOWED = ["facebook", "instagram", "tiktok", "twitter", "email", "general"];
+  for (const format of ["vertical", "square", "landscape", "nonsense", undefined]) {
+    const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png" }] });
+    await executeTool("check_video_ad", { render_id: "r1", product_id: "p1", format }, ctxFor(D, { videoAds: configured }));
+    assert.ok(ALLOWED.includes(D.seen[0].platform), `format ${String(format)} gave platform ${D.seen[0].platform}`);
+  }
+});
+
+test("a finished landscape ad records its shape in its notes", async () => {
   const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png" }] });
   await executeTool("check_video_ad", { render_id: "r1", product_id: "p1", format: "landscape" }, ctxFor(D, { videoAds: configured }));
-  assert.match(D.seen[0].platform, /YouTube/);
   assert.match(D.seen[0].notes, /1920x1080/);
+  assert.match(D.seen[0].notes, /YouTube/);
 });
 
 test("create_video_ad renders vertical unless told otherwise, and says which shape it used", async () => {

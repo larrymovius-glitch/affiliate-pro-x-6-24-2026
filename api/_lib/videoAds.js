@@ -72,10 +72,14 @@ export function estimateDurationSeconds(script) {
 //
 // "resolution" takes named presets too, but their exact pixel sizes are not
 // documented, so the sizes are given outright.
+// `platform` is written to ad_assets.platform, which has a CHECK constraint
+// allowing only facebook, instagram, tiktok, twitter, email and general --
+// anything else fails the insert and loses a finished render. `where` is for
+// people to read and belongs in prose, not in that column.
 export const AD_FORMATS = {
-  vertical: { width: 1080, height: 1920, where: "TikTok, Reels, Shorts" },
-  square: { width: 1080, height: 1080, where: "Facebook and Instagram feed" },
-  landscape: { width: 1920, height: 1080, where: "YouTube" },
+  vertical: { width: 1080, height: 1920, platform: "tiktok", where: "TikTok, Reels, Shorts" },
+  square: { width: 1080, height: 1080, platform: "instagram", where: "Facebook and Instagram feed" },
+  landscape: { width: 1920, height: 1080, platform: "general", where: "YouTube" },
 };
 
 export function adFormat(name) {

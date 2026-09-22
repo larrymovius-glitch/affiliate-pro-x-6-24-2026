@@ -443,8 +443,8 @@ export async function executeTool(name, input = {}, ctx = {}) {
           title,
           file_url: status.url,
           file_type: "video",
-          platform: shape.where,
-          notes: `AI-generated video ad, ${shape.width}x${shape.height}. Rendered via JSON2Video (render ${renderId}).`,
+          platform: shape.platform,
+          notes: `AI-generated video ad, ${shape.width}x${shape.height} for ${shape.where}. Rendered via JSON2Video (render ${renderId}).`,
         });
 
         return { status: "done", url: status.url, ad_asset_id: asset.id, message: "Saved to your ad creatives." };
