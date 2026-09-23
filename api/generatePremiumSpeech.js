@@ -10,15 +10,28 @@ export default async function handler(req, res) {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) return res.status(200).json({ configured: false });
 
-    const { text, voice } = req.body || {};
+    const { text, voice, instructions } = req.body || {};
     if (!text) return res.status(400).json({ error: "Missing required field: text" });
 
     const selectedVoice = OPENAI_VOICES.includes(voice) ? voice : "alloy";
 
+    // Without direction, gpt-4o-mini-tts decides the delivery from the words
+    // in front of it, one reply at a time: the same voice reads one answer
+    // warmly, the next flat, the next like an advert. That is heard as the
+    // assistant's personality changing between messages. The caller sends the
+    // same line every time for a given assistant, so the delivery holds still.
     const openaiRes = await fetch("https://api.openai.com/v1/audio/speech", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "gpt-4o-mini-tts", input: text, voice: selectedVoice, response_format: "mp3" }),
+      body: JSON.stringify({
+        model: "gpt-4o-mini-tts",
+        input: text,
+        voice: selectedVoice,
+        response_format: "mp3",
+        ...(typeof instructions === "string" && instructions.trim()
+          ? { instructions: instructions.trim().slice(0, 1000) }
+          : {}),
+      }),
     });
 
     if (!openaiRes.ok) {

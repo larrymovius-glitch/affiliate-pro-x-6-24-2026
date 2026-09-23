@@ -64,6 +64,18 @@ const VOICE_OPTIONS = [
   { id: "coral", label: "Coral", note: "Warm, friendly female voice", assistant: "maya" },
 ];
 
+// How each assistant is to be read aloud, sent with every line they speak.
+//
+// gpt-4o-mini-tts takes plain-English direction on delivery, and without it
+// takes its cue from the words of that one reply: the same voice lands warm on
+// one answer, brisk on the next, advert-bright on the one after. Nothing about
+// the assistant changed, but it is heard as her personality wandering. Fixed
+// wording, sent every time, holds a single character in place.
+const VOICE_DIRECTION = {
+  maya: "Speak as a warm, calm, steady friend: unhurried, gentle emphasis, kind. Never announcer-bright, never breathless, no sales delivery. Keep the same character in every reply.",
+  atlas: "Speak as a direct, confident coach: clear, grounded, encouraging, a steady pace. Never shouty, never hyped, no sales delivery. Keep the same character in every reply.",
+};
+
 const EXPERIENCE_OPTIONS = [
   { id: "new", label: "New to Affiliate Marketing", note: "Simple steps and patient guidance" },
   { id: "growing", label: "Growing My Business", note: "Scaling, automation, and stronger campaigns" },
@@ -223,6 +235,8 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
     setSpeaking(false);
   }, []);
 
+  const voiceDirection = VOICE_DIRECTION[agentName] || VOICE_DIRECTION.maya;
+
   const speakText = useCallback(async (text) => {
     if (!text) return;
     stopSpeaking();
@@ -238,7 +252,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       if (user?.voice_tier === "premium") {
         try {
           const premiumRes = await withTimeout(
-            base44.functions.invoke("generatePremiumSpeech", { text: speechText, voice: voiceChoice }),
+            base44.functions.invoke("generatePremiumSpeech", { text: speechText, voice: voiceChoice, instructions: voiceDirection }),
             20000, "Premium voice"
           );
           if (premiumRes?.data?.url) audioUrl = premiumRes.data.url;
@@ -253,7 +267,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
         // tier request silently fell back server-side to "alloy" regardless
         // of which voice -- or which assistant -- was actually selected.
         const res = await withTimeout(
-          base44.integrations.Core.GenerateSpeech({ text: speechText, voice: voiceChoice }),
+          base44.integrations.Core.GenerateSpeech({ text: speechText, voice: voiceChoice, instructions: voiceDirection }),
           20000, "Voice generation"
         );
         audioUrl = res?.url || res?.data?.url;
@@ -282,7 +296,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       console.error("Voice playback failed:", error);
       if (mountedRef.current) setSpeaking(false);
     }
-  }, [stopSpeaking, voiceChoice]);
+  }, [stopSpeaking, voiceChoice, voiceDirection]);
 
   const sendMessage = useCallback(async (text) => {
     const cleanText = text.trim();
