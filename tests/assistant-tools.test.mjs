@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { chatWithAgent, getAgent } from "../api/_lib/agents.js";
+import { chatWithAgent, getAgent, trimHistory } from "../api/_lib/agents.js";
 import { TOOL_DEFINITIONS } from "../api/_lib/assistantTools.js";
 
 // A stand-in Anthropic client. `script` is a list of responses to hand back,
@@ -192,4 +192,42 @@ test("every tool definition is well formed", () => {
       );
     }
   }
+});
+
+test("a short history is sent whole, with caching on", async () => {
+  const client = fakeClient([text("hi")]);
+  const history = [
+    { role: "user", content: "one" },
+    { role: "assistant", content: "two" },
+    { role: "user", content: "three" },
+  ];
+  await chatWithAgent({ agent_name: "maya", messages: history, user, client });
+  // The fake client keeps a reference and the reply is appended after, so
+  // check what was sent from the front rather than by length.
+  assert.equal(client.seen[0].messages[0].content, "one");
+  assert.equal(client.seen[0].messages[2].content, "three");
+  assert.deepEqual(client.seen[0].cache_control, { type: "ephemeral" });
+});
+
+test("a long history is cut back, starting on something the user said", () => {
+  // 70 messages: user/assistant pairs, with a tool round where the cut would
+  // otherwise land, so a naive slice would start on a tool_result.
+  const long = [];
+  for (let i = 0; i < 35; i += 1) {
+    long.push({ role: "user", content: `q${i}` });
+    long.push({ role: "assistant", content: `a${i}` });
+  }
+  long[40] = { role: "user", content: [{ type: "tool_result", tool_use_id: "x", content: "{}" }] };
+  long.push({ role: "user", content: "latest" });
+
+  const trimmed = trimHistory(long);
+  assert.ok(trimmed.length <= 31, `kept ${trimmed.length}`);
+  assert.equal(trimmed[0].role, "user");
+  assert.equal(typeof trimmed[0].content, "string", "must not start on a tool_result");
+  assert.equal(trimmed.at(-1).content, "latest");
+});
+
+test("history at or under the limit is left alone", () => {
+  const short = Array.from({ length: 60 }, (_, i) => ({ role: i % 2 ? "assistant" : "user", content: String(i) }));
+  assert.equal(trimHistory(short), short);
 });

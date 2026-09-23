@@ -97,6 +97,39 @@ export function getAgent(agentName) {
 // function timeout.
 const MAX_TOOL_ROUNDS = 5;
 
+// The whole conversation goes to the model on every turn, and the history is
+// kept forever, so each reply took longer than the last: by 2026-09-23 Maya's
+// conversation was 130 messages and roughly 86,000 characters, re-read in
+// full before every answer. Once it passes HISTORY_TRIM_AT it is cut back to
+// about the last HISTORY_KEEP. Cut in one step rather than sliding a window
+// every turn: prompt caching needs an unchanged prefix, and a window that
+// moves every turn would change the prefix every turn.
+const HISTORY_TRIM_AT = 60;
+const HISTORY_KEEP = 30;
+
+// A cut has to land on something the user said. Starting on an assistant turn
+// or on a tool_result (whose tool_use would be cut off) is rejected by the API.
+function isUserText(message) {
+  if (message?.role !== "user") return false;
+  if (typeof message.content === "string") return true;
+  return Array.isArray(message.content) && !message.content.some((block) => block?.type === "tool_result");
+}
+
+/**
+ * @param {Array} messages full history, ending in the user's new message
+ * @returns {Array} the same array if short enough, otherwise its tail starting
+ *          at the first user text message within the last HISTORY_KEEP
+ */
+export function trimHistory(messages) {
+  if (messages.length <= HISTORY_TRIM_AT) return messages;
+  for (let i = messages.length - HISTORY_KEEP; i < messages.length; i += 1) {
+    if (isUserText(messages[i])) return messages.slice(i);
+  }
+  // The newest message is always the user's own, so this is not reached in
+  // practice; keep the full history rather than send something invalid.
+  return messages;
+}
+
 /** A short note about who is asking, so the assistant does not have to ask. */
 function userContext(user) {
   if (!user) return "";
@@ -143,13 +176,20 @@ export async function chatWithAgent({ agent_name, messages, user, origin, client
   const system = agent.instructions + userContext(user);
 
   // Only the fields the API accepts; anything the client tacked on is dropped.
-  const working = messages.map(({ role, content }) => ({ role, content }));
+  // The trimmed history is also what goes back to be saved, so the stored
+  // conversation stops growing too.
+  const working = trimHistory(messages).map(({ role, content }) => ({ role, content }));
   const toolCalls = [];
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
     const response = await api.messages.create({
       model: MODEL,
       max_tokens: 2048,
+      // Caches everything up to the newest message. Tools, the persona and
+      // the history before this turn are identical to the last request, so
+      // the model picks up where it left off instead of re-reading all of it,
+      // on each tool round and on the next message sent within five minutes.
+      cache_control: { type: "ephemeral" },
       system,
       tools: TOOL_DEFINITIONS,
       messages: working,

@@ -76,6 +76,25 @@ const cleanSpeechForVoice = (text) => text
   .replace(/\s+/g, " ")
   .trim();
 
+// Splits a reply into an opening piece that is quick to voice and the rest,
+// so she can start talking before the whole answer has been turned into
+// audio. The opening piece is whole sentences, at least OPENING_MIN
+// characters where the reply allows, so the change between pieces falls at a
+// full stop, where a pause sounds natural. Short replies stay in one piece:
+// splitting them saves nothing and adds a seam.
+const OPENING_MIN = 90;
+const SPLIT_ABOVE = 220;
+
+function splitForSpeech(text) {
+  if (text.length <= SPLIT_ABOVE) return [text];
+  const sentences = text.match(/[^.!?]+[.!?]+["')\]]*\s*|[^.!?]+$/g) || [text];
+  let opening = "";
+  let i = 0;
+  while (i < sentences.length && opening.length < OPENING_MIN) opening += sentences[i++];
+  const rest = sentences.slice(i).join("").trim();
+  return rest ? [opening.trim(), rest] : [text];
+}
+
 // Speech recognition reports every refusal as the same "not-allowed", but a
 // refusal has three different causes with three different fixes:
 //   - this site's own Permissions-Policy header (nothing the user can change);
@@ -130,6 +149,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
   const conversationRef = useRef(null);
   const recognitionRef = useRef(null);
   const audioRef = useRef(null);
+  const speechQueueRef = useRef(null);
   const synthRef = useRef(window.speechSynthesis);
   const mountedRef = useRef(true);
   const responseUnsubscribeRef = useRef(null);
@@ -154,6 +174,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
     runIdRef.current += 1;
     clearResponseHandlers();
     recognitionRef.current?.abort?.();
+    speechQueueRef.current = null;
     if (audioRef.current) audioRef.current.pause();
     synthRef.current?.cancel?.();
     conversationRef.current = null;
@@ -213,6 +234,9 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
 
   const stopSpeaking = useCallback(() => {
     recognitionRef.current?.abort?.();
+    // Dropping the queue is what stops the pieces still to come: a playback
+    // loop that finds its queue replaced goes quiet.
+    speechQueueRef.current = null;
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -222,66 +246,96 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
     setSpeaking(false);
   }, []);
 
-  const speakText = useCallback(async (text) => {
-    if (!text) return;
-    stopSpeaking();
-    setNeedsTapToSpeak(false);
-    setSpeaking(true);
-
-    try {
-      const voiceReadyText = cleanSpeechForVoice(text);
-      const speechText = voiceReadyText.length > 1400 ? `${voiceReadyText.slice(0, 1400)}...` : voiceReadyText;
-      let audioUrl = null;
-      // Premium tier: try OpenAI voices first — only activates once the
-      // OPENAI_API_KEY secret exists; otherwise falls back silently.
-      if (user?.voice_tier === "premium") {
-        try {
-          const premiumRes = await withTimeout(
-            base44.functions.invoke("generatePremiumSpeech", { text: speechText, voice: voiceChoice }),
-            20000, "Premium voice"
-          );
-          if (premiumRes?.data?.url) audioUrl = premiumRes.data.url;
-        } catch (e) { console.warn("Premium voice unavailable, using standard:", e); }
-      }
-      if (!audioUrl) {
-        // GenerateSpeech hits the same OpenAI-backed generatePremiumSpeech
-        // endpoint as the premium branch above (base44Client.js) -- it isn't
-        // a separate provider needing its own voice names. SPEECH_VOICE_MAP
-        // used to translate to a different TTS service's ids ("honey",
-        // "river", ...), none of which OpenAI recognizes, so every standard-
-        // tier request silently fell back server-side to "alloy" regardless
-        // of which voice -- or which assistant -- was actually selected.
-        const res = await withTimeout(
-          base44.integrations.Core.GenerateSpeech({ text: speechText, voice: voiceChoice }),
-          20000, "Voice generation"
+  // Fetches one piece of speech. Both branches reach the same OpenAI-backed
+  // generatePremiumSpeech endpoint (base44Client.js), so the second is in
+  // effect one retry. It isn't a separate provider needing its own voice
+  // names: SPEECH_VOICE_MAP used to translate to another TTS service's ids
+  // ("honey", "river", ...), none of which OpenAI recognizes, so every
+  // standard-tier request silently fell back server-side to "alloy".
+  const fetchSpeech = useCallback(async (part) => {
+    if (user?.voice_tier === "premium") {
+      try {
+        const premiumRes = await withTimeout(
+          base44.functions.invoke("generatePremiumSpeech", { text: part, voice: voiceChoice }),
+          20000, "Premium voice"
         );
-        audioUrl = res?.url || res?.data?.url;
+        if (premiumRes?.data?.url) return premiumRes.data.url;
+      } catch (e) { console.warn("Premium voice unavailable, using standard:", e); }
+    }
+    const res = await withTimeout(
+      base44.integrations.Core.GenerateSpeech({ text: part, voice: voiceChoice }),
+      20000, "Voice generation"
+    );
+    return res?.url || res?.data?.url || null;
+  }, [user?.voice_tier, voiceChoice]);
+
+  // Plays a queue's pieces in order, waiting on each piece's audio only when
+  // it is next. Stops as soon as the queue is no longer the current one.
+  const playSpeechQueue = useCallback(async (queue) => {
+    const isCurrent = () => mountedRef.current && speechQueueRef.current === queue;
+    while (queue.index < queue.pieces.length) {
+      const audioUrl = await queue.pieces[queue.index];
+      if (!isCurrent()) return;
+      if (!audioUrl) {
+        // This used to fall back to the browser's built-in voice -- a
+        // transient failure (a timeout, a network blip) made Maya or Atlas
+        // suddenly sound like a different, robotic voice for one reply.
+        // Skipping the piece (the text is still shown) keeps the voice the
+        // same person.
+        queue.index += 1;
+        continue;
       }
       const audio = new Audio(audioUrl);
       audioRef.current = audio;
-      audio.onended = () => mountedRef.current && setSpeaking(false);
-      audio.onerror = () => mountedRef.current && setSpeaking(false);
+      // pause covers stopSpeaking: a paused piece never fires ended.
+      const done = new Promise((resolve) => {
+        audio.onended = resolve;
+        audio.onerror = resolve;
+        audio.onpause = resolve;
+      });
       try {
         await audio.play();
       } catch (playError) {
         console.warn("Mobile browser blocked automatic voice playback:", playError);
-        if (mountedRef.current) {
+        if (isCurrent()) {
           setNeedsTapToSpeak(true);
           setSpeaking(false);
         }
+        return;
       }
-    } catch (error) {
-      // This used to fall back to the browser's generic built-in
-      // SpeechSynthesisUtterance voice -- a transient failure of the chosen
-      // premium voice (a timeout, a network blip) made Maya or Atlas
-      // suddenly sound like a completely different, generic robotic voice
-      // for one reply, then switch back once the premium call recovered.
-      // Staying silent for that one reply (the text is still shown) keeps
-      // the voice identity consistent instead of swapping voices mid-chat.
-      console.error("Voice playback failed:", error);
-      if (mountedRef.current) setSpeaking(false);
+      await done;
+      if (!isCurrent()) return;
+      queue.index += 1;
     }
-  }, [stopSpeaking, voiceChoice]);
+    speechQueueRef.current = null;
+    if (mountedRef.current) setSpeaking(false);
+  }, []);
+
+  // A reply used to be sent for speech in one piece and played only once all
+  // of it was ready, so a long answer meant a long silence before she said a
+  // word. Now the opening sentence is spoken as soon as it is ready while the
+  // rest is prepared alongside it.
+  const speakText = useCallback((text) => {
+    if (!text) return;
+    stopSpeaking();
+    const voiceReadyText = cleanSpeechForVoice(text);
+    const speechText = voiceReadyText.length > 1400 ? `${voiceReadyText.slice(0, 1400)}...` : voiceReadyText;
+    const queue = {
+      index: 0,
+      // Every piece is requested now, in parallel; a failed one resolves to
+      // null so nothing is left as an unhandled rejection.
+      pieces: splitForSpeech(speechText).map((part) =>
+        fetchSpeech(part).catch((error) => {
+          console.error("Voice generation failed:", error);
+          return null;
+        })
+      ),
+    };
+    speechQueueRef.current = queue;
+    setNeedsTapToSpeak(false);
+    setSpeaking(true);
+    playSpeechQueue(queue);
+  }, [stopSpeaking, fetchSpeech, playSpeechQueue]);
 
   const sendMessage = useCallback(async (text) => {
     const cleanText = text.trim();
@@ -503,18 +557,13 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
     setPulse(false);
   }, []);
 
-  const playBlockedVoice = async () => {
-    if (!audioRef.current) return;
+  // The tap is the gesture the browser wanted before it would play sound.
+  // Carry on from the piece that was blocked, not from the start.
+  const playBlockedVoice = () => {
+    if (!speechQueueRef.current) return;
     setNeedsTapToSpeak(false);
     setSpeaking(true);
-    try {
-      audioRef.current.currentTime = 0;
-      await audioRef.current.play();
-    } catch (error) {
-      console.warn("Voice playback still blocked:", error);
-      setSpeaking(false);
-      setNeedsTapToSpeak(true);
-    }
+    playSpeechQueue(speechQueueRef.current);
   };
 
   useEffect(() => {
