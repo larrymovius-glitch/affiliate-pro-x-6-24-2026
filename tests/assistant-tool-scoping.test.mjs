@@ -111,6 +111,20 @@ test("request_payout will not overdraw", async () => {
   assert.equal(insert.created_by_id, "me");
 });
 
+test("create_product refuses this app's own share link as a destination", async () => {
+  const D = fakeDb();
+  const r = await executeTool("create_product", { name: "Amino", url: "https://app.test/r/amino" }, ctxFor(D));
+  assert.match(r.error, /own share links/);
+  assert.equal(D.seen.filter((x) => x && "url" in x).length, 0, "nothing saved");
+});
+
+test("create_product refuses a duplicate name and points at the existing one", async () => {
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Advanced Amino Formula" }] });
+  const r = await executeTool("create_product", { name: "advanced amino formula ", url: "https://vendor.test/x" }, ctxFor(D));
+  assert.match(r.error, /already a product/);
+  assert.equal(r.existing.id, "p1");
+});
+
 test("links come back with the address to post and where it leads", async () => {
   const D = fakeDb({
     links: [{ id: "l1", created_by_id: "me", short_code: "amino", destination_url: "https://vendor.test/page#aff=me", network: "digistore24" }],

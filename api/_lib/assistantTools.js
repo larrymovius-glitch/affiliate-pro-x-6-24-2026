@@ -341,6 +341,23 @@ export async function executeTool(name, input = {}, ctx = {}) {
         } catch {
           return { error: `"${url}" is not a valid URL. Ask the user for the full destination URL.` };
         }
+        // A product's url is where a buyer ends up. This app's own /r/ link
+        // is not that: a link built on it would run the click through the
+        // tracker twice and bury the network's tracking id inside our own
+        // URL. On 2026-09-23 the assistant made exactly that product -- a
+        // second "Advanced Amino Formula" pointing at the first one's share
+        // link.
+        if (origin && hostOf(url) && hostOf(url) === hostOf(origin)) {
+          return { error: "That address is one of this app's own share links, not the vendor's page. Use the product's real destination URL -- or, if the product already exists, use it instead of creating another." };
+        }
+        const mine = await D.Product.filter({ created_by_id: user.id });
+        const same = mine.find((p) => String(p.name || "").trim().toLowerCase() === name_.toLowerCase());
+        if (same) {
+          return {
+            error: `There is already a product called "${same.name}". Use that one (update_product can change its picture or description) instead of creating a duplicate.`,
+            existing: productSummary(same),
+          };
+        }
         const created = await D.Product.create({
           created_by_id: user.id,
           name: name_,
