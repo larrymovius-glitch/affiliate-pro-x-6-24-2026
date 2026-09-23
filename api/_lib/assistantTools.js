@@ -59,9 +59,14 @@ function linkSummary(l, origin) {
   };
 }
 
-// A user's whole link list has to fit in one call: the owner has 36, and a
-// cap of 25 meant any question about "all my links" came back short.
-const MAX_LINK_ROWS = 100;
+// A user's whole list of links or products has to fit in one call: the owner
+// has 36 links and 35 products, and a cap of 25 meant any question about "all
+// of them" came back short -- so the assistant answered about the ones it saw.
+const MAX_LIST_ROWS = 100;
+
+function listLimit(v) {
+  return Math.max(1, Math.min(Math.trunc(Number(v) || 50), MAX_LIST_ROWS));
+}
 
 // image_url is included because create_video_ad needs one. Without it the
 // assistant couldn't see that a product already had its picture and kept
@@ -91,17 +96,18 @@ export const TOOL_DEFINITIONS = [
     input_schema: {
       type: "object",
       properties: {
-        limit: { type: "number", description: `How many to return, 1-${MAX_LINK_ROWS}. Default 50.` },
+        limit: { type: "number", description: `How many to return, 1-${MAX_LIST_ROWS}. Default 50.` },
       },
       required: [],
     },
   },
   {
     name: "list_my_products",
-    description: "Products the user has added, which are what links and autopilot ads get built from.",
+    description:
+      "Products the user has added, newest first, which are what links and ads get built from. image_url shows whether a product already has its picture: one that does is ready for create_video_ad. When asked which products are ready, or about all of them, set limit to the maximum.",
     input_schema: {
       type: "object",
-      properties: { limit: { type: "number", description: `1-${MAX_ROWS}. Default 10.` } },
+      properties: { limit: { type: "number", description: `1-${MAX_LIST_ROWS}. Default 50.` } },
       required: [],
     },
   },
@@ -322,13 +328,12 @@ export async function executeTool(name, input = {}, ctx = {}) {
       }
 
       case "list_my_links": {
-        const limit = Math.max(1, Math.min(Math.trunc(Number(input.limit) || 50), MAX_LINK_ROWS));
-        const rows = await D.AffiliateLink.filter({ created_by_id: user.id }, "-created_at", limit);
+        const rows = await D.AffiliateLink.filter({ created_by_id: user.id }, "-created_at", listLimit(input.limit));
         return { links: rows.map((l) => linkSummary(l, origin)) };
       }
 
       case "list_my_products": {
-        const rows = await D.Product.filter({ created_by_id: user.id }, "-created_at", clampLimit(input.limit));
+        const rows = await D.Product.filter({ created_by_id: user.id }, "-created_at", listLimit(input.limit));
         return { products: rows.map(productSummary) };
       }
 
