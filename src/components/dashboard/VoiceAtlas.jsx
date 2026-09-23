@@ -57,24 +57,11 @@ const VOICE_OPTIONS = [
   { id: "onyx", label: "Onyx", note: "Deep male mentor", assistant: "atlas" },
   { id: "fable", label: "Fable", note: "Expressive male storyteller", assistant: "atlas" },
   { id: "ash", label: "Ash", note: "Warm, measured male voice", assistant: "atlas" },
-  { id: "verse", label: "Verse", note: "Versatile, neutral male voice", assistant: "atlas" },
   { id: "nova", label: "Nova", note: "Bright female guide", assistant: "maya" },
   { id: "shimmer", label: "Shimmer", note: "Clear female coach", assistant: "maya" },
   { id: "sage", label: "Sage", note: "Calm, wise female voice", assistant: "maya" },
   { id: "coral", label: "Coral", note: "Warm, friendly female voice", assistant: "maya" },
 ];
-
-// How each assistant is to be read aloud, sent with every line they speak.
-//
-// gpt-4o-mini-tts takes plain-English direction on delivery, and without it
-// takes its cue from the words of that one reply: the same voice lands warm on
-// one answer, brisk on the next, advert-bright on the one after. Nothing about
-// the assistant changed, but it is heard as her personality wandering. Fixed
-// wording, sent every time, holds a single character in place.
-const VOICE_DIRECTION = {
-  maya: "Speak as a warm, calm, steady friend: unhurried, gentle emphasis, kind. Never announcer-bright, never breathless, no sales delivery. Keep the same character in every reply.",
-  atlas: "Speak as a direct, confident coach: clear, grounded, encouraging, a steady pace. Never shouty, never hyped, no sales delivery. Keep the same character in every reply.",
-};
 
 const EXPERIENCE_OPTIONS = [
   { id: "new", label: "New to Affiliate Marketing", note: "Simple steps and patient guidance" },
@@ -235,8 +222,6 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
     setSpeaking(false);
   }, []);
 
-  const voiceDirection = VOICE_DIRECTION[agentName] || VOICE_DIRECTION.maya;
-
   const speakText = useCallback(async (text) => {
     if (!text) return;
     stopSpeaking();
@@ -252,7 +237,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       if (user?.voice_tier === "premium") {
         try {
           const premiumRes = await withTimeout(
-            base44.functions.invoke("generatePremiumSpeech", { text: speechText, voice: voiceChoice, instructions: voiceDirection }),
+            base44.functions.invoke("generatePremiumSpeech", { text: speechText, voice: voiceChoice }),
             20000, "Premium voice"
           );
           if (premiumRes?.data?.url) audioUrl = premiumRes.data.url;
@@ -267,7 +252,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
         // tier request silently fell back server-side to "alloy" regardless
         // of which voice -- or which assistant -- was actually selected.
         const res = await withTimeout(
-          base44.integrations.Core.GenerateSpeech({ text: speechText, voice: voiceChoice, instructions: voiceDirection }),
+          base44.integrations.Core.GenerateSpeech({ text: speechText, voice: voiceChoice }),
           20000, "Voice generation"
         );
         audioUrl = res?.url || res?.data?.url;
@@ -296,7 +281,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       console.error("Voice playback failed:", error);
       if (mountedRef.current) setSpeaking(false);
     }
-  }, [stopSpeaking, voiceChoice, voiceDirection]);
+  }, [stopSpeaking, voiceChoice]);
 
   const sendMessage = useCallback(async (text) => {
     const cleanText = text.trim();
@@ -699,22 +684,27 @@ export default function VoiceAtlas({ onClose } = {}) {
     const saved = localStorage.getItem("affiliateProVoicePreferences");
     if (saved) {
       try {
-        return { atlas: "onyx", maya: "shimmer", ...JSON.parse(saved) };
+        return { atlas: "onyx", maya: "nova", ...JSON.parse(saved) };
       } catch {
-        return { atlas: "onyx", maya: "shimmer" };
+        return { atlas: "onyx", maya: "nova" };
       }
     }
-    return { atlas: "onyx", maya: "shimmer" };
+    return { atlas: "onyx", maya: "nova" };
   });
   const [themeMode, setThemeMode] = useState(() => localStorage.getItem("affiliateProThemeMode") || "light");
   const activePreviewRef = useRef(null);
 
   useEffect(() => {
-    if (localStorage.getItem("affiliateProVoiceMapV2") === "true") return;
-    const correctedVoices = { atlas: "onyx", maya: "shimmer" };
-    localStorage.setItem("affiliateProVoicePreferences", JSON.stringify(correctedVoices));
-    localStorage.setItem("affiliateProVoiceMapV2", "true");
-    setVoicePreferences(correctedVoices);
+    // V3: Maya's voice is Nova, the owner's choice, and Verse is gone because
+    // tts-1-hd doesn't have it. Runs once per browser, so a voice picked
+    // after this is kept.
+    if (localStorage.getItem("affiliateProVoiceMapV3") === "true") return;
+    setVoicePreferences((prev) => {
+      const correctedVoices = { atlas: prev.atlas === "verse" ? "onyx" : prev.atlas || "onyx", maya: "nova" };
+      localStorage.setItem("affiliateProVoicePreferences", JSON.stringify(correctedVoices));
+      return correctedVoices;
+    });
+    localStorage.setItem("affiliateProVoiceMapV3", "true");
   }, []);
 
   const { data: avatars = [] } = useQuery({
@@ -730,7 +720,7 @@ export default function VoiceAtlas({ onClose } = {}) {
     maya:  { avatar: mayaAvatar,  accentColor: "#f0abfc", name: "Maya",  gradient: "linear-gradient(90deg, #f0abfc, #c084fc)", border: "2px solid rgba(240,171,252,0.55)",  bg: "linear-gradient(135deg, rgba(236,72,153,0.34), rgba(168,85,247,0.24))" },
   };
   const current = config[selectedAssistant];
-  const currentVoiceChoice = voicePreferences[selectedAssistant] || (selectedAssistant === "atlas" ? "onyx" : "shimmer");
+  const currentVoiceChoice = voicePreferences[selectedAssistant] || (selectedAssistant === "atlas" ? "onyx" : "nova");
   const availableVoices = VOICE_OPTIONS.filter(voice => voice.assistant === selectedAssistant);
   const isLight = themeMode === "light";
 
