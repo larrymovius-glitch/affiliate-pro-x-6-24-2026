@@ -127,38 +127,47 @@ export function suggestedAdCaption(productName, linkHint = "Link in bio") {
  * version to take into an editor -- CapCut and the TikTok editor both add
  * their own captions and trending audio, and burned-in text can't be moved or
  * restyled once it is part of the frame.
+ *
+ * `videoUrl` puts real footage behind the ad instead of one still photo --
+ * something exported from Firefly, Premiere or a phone. It fills the frame and
+ * is silenced, because the ad's voice is the voiceover, and a clip's own audio
+ * would talk over it. A clip shorter than the script loops rather than
+ * freezing on its last frame.
  */
-export function buildMovie({ imageUrl, audioUrl, caption, duration, format, captions = true, badgeUrl }) {
+export function buildMovie({ imageUrl, videoUrl, audioUrl, caption, duration, format, captions = true, badgeUrl }) {
   const { width, height } = adFormat(format);
   const vertical = height > width;
+
+  // Footage fills the frame; a product photo does not. "cover" on a square
+  // photo in a 9:16 frame crops away a third of its width -- half the LEGO
+  // box, the label off a bottle -- so a still is fitted whole into the upper
+  // two thirds instead, with a slow push-in for the only movement it has.
+  const backdrop = videoUrl
+    ? { type: "video", src: videoUrl, duration, resize: "cover", muted: true, loop: -1 }
+    : {
+        type: "image",
+        src: imageUrl,
+        duration,
+        resize: "fit",
+        zoom: 2,
+        position: "custom",
+        x: "center",
+        y: vertical ? "46%" : "center",
+        width: Math.round(width * 0.92),
+        height: Math.round(height * (vertical ? 0.58 : 0.82)),
+      };
+
   return {
     resolution: "custom",
     width,
     height,
     scenes: [
       {
-        // A deliberate dark backdrop rather than the default black, so the
-        // picture sits on something that looks chosen.
+        // A deliberate dark backdrop rather than the default black, so a
+        // fitted photo sits on something that looks chosen.
         "background-color": "#0B0B10",
         elements: [
-          // "fit", not "cover": a product photo is square or landscape, and
-          // covering a 9:16 frame with one crops away a third of the width --
-          // half the LEGO box, or the label off a bottle. The whole product
-          // stays visible, in the upper two thirds where the eye lands.
-          // zoom: 1-10, a slow Ken-Burns push-in, the only movement a
-          // one-image ad has.
-          {
-            type: "image",
-            src: imageUrl,
-            duration,
-            resize: "fit",
-            zoom: 2,
-            position: "custom",
-            x: "center",
-            y: vertical ? "46%" : "center",
-            width: Math.round(width * 0.92),
-            height: Math.round(height * (vertical ? 0.58 : 0.82)),
-          },
+          backdrop,
           { type: "audio", src: audioUrl, duration },
           // Kept in the upper third on purpose: on TikTok the bottom of the
           // screen is covered by the poster's name and caption, and the right
@@ -245,13 +254,13 @@ export function buildMovie({ imageUrl, audioUrl, caption, duration, format, capt
   };
 }
 
-export async function submitAdVideoRender({ imageUrl, audioUrl, caption, duration, format, captions, badgeUrl }) {
+export async function submitAdVideoRender({ imageUrl, videoUrl, audioUrl, caption, duration, format, captions, badgeUrl }) {
   const apiKey = process.env.JSON2VIDEO_API_KEY;
   if (!apiKey) throw new Error("JSON2VIDEO_API_KEY not configured");
   const res = await fetch(`${JSON2VIDEO_BASE}/movies`, {
     method: "POST",
     headers: { "x-api-key": apiKey, "Content-Type": "application/json" },
-    body: JSON.stringify(buildMovie({ imageUrl, audioUrl, caption, duration, format, captions, badgeUrl })),
+    body: JSON.stringify(buildMovie({ imageUrl, videoUrl, audioUrl, caption, duration, format, captions, badgeUrl })),
   });
   const body = await res.json();
   if (!res.ok || !body?.success || !body?.project) throw new Error(`Render submit failed: ${JSON.stringify(body)}`);

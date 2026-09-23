@@ -136,6 +136,18 @@ export const TOOL_DEFINITIONS = [
     },
   },
   {
+    name: "list_ad_creatives",
+    description:
+      "The user's saved ad creatives -- videos and images they uploaded (from Firefly, Premiere, their phone) plus the AI video ads already made. Call this when they refer to a clip of theirs, e.g. 'use my Firefly video', so you can pass its url to create_video_ad as footage.",
+    input_schema: {
+      type: "object",
+      properties: {
+        file_type: { type: "string", description: "Optional filter: 'video' or 'image'." },
+      },
+      required: [],
+    },
+  },
+  {
     name: "update_product",
     description:
       "Change one of the user's own products: its name, description, category, or the image the video ads are built from. Use this instead of telling the user to go and edit the product themselves. It cannot change a product's affiliate URL -- that decides where a sale is credited, so it stays a deliberate edit the user makes on the Products page.",
@@ -164,6 +176,11 @@ export const TOOL_DEFINITIONS = [
           type: "string",
           description:
             "Shape of the video: 'vertical' (default -- TikTok, Reels, Shorts), 'square' (Facebook/Instagram feed) or 'landscape' (YouTube). Leave it out unless the user names a platform that needs another shape.",
+        },
+        video_url: {
+          type: "string",
+          description:
+            "Optional https address of footage to use behind the ad instead of the product photo -- e.g. a clip the user uploaded, from list_ad_creatives. It is silenced and looped to fit the voiceover. Only pass a url the user gave you or that came from list_ad_creatives; never invent one.",
         },
         voice: {
           type: "string",
@@ -414,6 +431,16 @@ export async function executeTool(name, input = {}, ctx = {}) {
         return { products };
       }
 
+      case "list_ad_creatives": {
+        const rows = await D.AdAsset.filter({ created_by_id: user.id }, "-created_at", 50);
+        const wanted = String(input.file_type || "").trim().toLowerCase();
+        return {
+          creatives: rows
+            .filter((a) => !wanted || a.file_type === wanted)
+            .map((a) => ({ id: a.id, title: a.title, file_type: a.file_type, url: a.file_url, notes: a.notes || null })),
+        };
+      }
+
       case "update_product": {
         const owned = await D.Product.filter({ created_by_id: user.id, id: String(input.product_id || "") });
         const product = owned[0];
@@ -445,7 +472,16 @@ export async function executeTool(name, input = {}, ctx = {}) {
         const owned = await D.Product.filter({ created_by_id: user.id, id: String(input.product_id || "") });
         const product = owned[0];
         if (!product) return { error: "No product of yours with that id. Call list_my_products first." };
-        if (!product.image_url) return { error: `"${product.name}" has no image yet -- add one on the product before a video ad can be made.` };
+
+        // Footage stands in for the product photo, so an ad can be made for a
+        // product that has no picture as long as there is a clip to use.
+        const footage = String(input.video_url || "").trim();
+        if (footage && !/^https:\/\//i.test(footage)) {
+          return { error: "The footage address has to start with https:// -- upload the clip on the AutoPilot page first, then use the address it gets." };
+        }
+        if (!footage && !product.image_url) {
+          return { error: `"${product.name}" has no image yet -- add one with update_product, or pass video_url to use a clip instead.` };
+        }
 
         if (!videoAds.videoAdsConfigured()) {
           return { error: "Video ad generation isn't set up yet -- it needs an OpenAI and a JSON2Video API key configured on the server. Nothing you can fix from chat.", configured: false };
@@ -482,6 +518,7 @@ Category: ${product.category || "N/A"}`,
         const goesToEbay = detectNetwork(hostOf(product.url), product.category?.split("_")[0]) === "ebay";
         const renderId = await videoAds.submitAdVideoRender({
           imageUrl: largestEbayImage(product.image_url),
+          videoUrl: footage || undefined,
           audioUrl,
           caption: product.name,
           duration,

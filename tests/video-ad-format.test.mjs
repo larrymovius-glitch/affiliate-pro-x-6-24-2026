@@ -167,3 +167,26 @@ test("a network's logo is shown only when there is one, and never in the app's o
   assert.equal(badge.width, badge.height, "square as supplied -- eBay requires their logo unaltered");
   assert.ok(badge.width <= 1080 * 0.12, "a mark, not a billboard");
 });
+
+test("footage replaces the still photo and is silenced and looped", () => {
+  // A clip from Firefly or a phone is 8 seconds; the script runs 15-20. It
+  // loops rather than freezing, and its own audio must not talk over the
+  // voiceover.
+  const m = movie({ videoUrl: "https://uploads.test/firefly.mp4", duration: 18 });
+  const clip = byType(m, "video");
+  assert.ok(clip, "the backdrop is the footage");
+  assert.equal(byType(m, "image"), undefined, "no still photo behind it");
+  assert.equal(clip.resize, "cover", "footage fills the frame");
+  assert.equal(clip.muted, true);
+  assert.equal(clip.loop, -1);
+  assert.equal(clip.duration, 18);
+});
+
+test("an ad with footage still carries voiceover, captions and disclosure", () => {
+  const m = movie({ videoUrl: "https://uploads.test/firefly.mp4", badgeUrl: "https://apx.test/brand/ebay-logo.png" });
+  assert.ok(byType(m, "audio"), "the voiceover still plays");
+  assert.ok(byType(m, "subtitles"), "captions still burn in");
+  const texts = elements(m).filter((e) => e.type === "text").map((e) => e.text);
+  assert.ok(texts.includes(AD_DISCLOSURE), "the disclosure is not lost with the photo");
+  assert.ok(elements(m).some((e) => e.type === "image" && e.src.includes("ebay-logo")), "the network logo remains");
+});
