@@ -39,17 +39,29 @@ import * as videoAdsLib from "./videoAds.js";
 
 const MAX_ROWS = 25;
 
-/** Trim a row down to what is useful in a conversation, and keep tokens sane. */
-function linkSummary(l) {
+// Trim a row down to what is useful in a conversation, and keep tokens sane.
+//
+// Carries both addresses. Without them the assistant could count a user's
+// links but not give them one, and told the owner, correctly, that she didn't
+// have his URLs -- so he was left pasting his own list into the chat, where
+// it is forgotten once the history is trimmed.
+function linkSummary(l, origin) {
   return {
     id: l.id,
     product_name: l.product_name,
-    short_code: l.short_code,
+    network: l.network || null,
+    is_active: l.is_active !== false,
+    share_url: l.short_code ? (origin ? `${origin}/r/${l.short_code}` : `/r/${l.short_code}`) : null,
+    destination_url: l.destination_url || null,
     clicks: l.clicks || 0,
     conversions: l.conversions || 0,
     earnings: Number(l.earnings) || 0,
   };
 }
+
+// A user's whole link list has to fit in one call: the owner has 36, and a
+// cap of 25 meant any question about "all my links" came back short.
+const MAX_LINK_ROWS = 100;
 
 function productSummary(p) {
   return { id: p.id, name: p.name, category: p.category, commission_rate: p.commission_rate, url: p.url };
@@ -65,11 +77,11 @@ export const TOOL_DEFINITIONS = [
   {
     name: "list_my_links",
     description:
-      "The user's affiliate links with per-link clicks, conversions and earnings. Use when asked which links exist or which are performing.",
+      "The user's affiliate links, newest first, with full addresses and per-link clicks, conversions and earnings. Use whenever the user asks for their links or URLs, or which ones are performing -- you do have them, through this. share_url is the one to give the user to post: it counts the click and adds tracking. destination_url is where it leads, with the affiliate ID in it; give that only if they ask for it specifically. When they ask for all of their links, set limit to the maximum.",
     input_schema: {
       type: "object",
       properties: {
-        limit: { type: "number", description: `How many to return, 1-${MAX_ROWS}. Default 10.` },
+        limit: { type: "number", description: `How many to return, 1-${MAX_LINK_ROWS}. Default 50.` },
       },
       required: [],
     },
@@ -300,8 +312,9 @@ export async function executeTool(name, input = {}, ctx = {}) {
       }
 
       case "list_my_links": {
-        const rows = await D.AffiliateLink.filter({ created_by_id: user.id }, "-created_at", clampLimit(input.limit));
-        return { links: rows.map(linkSummary) };
+        const limit = Math.max(1, Math.min(Math.trunc(Number(input.limit) || 50), MAX_LINK_ROWS));
+        const rows = await D.AffiliateLink.filter({ created_by_id: user.id }, "-created_at", limit);
+        return { links: rows.map((l) => linkSummary(l, origin)) };
       }
 
       case "list_my_products": {
@@ -355,7 +368,7 @@ export async function executeTool(name, input = {}, ctx = {}) {
           earnings: 0,
         });
         return {
-          link: linkSummary(link),
+          link: linkSummary(link, origin),
           share_url: origin ? `${origin}/r/${link.short_code}` : `/r/${link.short_code}`,
         };
       }

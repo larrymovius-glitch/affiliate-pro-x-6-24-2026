@@ -418,7 +418,9 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
           setWorkingStatus("");
           setReply(`${name} is still working on that. Please try a smaller request or send it again.`);
         }
-      }, 60000);
+        // Long enough for a long reply to a long paste (up to 8k tokens of
+        // output, plus tool rounds), still inside the server's 300s limit.
+      }, 180000);
 
       base44.agents.addMessage(activeConversation, { role: "user", content: assistantText })
         .then((updatedConversation) => {
@@ -628,7 +630,8 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
         {transcript && (
           <div className="w-full rounded-xl px-4 py-3" style={{ background: "var(--voice-card)", border: "1px solid var(--voice-border)" }}>
             <p className="text-sm font-bold mb-1" style={{ color: "var(--voice-muted)" }}>You said:</p>
-            <p className="text-base text-[color:var(--voice-text)] leading-relaxed">\"{transcript}\"</p>
+            {/* A pasted page would otherwise push the reply off the screen. */}
+            <p className="text-base text-[color:var(--voice-text)] leading-relaxed whitespace-pre-wrap break-words max-h-40 overflow-y-auto">“{transcript}”</p>
           </div>
         )}
 
@@ -667,13 +670,27 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
         )}
 
         {activeTab === "text" && (
-          <div className="flex gap-3">
-            <input type="text" value={textInput}
-              onChange={e => setTextInput(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && handleTextSend()}
-              placeholder={isInitializing ? `Starting ${name}…` : loading ? "Please wait…" : `Ask ${name} anything…`}
+          <div className="flex items-end gap-3">
+            {/* A textarea, not a one-line input: a pasted page, email or
+                vendor form keeps its line breaks and can be read back before
+                sending. It grows with its content up to a cap, then scrolls.
+                Enter sends; Shift+Enter starts a new line. */}
+            <textarea value={textInput} rows={1}
+              onChange={e => {
+                setTextInput(e.target.value);
+                e.target.style.height = "auto";
+                e.target.style.height = `${e.target.scrollHeight}px`;
+              }}
+              onKeyDown={e => {
+                if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  handleTextSend();
+                  e.currentTarget.style.height = "auto";
+                }
+              }}
+              placeholder={isInitializing ? `Starting ${name}…` : loading ? "Please wait…" : `Ask ${name} anything, or paste text…`}
               disabled={blocked}
-              className="flex-1 rounded-xl px-4 py-3 text-base text-[color:var(--voice-text)] placeholder:text-slate-300 outline-none disabled:opacity-50"
+              className="flex-1 min-w-0 resize-none rounded-xl px-4 py-3 text-base leading-snug text-[color:var(--voice-text)] placeholder:text-slate-300 outline-none disabled:opacity-50 max-h-[40vh] overflow-y-auto"
               style={{ background: "var(--voice-card-strong)", border: "1px solid rgba(216,180,254,0.45)", fontSize: 16 }}
             />
             <button onClick={handleTextSend} disabled={blocked || !textInput.trim()}

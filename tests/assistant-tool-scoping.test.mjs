@@ -50,9 +50,10 @@ test("a model-supplied owner is ignored, not honoured", async () => {
 });
 
 test("limit is clamped", async () => {
-  const many = Array.from({ length: 100 }, (_, i) => ({ id: `l${i}`, created_by_id: "me" }));
+  const many = Array.from({ length: 150 }, (_, i) => ({ id: `l${i}`, created_by_id: "me" }));
   const D = fakeDb({ links: many });
-  assert.equal((await executeTool("list_my_links", { limit: 999 }, ctxFor(D))).links.length, 25);
+  assert.equal((await executeTool("list_my_links", { limit: 999 }, ctxFor(D))).links.length, 100);
+  assert.equal((await executeTool("list_my_links", {}, ctxFor(D))).links.length, 50, "default");
   assert.equal((await executeTool("list_my_links", { limit: -5 }, ctxFor(D))).links.length, 1);
 });
 
@@ -108,6 +109,16 @@ test("request_payout will not overdraw", async () => {
   const insert = D.seen.find((s) => s && s.status === "pending" && s.amount === 20);
   assert.equal(insert.user_id, "me");
   assert.equal(insert.created_by_id, "me");
+});
+
+test("links come back with the address to post and where it leads", async () => {
+  const D = fakeDb({
+    links: [{ id: "l1", created_by_id: "me", short_code: "amino", destination_url: "https://vendor.test/page#aff=me", network: "digistore24" }],
+  });
+  const [link] = (await executeTool("list_my_links", {}, ctxFor(D))).links;
+  assert.equal(link.share_url, "https://app.test/r/amino");
+  assert.equal(link.destination_url, "https://vendor.test/page#aff=me");
+  assert.equal(link.network, "digistore24");
 });
 
 test("an unknown tool is reported, not thrown", async () => {

@@ -184,7 +184,11 @@ export async function chatWithAgent({ agent_name, messages, user, origin, client
   for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
     const response = await api.messages.create({
       model: MODEL,
-      max_tokens: 2048,
+      // Room for a full answer to a long paste -- drafting from a whole
+      // email or a vendor's application form. At 2048 a reply like that was
+      // cut off mid-sentence. Replies to ordinary questions stay short; this
+      // is a ceiling, not a target.
+      max_tokens: 8192,
       // Caches everything up to the newest message. Tools, the persona and
       // the history before this turn are identical to the last request, so
       // the model picks up where it left off instead of re-reading all of it,
