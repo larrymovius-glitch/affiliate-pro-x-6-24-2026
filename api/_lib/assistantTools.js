@@ -63,8 +63,18 @@ function linkSummary(l, origin) {
 // cap of 25 meant any question about "all my links" came back short.
 const MAX_LINK_ROWS = 100;
 
+// image_url is included because create_video_ad needs one. Without it the
+// assistant couldn't see that a product already had its picture and kept
+// asking the owner to send one -- which her text-only chat can't take.
 function productSummary(p) {
-  return { id: p.id, name: p.name, category: p.category, commission_rate: p.commission_rate, url: p.url };
+  return {
+    id: p.id,
+    name: p.name,
+    category: p.category,
+    commission_rate: p.commission_rate,
+    url: p.url,
+    image_url: p.image_url || null,
+  };
 }
 
 export const TOOL_DEFINITIONS = [
@@ -178,7 +188,7 @@ export const TOOL_DEFINITIONS = [
   {
     name: "create_video_ad",
     description:
-      "Start generating a short AI voiceover video ad (image + TTS voiceover + caption) for one of the user's products. Rendering happens on an external service and takes roughly a minute -- this only submits the job and returns a render_id. Call check_video_ad with that id a little later to see if it's done; do not call it back to back, space it out across the conversation. Requires the product to have an image_url. If this returns a 'not set up' error, tell the user this feature needs an API key configured and do not try again this turn.",
+      "Start generating a short AI voiceover video ad (image + TTS voiceover + caption) for one of the user's products. Rendering happens on an external service and takes roughly a minute -- this only submits the job and returns a render_id. Call check_video_ad with that id a little later to see if it's done; do not call it back to back, space it out across the conversation. Uses the product's image_url (shown by list_my_products) or a clip passed as video_url; if the product already has an image_url, don't ask the user for a picture -- just use it. Users can't send you images in this chat; pictures are added on the Products page or found with list_ad_creatives. If this returns a 'not set up' error, tell the user this feature needs an API key configured and do not try again this turn.",
     input_schema: {
       type: "object",
       properties: {
