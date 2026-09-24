@@ -45,9 +45,16 @@ function ReplyMarkdown({ text }) {
     return <span>{children}</span>;
   };
 
+  // Maya shows the product pictures she finds so they can be approved before
+  // they're saved. Kept small, and https only.
+  const Picture = ({ src = "", alt = "" }) =>
+    /^https:\/\//i.test(src) ? (
+      <img src={src} alt={alt} loading="lazy" className="max-h-48 max-w-full rounded-md border border-white/10 bg-white object-contain" />
+    ) : null;
+
   return (
     <div className="text-base text-[color:var(--voice-text)] leading-relaxed space-y-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_strong]:font-semibold [&_code]:font-mono [&_code]:text-sm">
-      <ReactMarkdown components={{ a: Anchor }}>{String(text || "")}</ReactMarkdown>
+      <ReactMarkdown components={{ a: Anchor, img: Picture }}>{String(text || "")}</ReactMarkdown>
     </div>
   );
 }
@@ -70,6 +77,8 @@ const EXPERIENCE_OPTIONS = [
 ];
 
 const cleanSpeechForVoice = (text) => text
+  // Pictures are for looking at; reading one out would only say "link".
+  .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
   .replace(/https?:\/\/\S+/g, "link")
   .replace(/[#*_`>\[\](){}]/g, "")
   .replace(/[•–—]/g, ", ")

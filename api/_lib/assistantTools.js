@@ -2,6 +2,7 @@ import { db } from "./db.js";
 import { getClickBankAffiliateId, applyClickBankAffiliateId } from "./affiliates.js";
 import { detectNetwork, networkForDestination } from "./tracking.js";
 import { largestEbayImage } from "./images.js";
+import { findVendorImage } from "./productImages.js";
 
 function hostOf(url) {
   try {
@@ -192,6 +193,30 @@ export const TOOL_DEFINITIONS = [
     },
   },
   {
+    name: "find_product_images",
+    description:
+      "Find pictures for the user's products by reading each vendor's own sales page for the picture the vendor set for sharing it. With no product_ids it checks every product that has no picture yet. Call it first WITHOUT save: show each picture found in your reply as markdown, ![Product name](image_url), say it is the vendor's own picture from their page, list the ones not found and why, and ask the user which to keep. Only after they say yes, call it again with save: true and product_ids set to just the ones they approved. Never pass save: true on the first call. ClickBank products usually come back needing the vendor's sales page address, because their saved link is a HopLink and opening that would count as an affiliate click -- ask the user for the address from the product's ClickBank Marketplace listing (the vendor's page, not their HopLink) and pass it as page_url with that one product_id. Never guess a page_url.",
+    input_schema: {
+      type: "object",
+      properties: {
+        product_ids: {
+          type: "array",
+          items: { type: "string" },
+          description: "ids from list_my_products. Omit to check every product with no picture.",
+        },
+        page_url: {
+          type: "string",
+          description: "Only with exactly one product_id: the vendor's own sales page address, as the user gave it. Never a HopLink or other affiliate link.",
+        },
+        save: {
+          type: "boolean",
+          description: "true only after the user has approved the pictures from an earlier call. Saves each found picture as that product's picture.",
+        },
+      },
+      required: [],
+    },
+  },
+  {
     name: "create_video_ad",
     description:
       "Start generating a short AI voiceover video ad (image + TTS voiceover + caption) for one of the user's products. Rendering happens on an external service and takes roughly a minute -- this only submits the job and returns a render_id. Call check_video_ad with that id a little later to see if it's done; do not call it back to back, space it out across the conversation. Uses the product's image_url (shown by list_my_products) or a clip passed as video_url; if the product already has an image_url, don't ask the user for a picture -- just use it. Users can't send you images in this chat; pictures are added on the Products page or found with list_ad_creatives. If this returns a 'not set up' error, tell the user this feature needs an API key configured and do not try again this turn.",
@@ -298,10 +323,11 @@ export async function availableBalance(D, userId) {
  *
  * @param {string} name
  * @param {Record<string, any>} input model-supplied, treat as untrusted
- * @param {{ user: any, origin: string|null, D?: any, invokeLLM?: Function, videoAds?: any, storageClient?: any }} ctx
- *        `D`, `invokeLLM`, `videoAds` and `storageClient` are injectable so
- *        tools can be tested without a database, a live web search, or a
- *        real render/storage call. Production callers omit all of them.
+ * @param {{ user: any, origin: string|null, D?: any, invokeLLM?: Function, videoAds?: any, storageClient?: any, fetch?: typeof fetch }} ctx
+ *        `D`, `invokeLLM`, `videoAds`, `storageClient` and `fetch` are
+ *        injectable so tools can be tested without a database, a live web
+ *        search, a real render/storage call, or a vendor's page. Production
+ *        callers omit all of them.
  */
 export async function executeTool(name, input = {}, ctx = {}) {
   const { user, origin } = ctx;
@@ -511,6 +537,67 @@ export async function executeTool(name, input = {}, ctx = {}) {
 
         const updated = await D.Product.update(product.id, patch);
         return { product: productSummary(updated || { ...product, ...patch }), changed: Object.keys(patch) };
+      }
+
+      case "find_product_images": {
+        const mine = await D.Product.filter({ created_by_id: user.id }, "-created_at", MAX_LIST_ROWS);
+        const wanted = Array.isArray(input.product_ids) ? input.product_ids.map(String) : [];
+        // Only ids that are the caller's own: a foreign or invented id is
+        // reported, never looked up.
+        const products = wanted.length
+          ? mine.filter((p) => wanted.includes(String(p.id)))
+          : mine.filter((p) => !p.image_url);
+        const unknown = wanted.filter((id) => !mine.some((p) => String(p.id) === id));
+        if (!products.length) {
+          return wanted.length
+            ? { error: "None of those ids are products of yours. Call list_my_products first.", unknown_ids: unknown }
+            : { results: [], message: "Every product already has a picture." };
+        }
+
+        const pageUrl = String(input.page_url || "").trim();
+        if (pageUrl && products.length !== 1) {
+          return { error: "page_url goes with exactly one product_id -- it's that one product's sales page." };
+        }
+
+        const ownHost = hostOf(origin);
+        const opts = { fetch: ctx.fetch, ownHost };
+        const results = [];
+        // A few at a time: fast enough for a whole catalogue in one call,
+        // without firing thirty requests at once.
+        for (let i = 0; i < products.length; i += 4) {
+          const batch = products.slice(i, i + 4);
+          results.push(
+            ...(await Promise.all(
+              batch.map(async (p) => {
+                const found = await findVendorImage(pageUrl || p.url, { ...opts, productName: p.name });
+                return { product_id: p.id, product_name: p.name, had_picture: !!p.image_url, ...found };
+              })
+            ))
+          );
+        }
+
+        let saved = 0;
+        if (input.save === true) {
+          for (const r of results) {
+            if (!r.image_url) continue;
+            await D.Product.update(r.product_id, { image_url: r.image_url });
+            r.saved = true;
+            saved += 1;
+          }
+        }
+
+        const found = results.filter((r) => r.image_url).length;
+        return {
+          results,
+          found,
+          not_found: results.length - found,
+          saved,
+          ...(unknown.length ? { unknown_ids: unknown } : {}),
+          message:
+            input.save === true
+              ? `Saved ${saved} picture${saved === 1 ? "" : "s"}. Those products are ready for create_video_ad.`
+              : "Nothing saved yet. Show the user each picture found as markdown ![name](image_url), explain any not found, and ask which to keep before calling again with save: true.",
+        };
       }
 
       case "create_video_ad": {
