@@ -240,6 +240,8 @@ export function extractImageCandidates(html, pageUrl) {
 // Pictures on a page that are never the product shot.
 const NOT_THE_PRODUCT = /logo|icon|menu|star|review|testimonial|supplement[-_ ]?facts|facts|label|ingredient|chart|badge|arrow|button|avatar|flag|payment|card|secure|spinner|loader|pixel|sprite|placeholder/i;
 const LOOKS_LIKE_PRODUCT = /bottle|product|package|packshot|jar|box|pouch|tub|hero|main|frtimg|bundle/i;
+// A picture the page itself labels as the product -- "2 bottles", "frtImg".
+const PRODUCT_SHOT = "product shot on the page";
 
 /**
  * The page's own product shots, for sales pages that name no sharing picture
@@ -268,8 +270,9 @@ export function extractProductPhotos(html, pageUrl, productName) {
     const said = `${attr(tag, "alt")} ${src.split("/").pop()} ${attr(tag, "id")} ${attr(tag, "class")}`.toLowerCase();
     if (NOT_THE_PRODUCT.test(said)) continue;
     const named = words.filter((w) => said.includes(w)).length;
-    const score = named * 2 + (LOOKS_LIKE_PRODUCT.test(said) ? 2 : 0);
-    if (score > 0) scored.push({ url: src, via: "product photo on the page", score, order });
+    const shot = LOOKS_LIKE_PRODUCT.test(said);
+    const score = named * 2 + (shot ? 2 : 0);
+    if (score > 0) scored.push({ url: src, via: shot ? PRODUCT_SHOT : "product photo on the page", score, order });
   }
   scored.sort((a, b) => b.score - a.score || a.order - b.order);
   return resolveCandidates(scored, pageUrl, new Set());
@@ -409,7 +412,11 @@ export async function findVendorImage(pageUrl, opts = {}) {
 
   const shared = extractImageCandidates(got.html, got.finalUrl);
   const photos = extractProductPhotos(got.html, got.finalUrl, opts.productName).filter((p) => !shared.some((s) => s.url === p.url));
-  const candidates = [...shared.slice(0, 3), ...photos.slice(0, 3)];
+  // A labelled product shot beats the sharing picture: on video sales pages
+  // og:image is often the video's thumbnail, play button and all (HepatoBurn).
+  const shots = photos.filter((p) => p.via === PRODUCT_SHOT);
+  const others = photos.filter((p) => p.via !== PRODUCT_SHOT);
+  const candidates = [...shots.slice(0, 2), ...shared.slice(0, 3), ...others.slice(0, 2)];
   if (!candidates.length) return { error: "the page has no picture that looks like the product", page };
 
   for (const c of candidates) {

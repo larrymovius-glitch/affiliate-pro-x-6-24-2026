@@ -96,7 +96,22 @@ test("a sales page with no sharing picture falls back to its product shot", asyn
   });
   const r = await findVendorImage("https://vendor.test/p", { fetch: web.fetch, productName: "Advanced Amino Formula" });
   assert.equal(r.image_url, "https://assets.vendor.test/amino-guarantee.jpg");
-  assert.equal(r.found_via, "product photo on the page");
+  assert.equal(r.found_via, "product shot on the page");
+});
+
+test("a labelled bottle shot beats a sharing picture that is a video thumbnail", async () => {
+  // Shaped like HepatoBurn's page: og:image is the sales video's thumbnail.
+  const page = `
+    <meta property="og:image" content="https://hb.test/images/og-image-1.png">
+    <img src="/images/hepatoburn/logo.png" alt="HEPATO BURN">
+    <img src="/images/hepatoburn/2-bottle.png" alt="2 bottles">`;
+  const web = fakeWeb({
+    "https://hb.test/p": html(page),
+    "https://hb.test/images/hepatoburn/2-bottle.png": picture(),
+    "https://hb.test/images/og-image-1.png": picture(),
+  });
+  const r = await findVendorImage("https://hb.test/p", { fetch: web.fetch, productName: "HepatoBurn" });
+  assert.equal(r.image_url, "https://hb.test/images/hepatoburn/2-bottle.png");
 });
 
 test("a pixel or a favicon is not a product picture", async () => {
