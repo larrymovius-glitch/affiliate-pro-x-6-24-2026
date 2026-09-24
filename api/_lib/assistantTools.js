@@ -1,5 +1,11 @@
 import { db } from "./db.js";
-import { getClickBankAffiliateId, applyClickBankAffiliateId } from "./affiliates.js";
+import {
+  getClickBankAffiliateId,
+  applyClickBankAffiliateId,
+  getDigistoreAffiliateId,
+  CLICKBANK_AFFILIATE_ID,
+  DIGISTORE_AFFILIATE_ID,
+} from "./affiliates.js";
 import { detectNetwork, networkForDestination } from "./tracking.js";
 import { largestEbayImage } from "./images.js";
 import { findVendorImage } from "./productImages.js";
@@ -195,7 +201,7 @@ export const TOOL_DEFINITIONS = [
   {
     name: "find_product_images",
     description:
-      "Find pictures for the user's products by reading each vendor's own sales page for the picture the vendor set for sharing it. With no product_ids it checks every product that has no picture yet. Call it first WITHOUT save: show each picture found in your reply as markdown, ![Product name](image_url), say it is the vendor's own picture from their page, list the ones not found and why, and ask the user which to keep. Only after they say yes, call it again with save: true and product_ids set to just the ones they approved. Never pass save: true on the first call. ClickBank products usually come back needing the vendor's sales page address, because their saved link is a HopLink and opening that would count as an affiliate click -- ask the user for the address from the product's ClickBank Marketplace listing (the vendor's page, not their HopLink) and pass it as page_url with that one product_id. Never guess a page_url.",
+      "Find pictures for the user's products by reading each vendor's own sales page for the picture the vendor set for sharing it. With no product_ids it checks every product that has no picture yet. Call it first WITHOUT save: show each picture found in your reply as markdown, ![Product name](image_url), say it is the vendor's own picture from their page, list the ones not found and why, and ask the user which to keep. Only after they say yes, call it again with save: true and product_ids set to just the ones they approved. Never pass save: true on the first call. ClickBank and Digistore24 links are handled safely: they are opened rebuilt with no affiliate id, so no click is ever made on the user's account -- there is no permission to ask for and nothing to override. A result may still need help: an encrypted ClickBank HopLink needs the vendor's sales page address or ClickBank vendor nickname (from the product's Marketplace listing) -- ask for it and pass it as page_url with that one product_id; a result that says a link is broken means the saved link itself is wrong, so tell the user plainly it needs replacing. Never tell the user to search Google for pages, and never guess a page_url.",
     input_schema: {
       type: "object",
       properties: {
@@ -206,7 +212,7 @@ export const TOOL_DEFINITIONS = [
         },
         page_url: {
           type: "string",
-          description: "Only with exactly one product_id: the vendor's own sales page address, as the user gave it. Never a HopLink or other affiliate link.",
+          description: "Only with exactly one product_id: the vendor's sales page address as the user gave it, or a ClickBank vendor nickname written as https://hop.clickbank.net/?vendor=NICKNAME.",
         },
         save: {
           type: "boolean",
@@ -560,7 +566,16 @@ export async function executeTool(name, input = {}, ctx = {}) {
         }
 
         const ownHost = hostOf(origin);
-        const opts = { fetch: ctx.fetch, ownHost };
+        // Every id this user earns under. findVendorImage refuses any address
+        // with one of these in it, wherever it sits.
+        const affiliateIds = [
+          getClickBankAffiliateId(user),
+          getDigistoreAffiliateId(user),
+          CLICKBANK_AFFILIATE_ID,
+          DIGISTORE_AFFILIATE_ID,
+          ...Object.values(user.affiliate_network_ids || {}),
+        ].filter(Boolean);
+        const opts = { fetch: ctx.fetch, ownHost, affiliateIds };
         const results = [];
         // A few at a time: fast enough for a whole catalogue in one call,
         // without firing thirty requests at once.
@@ -569,7 +584,7 @@ export async function executeTool(name, input = {}, ctx = {}) {
           results.push(
             ...(await Promise.all(
               batch.map(async (p) => {
-                const found = await findVendorImage(pageUrl || p.url, { ...opts, productName: p.name });
+                const found = await findVendorImage(pageUrl || p.url, { ...opts, productName: p.name, networkHint: p.category });
                 return { product_id: p.id, product_name: p.name, had_picture: !!p.image_url, ...found };
               })
             ))

@@ -39,7 +39,6 @@ test("affiliate links and trackers are refused before any request is made", () =
     "https://someaffiliate.javaburn.hop.clickbank.net/",
     "https://hop.clickbank.net/?affiliate=someaffiliate&vendor=javaburn",
     "https://www.digistore24.com/redir/123456/Aff_ID/",
-    "https://www.ebay.com/itm/123?campid=0000000000",
     "https://bit.ly/abc",
     "https://apx.amhere4utoday.com/r/ABC123",
   ]) {
@@ -127,26 +126,43 @@ function fakeDb(products) {
 
 const catalogue = () => [
   { id: "ds", created_by_id: "me", name: "Advanced Amino", url: "https://vendor.test/p#aff=Aff_ID", image_url: "" },
-  { id: "cb", created_by_id: "me", name: "Java Burn", url: "https://someaffiliate.javaburn.hop.clickbank.net/", image_url: "" },
+  { id: "cb", created_by_id: "me", name: "Java Burn", category: "clickbank_trending", url: "https://someaffiliate.javaburn.hop.clickbank.net/", image_url: "" },
   { id: "has", created_by_id: "me", name: "PS5", url: "https://www.ebay.com/itm/1", image_url: "https://i.ebayimg.com/x/s-l1600.jpg" },
   { id: "theirs", created_by_id: "someone-else", name: "Theirs", url: "https://vendor.test/p", image_url: "" },
 ];
 
+const redirect = (to, status = 307) => () => new Response(null, { status, headers: { location: to } });
+
+// Shaped like the real answers: ClickBank sends an affiliate-less HopLink to
+// the vendor's /go with hop=0; Digistore24 bounces once through its checkout
+// domain, then on to the vendor.
 const web = () =>
   fakeWeb({
-    "https://vendor.test/p": html(PAGE.replace("/images/amino-bottle.png", "https://vendor.test/a.png")),
-    "https://vendor.test/a.png": picture(),
-    "https://javaburn.test/sales": html('<meta property="og:image" content="https://javaburn.test/jb.jpg">'),
-    "https://javaburn.test/jb.jpg": picture(),
+    "https://vendor.test/p": () => html(PAGE.replace("/images/amino-bottle.png", "https://vendor.test/a.png")),
+    "https://vendor.test/a.png": () => picture(),
+    "https://hop.clickbank.net/?vendor=javaburn": redirect("https://javaburn.test/go?hop=0&hopId=abc"),
+    "https://javaburn.test/go?hop=0&hopId=abc": redirect("https://javaburn.test/sales?hop=0&hopId=abc", 302),
+    "https://javaburn.test/sales?hop=0&hopId=abc": () => html('<meta property="og:image" content="https://javaburn.test/jb.jpg">'),
+    "https://javaburn.test/sales": () => html('<meta property="og:image" content="https://javaburn.test/jb.jpg">'),
+    "https://javaburn.test/jb.jpg": () => picture(),
+    "https://www.digistore24.com/redir/533952/": redirect("https://www.checkout-ds24.com/redir/533952/?ds24_domain=www.digistore24.com", 301),
+    "https://www.checkout-ds24.com/redir/533952/?ds24_domain=www.digistore24.com": redirect("https://lipo.test/index.php?aff=&cam="),
+    "https://lipo.test/index.php": () => html('<meta property="og:image" content="https://lipo.test/bottle.png">'),
+    "https://lipo.test/bottle.png": () => picture(),
   });
 
-const ctx = (D, w) => ({ user: { id: "me" }, D, origin: "https://apx.amhere4utoday.com", fetch: w.fetch });
+const me = { id: "me", clickbank_nickname: "someaffiliate", affiliate_network_ids: { digistore24: "Aff_ID" } };
+const ctx = (D, w) => ({ user: me, D, origin: "https://apx.amhere4utoday.com", fetch: w.fetch });
+
+/** No request may carry the user's ids -- the whole point. */
+const noIdsSent = (w) =>
+  assert.ok(w.requested.every((u) => !/someaffiliate|Aff_ID|Here4_you|apxalaska/i.test(u)), w.requested.join(" "));
 
 test("find_product_images is offered to the assistant", () => {
   assert.ok(TOOL_DEFINITIONS.some((t) => t.name === "find_product_images"));
 });
 
-test("previews every product missing a picture, saves nothing, never opens the HopLink", async () => {
+test("previews every product missing a picture and saves nothing", async () => {
   const D = fakeDb(catalogue());
   const w = web();
   const r = await executeTool("find_product_images", {}, ctx(D, w));
@@ -154,8 +170,59 @@ test("previews every product missing a picture, saves nothing, never opens the H
   assert.equal(D.updates.length, 0, "nothing saved without approval");
   assert.deepEqual(r.results.map((x) => x.product_id).sort(), ["cb", "ds"], "only my products, only ones without a picture");
   assert.equal(r.results.find((x) => x.product_id === "ds").image_url, "https://vendor.test/a.png");
-  assert.match(r.results.find((x) => x.product_id === "cb").error, /HopLink/);
-  assert.ok(w.requested.every((u) => !/clickbank|Aff_ID/.test(u)), w.requested.join(" "));
+  noIdsSent(w);
+});
+
+test("a ClickBank HopLink is opened rebuilt without the affiliate, never as saved", async () => {
+  const D = fakeDb(catalogue());
+  const w = web();
+  const r = await executeTool("find_product_images", { product_ids: ["cb"] }, ctx(D, w));
+  assert.equal(r.results[0].image_url, "https://javaburn.test/jb.jpg");
+  assert.equal(w.requested[0], "https://hop.clickbank.net/?vendor=javaburn");
+  noIdsSent(w);
+});
+
+test("a Digistore24 promolink is opened without the affiliate, through its checkout hop", async () => {
+  const D = fakeDb([
+    { id: "lipo", created_by_id: "me", name: "LipoSlend", category: "digistore24", url: "https://www.digistore24.com/redir/533952/Aff_ID//", image_url: "" },
+  ]);
+  const w = web();
+  const r = await executeTool("find_product_images", {}, ctx(D, w));
+  assert.equal(r.results[0].image_url, "https://lipo.test/bottle.png");
+  assert.equal(w.requested[0], "https://www.digistore24.com/redir/533952/");
+  noIdsSent(w);
+});
+
+test("a promolink on a vendor's custom domain is rebuilt too, not opened with the id in its path", async () => {
+  const D = fakeDb([
+    { id: "adhd", created_by_id: "me", name: "Calm ADHD", category: "digistore24", url: "https://aanchorbiz.test/redir/533952/Aff_ID//", image_url: "" },
+  ]);
+  const w = web();
+  await executeTool("find_product_images", {}, ctx(D, w));
+  assert.equal(w.requested[0], "https://www.digistore24.com/redir/533952/");
+  noIdsSent(w);
+});
+
+test("backstop: an address with the user's id anywhere in it is never requested", async () => {
+  const D = fakeDb([
+    { id: "x", created_by_id: "me", name: "Mystery", category: "general", url: "https://tracker.test/go/Aff_ID/123", image_url: "" },
+  ]);
+  const w = web();
+  const r = await executeTool("find_product_images", {}, ctx(D, w));
+  assert.match(r.results[0].error, /affiliate ID is inside the address/);
+  assert.equal(w.requested.length, 0);
+});
+
+test("an encrypted HopLink and a broken promolink are explained, not opened", async () => {
+  const D = fakeDb([
+    { id: "enc", created_by_id: "me", name: "Water Freedom", category: "general", url: "https://2932f2ztddoo-91gljhlinczeq.hop.clickbank.net", image_url: "" },
+    { id: "bad", created_by_id: "me", name: "Memory", category: "digistore24", url: "https://www.digistore24.com/redir/Aff_ID/Aff_ID/", image_url: "" },
+  ]);
+  const w = web();
+  const r = await executeTool("find_product_images", {}, ctx(D, w));
+  assert.match(r.results.find((x) => x.product_id === "enc").error, /encrypted ClickBank HopLink/);
+  assert.match(r.results.find((x) => x.product_id === "bad").error, /broken Digistore24 link/);
+  assert.equal(w.requested.length, 0);
 });
 
 test("saves only when told to, after approval", async () => {
@@ -165,18 +232,10 @@ test("saves only when told to, after approval", async () => {
   assert.deepEqual(D.updates, [{ id: "ds", patch: { image_url: "https://vendor.test/a.png" } }]);
 });
 
-test("a ClickBank product works from the vendor's own page the user gives", async () => {
+test("a product works from the vendor's own page the user gives", async () => {
   const D = fakeDb(catalogue());
   const r = await executeTool("find_product_images", { product_ids: ["cb"], page_url: "https://javaburn.test/sales" }, ctx(D, web()));
   assert.equal(r.results[0].image_url, "https://javaburn.test/jb.jpg");
-});
-
-test("page_url can't be a HopLink either", async () => {
-  const D = fakeDb(catalogue());
-  const w = web();
-  const r = await executeTool("find_product_images", { product_ids: ["cb"], page_url: "https://hop.clickbank.net/?vendor=javaburn" }, ctx(D, w));
-  assert.match(r.results[0].error, /HopLink/);
-  assert.equal(w.requested.length, 0);
 });
 
 test("someone else's product is never looked up or changed", async () => {
