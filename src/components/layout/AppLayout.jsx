@@ -3,6 +3,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 import BottomNav from "./BottomNav";
+import MayaDock from "@/components/assistant/MayaDock";
 
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);
@@ -27,6 +28,8 @@ export default function AppLayout() {
         </main>
       </div>
       <BottomNav />
+      {/* Outside <Outlet>, so navigating pages never unmounts Maya. */}
+      <MayaDock />
     </div>
   );
 }

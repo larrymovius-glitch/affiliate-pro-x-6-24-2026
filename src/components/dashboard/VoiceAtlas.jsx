@@ -20,7 +20,7 @@ const MAYA_DEFAULT = "https://media.base44.com/images/public/6a2a72a46235784f879
 // new tab. Anything that is not an http(s) or root-relative URL renders as
 // plain text rather than becoming a link -- an assistant reply is model output,
 // and javascript: or data: URLs have no business being clickable.
-function ReplyMarkdown({ text }) {
+export function ReplyMarkdown({ text }) {
   const navigate = useNavigate();
 
   const Anchor = ({ href = "", children }) => {
