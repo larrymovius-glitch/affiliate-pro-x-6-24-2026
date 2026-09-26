@@ -781,7 +781,40 @@ Category: ${product.category || "N/A"}`,
           notes: `AI-generated video ad, ${shape.width}x${shape.height} for ${shape.where}. Rendered via JSON2Video (render ${renderId}).`,
         });
 
-        return { status: "done", url: status.url, ad_asset_id: asset.id, message: "Saved to your ad creatives." };
+        // An ad only exists if the product passed TikTok's rules and the
+        // vendor's, and a "link in bio" ad has to lead to the product -- so
+        // its link goes onto the share page without a separate step.
+        let onSharePage = null;
+        if (input.product_id) {
+          // The ad is already saved; a failure here must not report it lost.
+          try {
+            const links = await D.AffiliateLink.filter({ created_by_id: user.id, product_id: String(input.product_id) }, "-created_at", 20);
+            const live = links.filter((l) => l.is_active !== false);
+            if (live.some((l) => l.bio_featured_at)) onSharePage = "already";
+            else if (live[0]) {
+              await D.AffiliateLink.update(live[0].id, { bio_featured_at: new Date().toISOString() });
+              onSharePage = "added";
+            } else onSharePage = "no_link";
+          } catch (e) {
+            console.error("check_video_ad: share page update failed:", e.message);
+            onSharePage = "failed";
+          }
+        }
+
+        return {
+          status: "done",
+          url: status.url,
+          ad_asset_id: asset.id,
+          ...(onSharePage ? { share_page: onSharePage } : {}),
+          message:
+            onSharePage === "no_link"
+              ? "Saved to your ad creatives. This product has no affiliate link yet, so it isn't on the share page -- create one before posting."
+              : onSharePage === "failed"
+                ? "Saved to your ad creatives, but adding it to the share page failed -- add it with the star on the Links page."
+                : onSharePage
+                  ? "Saved to your ad creatives, and the product is on the share page."
+                  : "Saved to your ad creatives.",
+        };
       }
 
       case "connect_affiliate_network": {

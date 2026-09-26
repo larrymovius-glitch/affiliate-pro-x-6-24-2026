@@ -198,3 +198,45 @@ test("the voiceover takes a voice and a delivery direction", async () => {
   assert.equal(spoken[1].voice, "onyx");
   assert.equal(spoken[1].instructions, "calm and serious");
 });
+
+// A finished ad only exists for a product that passed TikTok's and the
+// vendor's rules, and "link in bio" must lead to it -- so it goes onto the
+// share page as part of finishing, not as a step someone has to remember.
+function withLinks(D, links) {
+  const updates = [];
+  D.AffiliateLink = {
+    filter: async (f) => links.filter((l) => Object.entries(f).every(([k, v]) => l[k] === v)),
+    update: async (id, patch) => { updates.push({ id, patch }); return { id, ...patch }; },
+  };
+  return updates;
+}
+
+test("a finished ad puts its product's link on the share page", async () => {
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any" }] });
+  const updates = withLinks(D, [
+    { id: "L1", created_by_id: "me", product_id: "p1", is_active: true, bio_featured_at: null },
+    { id: "L2", created_by_id: "other", product_id: "p1", is_active: true, bio_featured_at: null },
+  ]);
+  const r = await executeTool("check_video_ad", { render_id: "r1", product_id: "p1" }, ctxFor(D, { videoAds: configured }));
+  assert.equal(r.share_page, "added");
+  assert.equal(updates.length, 1);
+  assert.equal(updates[0].id, "L1", "only the caller's own link");
+  assert.ok(updates[0].patch.bio_featured_at);
+});
+
+test("a product already on the share page is left as it is", async () => {
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any" }] });
+  const updates = withLinks(D, [{ id: "L1", created_by_id: "me", product_id: "p1", is_active: true, bio_featured_at: "2026-09-26T07:00:00Z" }]);
+  const r = await executeTool("check_video_ad", { render_id: "r1", product_id: "p1" }, ctxFor(D, { videoAds: configured }));
+  assert.equal(r.share_page, "already");
+  assert.equal(updates.length, 0);
+});
+
+test("a product with no link is reported, not invented", async () => {
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any" }] });
+  withLinks(D, []);
+  const r = await executeTool("check_video_ad", { render_id: "r1", product_id: "p1" }, ctxFor(D, { videoAds: configured }));
+  assert.equal(r.status, "done", "the ad itself is still saved");
+  assert.equal(r.share_page, "no_link");
+  assert.match(r.message, /no affiliate link/);
+});
