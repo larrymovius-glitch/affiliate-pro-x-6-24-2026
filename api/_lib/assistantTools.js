@@ -21,7 +21,7 @@ import { invokeLLM } from "./llm.js";
 import { AFFILIATE_NETWORKS, connectedNetworkIds } from "./affiliateNetworks.js";
 import { adminClient } from "./supabase.js";
 import * as videoAdsLib from "./videoAds.js";
-import { FDA_DISCLAIMER, TIKTOK_POLICY_URL, tiktokPostingChecklist, tiktokRule } from "./platformRules.js";
+import { FDA_DISCLAIMER, TIKTOK_POLICY_URL, tiktokPostingChecklist, tiktokRule, vendorCreativeCheck } from "./platformRules.js";
 
 // Tools Maya and Atlas can actually call.
 //
@@ -90,6 +90,10 @@ function productSummary(p) {
     // So the assistant can say which products may go on TikTok at all,
     // before anyone spends a render on one TikTok would take down.
     tiktok: tiktokRule(p, { isEbay: isEbayProduct(p) }).status,
+    // The vendor's rule on which pictures and videos may appear in an ad,
+    // and where the saved picture came from. See vendorCreativeCheck.
+    creative_rule: isEbayProduct(p) ? "ebay" : p.creative_rule || "not_checked",
+    image_source: p.image_source || null,
   };
 }
 
@@ -119,7 +123,7 @@ export const TOOL_DEFINITIONS = [
   {
     name: "list_my_products",
     description:
-      "Products the user has added, newest first, which are what links and ads get built from. image_url shows whether a product already has its picture: one that does is ready for create_video_ad. tiktok says what TikTok allows for it: 'banned' (weight-loss products and get-rich offers -- never suggest a TikTok ad for these), 'restricted' (supplements: adults only, mild wording) or 'allowed'. When asked which products are ready, or about all of them, set limit to the maximum.",
+      "Products the user has added, newest first, which are what links and ads get built from. image_url shows whether a product already has its picture: one that does is ready for create_video_ad. tiktok says what TikTok allows for it: 'banned' (weight-loss products and get-rich offers -- never suggest a TikTok ad for these), 'restricted' (supplements: adults only, mild wording) or 'allowed'. creative_rule is the vendor's rule on which pictures and videos an ad may use: 'own_or_official' (the user's own footage, or the vendor's affiliate-kit creatives -- never anything from the sales page or sales video), 'official_only' (the vendor's official creatives only), 'unaltered' (the vendor's ads posted as supplied, no AI ads), 'any', 'ebay', or 'not_checked' (no ad until the vendor's affiliate page has been checked). image_source says where the saved picture came from: 'official', 'own', 'sales_page' or null (unknown). When asked which products are ready, or about all of them, set limit to the maximum.",
     input_schema: {
       type: "object",
       properties: { limit: { type: "number", description: `1-${MAX_LIST_ROWS}. Default 50.` } },
@@ -202,6 +206,12 @@ export const TOOL_DEFINITIONS = [
         description: { type: "string" },
         category: { type: "string" },
         image_url: { type: "string", description: "Web address of a picture (https). Used as the picture in video ads." },
+        image_source: {
+          type: "string",
+          enum: ["official", "own"],
+          description:
+            "Where the new image_url came from, only when the user has told you: 'official' if it is from the vendor's own affiliate creatives kit, 'own' if they made it themselves (e.g. in Firefly). Never 'official' for a picture from the vendor's sales page. Leave it out if they haven't said -- the picture is then unconfirmed, and vendors that restrict creatives won't allow it in an ad.",
+        },
       },
       required: ["product_id"],
     },
@@ -233,7 +243,7 @@ export const TOOL_DEFINITIONS = [
   {
     name: "create_video_ad",
     description:
-      "Start generating a short AI voiceover video ad (image + TTS voiceover + caption) for one of the user's products. Rendering happens on an external service and takes roughly a minute -- this only submits the job and returns a render_id. Call check_video_ad with that id a little later to see if it's done; do not call it back to back, space it out across the conversation. Uses the product's image_url (shown by list_my_products) or a clip passed as video_url; if the product already has an image_url, don't ask the user for a picture -- just use it. Users can't send you images in this chat; pictures are added on the Products page or found with list_ad_creatives. If this returns a 'not set up' error, tell the user this feature needs an API key configured and do not try again this turn. It refuses a vertical (TikTok) ad for a product TikTok bans; when it does, tell the user why in one line and suggest a product whose tiktok is 'allowed' -- never remake it in another shape to get around the rule. Always pass on the posting_checklist it returns.",
+      "Start generating a short AI voiceover video ad (image + TTS voiceover + caption) for one of the user's products. Rendering happens on an external service and takes roughly a minute -- this only submits the job and returns a render_id. Call check_video_ad with that id a little later to see if it's done; do not call it back to back, space it out across the conversation. Uses the product's image_url (shown by list_my_products) or a clip passed as video_url; if the product already has an image_url, don't ask the user for a picture -- just use it. Users can't send you images in this chat; pictures are added on the Products page or found with list_ad_creatives. If this returns a 'not set up' error, tell the user this feature needs an API key configured and do not try again this turn. It refuses a vertical (TikTok) ad for a product TikTok bans; when it does, tell the user why in one line and suggest a product whose tiktok is 'allowed' -- never remake it in another shape to get around the rule. It also refuses an ad that breaks the vendor's creative rules (see creative_rule in list_my_products): say why plainly, and never work around it -- no other picture or clip the user hasn't confirmed, and never a clip cut from a vendor's sales video. Always pass on the posting_checklist and any vendor_rules it returns.",
     input_schema: {
       type: "object",
       properties: {
@@ -248,6 +258,11 @@ export const TOOL_DEFINITIONS = [
           type: "string",
           description:
             "Optional https address of footage to use behind the ad instead of the product photo -- e.g. a clip the user uploaded, from list_ad_creatives. It is silenced and looped to fit the voiceover. Only pass a url the user gave you or that came from list_ad_creatives; never invent one.",
+        },
+        footage_is_official: {
+          type: "boolean",
+          description:
+            "True only when the user has told you this clip came from the vendor's own official creatives kit (e.g. its Google Drive folder). Needed for vendors whose creative_rule is 'official_only'. Never true for the user's own footage or anything from a sales video.",
         },
         voice: {
           type: "string",
@@ -544,6 +559,8 @@ export async function executeTool(name, input = {}, ctx = {}) {
           // A picture copied out of an eBay listing is usually the 500px one;
           // the ad needs the full-size version of the same photo.
           patch.image_url = largestEbayImage(image);
+          // Set with every new picture, never carried over from the old one.
+          patch.image_source = ["official", "own"].includes(input.image_source) ? input.image_source : null;
         }
         if (!Object.keys(patch).length) {
           return { error: "Nothing to change. Pass a name, description, category or image_url." };
@@ -603,7 +620,10 @@ export async function executeTool(name, input = {}, ctx = {}) {
         if (input.save === true) {
           for (const r of results) {
             if (!r.image_url) continue;
-            await D.Product.update(r.product_id, { image_url: r.image_url });
+            // Recorded so the ad check knows this picture is sales-page
+            // material, which most vendors don't allow in ads.
+            const p = products.find((x) => String(x.id) === String(r.product_id));
+            await D.Product.update(r.product_id, { image_url: r.image_url, image_source: p && isEbayProduct(p) ? null : "sales_page" });
             r.saved = true;
             saved += 1;
           }
@@ -648,6 +668,21 @@ export async function executeTool(name, input = {}, ctx = {}) {
           return { error: `Not made: ${rule.reason} "${product.name}" can't be promoted there.`, tiktok: rule.status, policy: TIKTOK_POLICY_URL };
         }
         const supplement = rule.status === "restricted";
+
+        // The vendor's own rules, on every platform: many allow only their own
+        // creatives and forbid anything from the sales page or sales video.
+        const creative = vendorCreativeCheck(product, {
+          isEbay: isEbayProduct(product),
+          footage: !!footage,
+          footageIsOfficial: input.footage_is_official === true,
+        });
+        if (!creative.ok) {
+          return {
+            error: `Not made: ${creative.reason}`,
+            ...(creative.note ? { vendor_rules: creative.note } : {}),
+            ...(creative.source ? { vendor_rules_source: creative.source } : {}),
+          };
+        }
 
         if (!videoAds.videoAdsConfigured()) {
           return { error: "Video ad generation isn't set up yet -- it needs an OpenAI and a JSON2Video API key configured on the server. Nothing you can fix from chat.", configured: false };
@@ -708,6 +743,7 @@ Category: ${product.category || "N/A"}`,
           // terms require it, and it is standard for any supplement claim.
           suggested_caption: videoAds.suggestedAdCaption(product.name) + (supplement ? `\n\n${FDA_DISCLAIMER}` : ""),
           ...(forTikTok ? { tiktok: rule.status, posting_checklist: tiktokPostingChecklist(rule) } : {}),
+          ...(creative.note ? { vendor_rules: creative.note } : {}),
           estimated_wait_seconds: 60,
           message:
             "Rendering started -- call check_video_ad with this render_id in about a minute. Give the user the suggested_caption to post with it and the posting_checklist steps; the video already carries the disclosure on screen.",

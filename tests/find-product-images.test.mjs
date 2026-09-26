@@ -244,7 +244,7 @@ test("saves only when told to, after approval", async () => {
   const D = fakeDb(catalogue());
   const r = await executeTool("find_product_images", { product_ids: ["ds"], save: true }, ctx(D, web()));
   assert.equal(r.saved, 1);
-  assert.deepEqual(D.updates, [{ id: "ds", patch: { image_url: "https://vendor.test/a.png" } }]);
+  assert.deepEqual(D.updates, [{ id: "ds", patch: { image_url: "https://vendor.test/a.png", image_source: "sales_page" } }]);
 });
 
 test("a product works from the vendor's own page the user gives", async () => {

@@ -61,14 +61,14 @@ test("create_video_ad refuses a product with no image", async () => {
 });
 
 test("create_video_ad reports plainly when not configured, without attempting a render", async () => {
-  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png" }] });
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any" }] });
   const r = await executeTool("create_video_ad", { product_id: "p1" }, ctxFor(D));
   assert.equal(r.configured, false);
   assert.match(r.error, /isn't set up/);
 });
 
 test("create_video_ad writes its own script when none is given, and submits a render", async () => {
-  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png" }] });
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any" }] });
   const r = await executeTool("create_video_ad", { product_id: "p1" }, ctxFor(D, { videoAds: configured }));
   assert.equal(r.render_id, "render-123");
   assert.equal(r.script, "generated script");
@@ -76,7 +76,7 @@ test("create_video_ad writes its own script when none is given, and submits a re
 });
 
 test("create_video_ad uses a caller-supplied script instead of writing one", async () => {
-  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png" }] });
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any" }] });
   let llmCalled = false;
   const r = await executeTool(
     "create_video_ad",
@@ -111,7 +111,7 @@ test("check_video_ad surfaces a failed render as an error, not a saved asset", a
 });
 
 test("check_video_ad saves a completed render as an AdAsset owned by the caller", async () => {
-  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png" }] });
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any" }] });
   const r = await executeTool("check_video_ad", { render_id: "render-123", product_id: "p1" }, ctxFor(D, { videoAds: configured }));
   assert.equal(r.status, "done");
   assert.equal(r.url, "https://cdn.test/video.mp4");
@@ -136,21 +136,21 @@ test("the saved platform is always one the database accepts", async () => {
   // that had already been paid for and had finished.
   const ALLOWED = ["facebook", "instagram", "tiktok", "twitter", "email", "general"];
   for (const format of ["vertical", "square", "landscape", "nonsense", undefined]) {
-    const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png" }] });
+    const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any" }] });
     await executeTool("check_video_ad", { render_id: "r1", product_id: "p1", format }, ctxFor(D, { videoAds: configured }));
     assert.ok(ALLOWED.includes(D.seen[0].platform), `format ${String(format)} gave platform ${D.seen[0].platform}`);
   }
 });
 
 test("a finished landscape ad records its shape in its notes", async () => {
-  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png" }] });
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any" }] });
   await executeTool("check_video_ad", { render_id: "r1", product_id: "p1", format: "landscape" }, ctxFor(D, { videoAds: configured }));
   assert.match(D.seen[0].notes, /1920x1080/);
   assert.match(D.seen[0].notes, /YouTube/);
 });
 
 test("create_video_ad renders vertical unless told otherwise, and says which shape it used", async () => {
-  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png" }] });
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any" }] });
   const submitted = [];
   const videoAds = { ...configured, submitAdVideoRender: async (args) => { submitted.push(args); return "render-123"; } };
 
@@ -165,7 +165,7 @@ test("create_video_ad renders vertical unless told otherwise, and says which sha
 test("the script is told to use the listing's facts and invent nothing", async () => {
   const D = fakeDb({ products: [{
     id: "p1", created_by_id: "me", name: "Sony PlayStation 5",
-    image_url: "https://x.com/i.png",
+    image_url: "https://x.com/i.png", creative_rule: "any",
     description: "eBay trending product — electronics. Condition: New. Ships from: US. Shipping: free",
   }] });
   const prompts = [];
@@ -183,7 +183,7 @@ test("the script is told to use the listing's facts and invent nothing", async (
 });
 
 test("the voiceover takes a voice and a delivery direction", async () => {
-  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png" }] });
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any" }] });
   const spoken = [];
   const videoAds = {
     ...configured,

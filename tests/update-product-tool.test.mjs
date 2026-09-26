@@ -44,7 +44,7 @@ test("update_product sets the picture a video ad is built from", async () => {
   // The address someone copies out of a listing is the 500px one; the ad needs
   // the same photo at full size.
   assert.equal(D.updates[0].patch.image_url, "https://i.ebayimg.com/images/g/bVMAAeSwfEZqsdKL/s-l1600.webp");
-  assert.deepEqual(r.changed, ["image_url"]);
+  assert.deepEqual(r.changed, ["image_url", "image_source"]);
 });
 
 test("update_product refuses a product that isn't the caller's", async () => {

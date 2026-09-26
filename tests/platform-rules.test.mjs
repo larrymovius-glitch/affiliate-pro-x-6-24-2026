@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { executeTool } from "../api/_lib/assistantTools.js";
-import { FDA_DISCLAIMER, tiktokPostingChecklist, tiktokRule } from "../api/_lib/platformRules.js";
+import { FDA_DISCLAIMER, tiktokPostingChecklist, tiktokRule, vendorCreativeCheck } from "../api/_lib/platformRules.js";
 import { adFormat, suggestedAdCaption } from "../api/_lib/videoAds.js";
 
 // TikTok's Branded Content Policy covers every post with an affiliate link. A
@@ -90,7 +90,7 @@ function videoAdsSpy() {
 }
 
 const product = (name, extra = {}) => ({
-  id: "p1", created_by_id: "me", name, image_url: "https://x.com/i.png", url: "https://example.com", ...extra,
+  id: "p1", created_by_id: "me", name, image_url: "https://x.com/i.png", url: "https://example.com", creative_rule: "any", ...extra,
 });
 
 test("Maya refuses a TikTok ad for a banned product without spending a render", async () => {
@@ -145,4 +145,58 @@ test("list_my_products tells Maya what TikTok allows for each product", async ()
   };
   const out = await executeTool("list_my_products", {}, { user: { id: "me" }, D });
   assert.deepEqual(out.products.map((p) => p.tiktok), ["banned", "restricted"]);
+});
+
+// --- the vendor's own creative rules ---
+
+test("a vendor product whose rules haven't been checked gets no ad", () => {
+  const r = vendorCreativeCheck({ name: "Gluco care", image_source: "official" });
+  assert.equal(r.ok, false);
+  assert.match(r.reason, /haven't been checked/);
+});
+
+test("a sales-page picture is refused for a vendor that allows only own or official creatives", () => {
+  const nervovive = { name: "Nervovive", creative_rule: "own_or_official", image_source: "sales_page" };
+  assert.equal(vendorCreativeCheck(nervovive).ok, false);
+  assert.equal(vendorCreativeCheck(nervovive, { footage: true }).ok, true, "the owner's own footage is fine");
+});
+
+test("an unconfirmed picture is refused too: a new picture has no known source", () => {
+  assert.equal(vendorCreativeCheck({ name: "ProstaVive", creative_rule: "own_or_official", image_source: null }).ok, false);
+});
+
+test("the owner's own picture and an affiliate-kit picture both pass own_or_official", () => {
+  assert.equal(vendorCreativeCheck({ name: "Advanced Amino", creative_rule: "own_or_official", image_source: "own" }).ok, true);
+  assert.equal(vendorCreativeCheck({ name: "ProDentim", creative_rule: "own_or_official", image_source: "official" }).ok, true);
+});
+
+test("official_only allows the vendor's kit and nothing else, footage included", () => {
+  const hepato = { name: "HepatoBurn", creative_rule: "official_only", image_source: "own" };
+  assert.equal(vendorCreativeCheck(hepato).ok, false, "not even the owner's own picture");
+  assert.equal(vendorCreativeCheck(hepato, { footage: true }).ok, false, "nor the owner's own clip");
+  assert.equal(vendorCreativeCheck(hepato, { footage: true, footageIsOfficial: true }).ok, true);
+  assert.equal(vendorCreativeCheck({ ...hepato, image_source: "official" }).ok, true);
+});
+
+test("a vendor that wants its ads posted unaltered gets no AI ad at all", () => {
+  const r = vendorCreativeCheck({ name: "X", creative_rule: "unaltered", image_source: "official" }, { footage: true, footageIsOfficial: true });
+  assert.equal(r.ok, false);
+  assert.match(r.reason, /exactly as supplied/);
+});
+
+test("eBay listings are not held to vendor creative rules", () => {
+  assert.equal(vendorCreativeCheck({ name: "Galaxy Buds" }, { isEbay: true }).ok, true);
+});
+
+test("Maya refuses an ad that breaks the vendor's creative rules, without spending a render", async () => {
+  const spy = videoAdsSpy();
+  const out = await executeTool("create_video_ad", { product_id: "p1" }, {
+    user: { id: "me" },
+    D: fakeDb([product("Nervovive - 1 Bottle", { creative_rule: "own_or_official", image_source: "sales_page", creative_rule_note: "No AI deepfakes." })]),
+    videoAds: spy.lib,
+    invokeLLM: async () => ({ text: "x" }),
+  });
+  assert.match(out.error, /sales page/);
+  assert.equal(out.vendor_rules, "No AI deepfakes.");
+  assert.equal(spy.renders.length, 0);
 });

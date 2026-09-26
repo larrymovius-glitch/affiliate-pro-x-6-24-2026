@@ -67,6 +67,59 @@ export function tiktokRule(product, { isEbay = false } = {}) {
   return { status: "allowed", reason: "Not in a category TikTok bans or restricts." };
 }
 
+// What each value of products.creative_rule allows as the picture or footage
+// behind an ad. Many ClickBank and Digistore24 vendors allow only the
+// creatives they hand out, and most forbid anything taken from their sales
+// page or sales video -- which is exactly what a picture found on the sales
+// page is. products.image_source records where the saved picture came from; a
+// database trigger clears it whenever the picture changes.
+const IMAGE_OK = {
+  any: ["official", "own", "sales_page", null],
+  own_or_official: ["official", "own"],
+  official_only: ["official"],
+};
+
+/**
+ * Whether an ad may be built for this product with this picture or footage,
+ * under the vendor's own creative rules.
+ *
+ * @param {{ name?: string, creative_rule?: string|null, creative_rule_note?: string|null, creative_rule_source?: string|null, image_source?: string|null }} product
+ * @param {{ isEbay?: boolean, footage?: boolean, footageIsOfficial?: boolean }} [opts]
+ * @returns {{ ok: true, note: string|null } | { ok: false, reason: string, note: string|null, source: string|null }}
+ */
+export function vendorCreativeCheck(product, { isEbay = false, footage = false, footageIsOfficial = false } = {}) {
+  // eBay listings carry their own photos through eBay's API, and eBay
+  // publishes no vendor-style creative rules for them.
+  if (isEbay) return { ok: true, note: null };
+
+  const name = product?.name || "This product";
+  const rule = product?.creative_rule || null;
+  const note = product?.creative_rule_note || null;
+  const source = product?.creative_rule_source || null;
+  const refuse = (reason) => ({ ok: false, reason, note, source });
+
+  if (!rule) {
+    return refuse(`${name}'s vendor rules on which pictures and videos affiliates may use haven't been checked yet, and many vendors allow only their own creatives. No ad until they are.`);
+  }
+  if (rule === "unaltered") {
+    return refuse(`${name}'s vendor requires its own ads to be posted exactly as supplied, so no AI ad can be made. Post the vendor's creative unedited instead.`);
+  }
+  if (footage) {
+    if (rule === "official_only" && !footageIsOfficial) {
+      return refuse(`${name}'s vendor allows only its official creatives. Use a clip from the vendor's own creatives kit, and only once the owner has said it came from there.`);
+    }
+    return { ok: true, note };
+  }
+  const allowed = IMAGE_OK[rule] || [];
+  if (!allowed.includes(product?.image_source ?? null)) {
+    const from =
+      product?.image_source === "sales_page" ? "came from the vendor's sales page" : "has no confirmed source";
+    const needs = rule === "official_only" ? "one of the vendor's official creatives" : "a picture from the vendor's affiliate kit or one the owner made";
+    return refuse(`${name}'s saved picture ${from}, and its vendor allows only ${needs}. Use the owner's own footage instead, or save a picture that qualifies.`);
+  }
+  return { ok: true, note };
+}
+
 /** What to switch on in TikTok when posting an ad with this rule. */
 export function tiktokPostingChecklist(rule) {
   const steps = [
