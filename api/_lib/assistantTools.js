@@ -21,6 +21,7 @@ import { invokeLLM } from "./llm.js";
 import { AFFILIATE_NETWORKS, connectedNetworkIds } from "./affiliateNetworks.js";
 import { adminClient } from "./supabase.js";
 import * as videoAdsLib from "./videoAds.js";
+import { FDA_DISCLAIMER, TIKTOK_POLICY_URL, tiktokPostingChecklist, tiktokRule } from "./platformRules.js";
 
 // Tools Maya and Atlas can actually call.
 //
@@ -86,7 +87,14 @@ function productSummary(p) {
     commission_rate: p.commission_rate,
     url: p.url,
     image_url: p.image_url || null,
+    // So the assistant can say which products may go on TikTok at all,
+    // before anyone spends a render on one TikTok would take down.
+    tiktok: tiktokRule(p, { isEbay: isEbayProduct(p) }).status,
   };
+}
+
+function isEbayProduct(p) {
+  return detectNetwork(hostOf(p.url), String(p.category || "").split("_")[0]) === "ebay";
 }
 
 export const TOOL_DEFINITIONS = [
@@ -111,7 +119,7 @@ export const TOOL_DEFINITIONS = [
   {
     name: "list_my_products",
     description:
-      "Products the user has added, newest first, which are what links and ads get built from. image_url shows whether a product already has its picture: one that does is ready for create_video_ad. When asked which products are ready, or about all of them, set limit to the maximum.",
+      "Products the user has added, newest first, which are what links and ads get built from. image_url shows whether a product already has its picture: one that does is ready for create_video_ad. tiktok says what TikTok allows for it: 'banned' (weight-loss products and get-rich offers -- never suggest a TikTok ad for these), 'restricted' (supplements: adults only, mild wording) or 'allowed'. When asked which products are ready, or about all of them, set limit to the maximum.",
     input_schema: {
       type: "object",
       properties: { limit: { type: "number", description: `1-${MAX_LIST_ROWS}. Default 50.` } },
@@ -225,7 +233,7 @@ export const TOOL_DEFINITIONS = [
   {
     name: "create_video_ad",
     description:
-      "Start generating a short AI voiceover video ad (image + TTS voiceover + caption) for one of the user's products. Rendering happens on an external service and takes roughly a minute -- this only submits the job and returns a render_id. Call check_video_ad with that id a little later to see if it's done; do not call it back to back, space it out across the conversation. Uses the product's image_url (shown by list_my_products) or a clip passed as video_url; if the product already has an image_url, don't ask the user for a picture -- just use it. Users can't send you images in this chat; pictures are added on the Products page or found with list_ad_creatives. If this returns a 'not set up' error, tell the user this feature needs an API key configured and do not try again this turn.",
+      "Start generating a short AI voiceover video ad (image + TTS voiceover + caption) for one of the user's products. Rendering happens on an external service and takes roughly a minute -- this only submits the job and returns a render_id. Call check_video_ad with that id a little later to see if it's done; do not call it back to back, space it out across the conversation. Uses the product's image_url (shown by list_my_products) or a clip passed as video_url; if the product already has an image_url, don't ask the user for a picture -- just use it. Users can't send you images in this chat; pictures are added on the Products page or found with list_ad_creatives. If this returns a 'not set up' error, tell the user this feature needs an API key configured and do not try again this turn. It refuses a vertical (TikTok) ad for a product TikTok bans; when it does, tell the user why in one line and suggest a product whose tiktok is 'allowed' -- never remake it in another shape to get around the rule. Always pass on the posting_checklist it returns.",
     input_schema: {
       type: "object",
       properties: {
@@ -630,6 +638,17 @@ export async function executeTool(name, input = {}, ctx = {}) {
           return { error: `"${product.name}" has no image yet -- add one with update_product, or pass video_url to use a clip instead.` };
         }
 
+        // Vertical is the TikTok shape. TikTok's Branded Content Policy covers
+        // every affiliate-link post, and a product it bans gets the video
+        // pulled and the account marked -- so no render is spent on one.
+        const format = videoAds.adFormat(input.format);
+        const forTikTok = format.platform === "tiktok";
+        const rule = tiktokRule(product, { isEbay: isEbayProduct(product) });
+        if (forTikTok && rule.status === "banned") {
+          return { error: `Not made: ${rule.reason} "${product.name}" can't be promoted there.`, tiktok: rule.status, policy: TIKTOK_POLICY_URL };
+        }
+        const supplement = rule.status === "restricted";
+
         if (!videoAds.videoAdsConfigured()) {
           return { error: "Video ad generation isn't set up yet -- it needs an OpenAI and a JSON2Video API key configured on the server. Nothing you can fix from chat.", configured: false };
         }
@@ -642,7 +661,9 @@ export async function executeTool(name, input = {}, ctx = {}) {
 Say the things a buyer decides on -- condition, where it ships from, shipping cost or speed, what's included -- but ONLY where they appear in the details below. Never state a price: this video outlives the listing's price.
 
 Invent nothing. No "fast free shipping", no "brand new sealed", no "limited time", no guarantees, no health or income claims, unless the words are in the details below. A claim that isn't in the listing is the kind of thing that gets an affiliate account closed.
-
+${supplement ? `
+This is a dietary supplement. Say only what it is and how it is taken, in plain label-level words. No health, disease, symptom, weight or body-change claims, no before/after, no testimonials -- not even if the details below make them.
+` : ""}
 Product: ${product.name}
 Details: ${product.description || "none recorded"}
 Category: ${product.category || "N/A"}`,
@@ -658,7 +679,6 @@ Category: ${product.category || "N/A"}`,
         );
         const audioUrl = await videoAds.uploadPublicAsset(storageClient(), audioBuffer, `${product.id}.mp3`, "audio/mpeg");
         const duration = videoAds.estimateDurationSeconds(script);
-        const format = videoAds.adFormat(input.format);
         // eBay is the one network here that hands affiliates a logo and asks
         // for it to be used exactly as supplied; the file is served from this
         // app's own /brand, unmodified from their Creative Gallery download.
@@ -684,10 +704,13 @@ Category: ${product.category || "N/A"}`,
           // the on-screen line covers the muted scroller, this covers the
           // platform's own check for #ad and the AI-content wording
           // Digistore24's terms require.
-          suggested_caption: videoAds.suggestedAdCaption(product.name),
+          // A supplement ad carries the FDA line: Advanced Bionutritionals'
+          // terms require it, and it is standard for any supplement claim.
+          suggested_caption: videoAds.suggestedAdCaption(product.name) + (supplement ? `\n\n${FDA_DISCLAIMER}` : ""),
+          ...(forTikTok ? { tiktok: rule.status, posting_checklist: tiktokPostingChecklist(rule) } : {}),
           estimated_wait_seconds: 60,
           message:
-            "Rendering started -- call check_video_ad with this render_id in about a minute. Give the user the suggested_caption to post with it; the video already carries the disclosure on screen.",
+            "Rendering started -- call check_video_ad with this render_id in about a minute. Give the user the suggested_caption to post with it and the posting_checklist steps; the video already carries the disclosure on screen.",
         };
       }
 
