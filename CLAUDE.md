@@ -53,6 +53,27 @@ PayPal subscriptions record through the `Payment` table only, the same as Lifeti
 
 Subscription payments counting toward lifetime (`grantLifetimeIfEarned` in `stripeWebhook.js`) works the same for PayPal as Stripe, since it sums all completed `Payment` rows regardless of `payment_method` - but it only ever cancels *Stripe* subscriptions it finds in the `Subscription` table (which, per above, never contains PayPal ones). `paypalWebhook.js`'s `PAYMENT.SALE.COMPLETED` handler calls `grantLifetimeIfEarned` for that reason and then separately cancels the PayPal subscription itself via `cancelPaypalSubscription()` when it finds a completed lifetime Payment row for that user right after.
 
+### Automation policy — read before building anything that acts on a user's behalf
+
+`docs/policies-and-procedures.md` is binding for any agent, bot, or automated
+flow in this app. Read it before adding one. The three rules that decide most
+design questions:
+
+1. **Three branches, never two.** Every enforcement check returns permitted,
+   prohibited, or *escalate to the human*. Vendor terms that are open to
+   interpretation are a guess, and guesses are not permitted — the third branch
+   is mandatory, not a fallback. A check that can only allow or deny is
+   incomplete.
+2. **The credential boundary is absolute.** Account creation, logins,
+   passwords, API keys, tax and bank details belong to the human. Automation
+   inherits an environment it did not create and never crosses that line. The
+   block is structural (`checkVendorBotAction()`), not a prompt instruction.
+3. **A rule in a prompt is a preference; a rule in a function that refuses is a
+   policy.** Anything that matters is enforced in code before the side effect,
+   and pinned by a test that fails if the refusal stops working.
+
+Vendor terms are the source of truth — this app does not invent policy.
+
 ### UI
 
 shadcn/ui (`components.json`, style `new-york`) generates into `src/components/ui`, which is excluded from lint/typecheck. Path alias `@/*` → `src/*` (Vite, jsconfig, and shadcn aliases all agree). Pages live in `src/pages/*.jsx`, routed as top-level app screens (Dashboard, Links, Campaigns, Products, Analytics, Payouts, AutoPilot, Admin, Social Connect, auth pages, etc.); shared feature components are grouped under `src/components/<feature>/` (e.g. `dashboard`, `payouts`, `autopilot`, `social`, `make-money`, `admin`).
