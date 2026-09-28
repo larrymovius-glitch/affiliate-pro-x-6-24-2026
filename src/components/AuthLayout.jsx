@@ -7,9 +7,15 @@ import React from "react";
 const HERO_IMAGE_URL = ""; // e.g. "https://media.base44.com/images/public/<your-app-id>/hero_login.jpg"
 
 export default function AuthLayout({ icon: Icon, title, subtitle, footer = undefined, children }) {
+  // Without a hero image there is nothing at the top of the screen to make room
+  // for, so the spacer below only reserves height when one is actually set --
+  // otherwise the card centers and the sign-in button is reachable without
+  // scrolling, which is the whole job of this screen.
+  const hasHero = Boolean(HERO_IMAGE_URL);
+
   return (
     <div
-      className="dark min-h-screen flex flex-col items-center justify-start px-4 pb-10"
+      className={`dark min-h-screen flex flex-col items-center px-4 py-10 ${hasHero ? "justify-start" : "justify-center"}`}
       style={{
         background: HERO_IMAGE_URL
           ? `linear-gradient(to bottom, rgba(10,14,22,0.15) 0%, rgba(10,14,22,0.35) 45%, rgba(10,14,22,0.92) 78%, #0a0e16 100%), url(${HERO_IMAGE_URL}) center 18% / cover no-repeat fixed`
@@ -17,7 +23,7 @@ export default function AuthLayout({ icon: Icon, title, subtitle, footer = undef
       }}
     >
       {/* Hero space — lets the medallion in the backdrop own the top of the screen */}
-      <div className="w-full" style={{ height: "38vh", minHeight: 220 }} />
+      {hasHero && <div className="w-full" style={{ height: "38vh", minHeight: 220 }} />}
 
       {/* Title over the scene */}
       <div className="text-center mb-1">
