@@ -1,6 +1,7 @@
 import { getAuthedUser } from "./_lib/supabase.js";
 
-const OPENAI_VOICES = ["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"];
+// The voices tts-1 has. ballad and verse exist only on gpt-4o-mini-tts.
+const OPENAI_VOICES = ["alloy", "ash", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer"];
 
 export default async function handler(req, res) {
   try {
@@ -15,10 +16,26 @@ export default async function handler(req, res) {
 
     const selectedVoice = OPENAI_VOICES.includes(voice) ? voice : "alloy";
 
+    // tts-1, not gpt-4o-mini-tts. The newer model generates each reading
+    // afresh, so the same voice comes out with a different pitch, age and
+    // manner from one reply to the next, and even within a long reply.
+    // Direction on every call (tried in c2abd28) did not hold it still. An
+    // assistant is heard as a person, so a voice that stays the same person
+    // matters more here than expressive range. tts-1 rather than tts-1-hd
+    // because this is a conversation: the -hd model's slower start was a
+    // noticeable silence before every reply, which a conversation can afford
+    // less than a slightly less polished voice. Video ads still use
+    // gpt-4o-mini-tts (api/_lib/videoAds.js): an ad is one reading, and one
+    // that comes out wrong can be rendered again.
     const openaiRes = await fetch("https://api.openai.com/v1/audio/speech", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "gpt-4o-mini-tts", input: text, voice: selectedVoice, response_format: "mp3" }),
+      body: JSON.stringify({
+        model: "tts-1",
+        input: text,
+        voice: selectedVoice,
+        response_format: "mp3",
+      }),
     });
 
     if (!openaiRes.ok) {

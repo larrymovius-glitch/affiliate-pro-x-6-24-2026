@@ -9,8 +9,8 @@ import { TrendingUp, Copy, CheckCheck, Trash2, Star } from "lucide-react";
 
 const statusColors = {
   draft: "bg-muted text-muted-foreground",
-  approved: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-  posted: "bg-green-500/20 text-green-400 border-green-500/30",
+  approved: "bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/30",
+  posted: "bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/30",
   archived: "bg-muted/50 text-muted-foreground/50"
 };
 
@@ -69,7 +69,7 @@ export default function PostLibrary() {
       {topPerformers.length > 0 && (
         <div>
           <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-            <Star className="w-4 h-4 text-yellow-400" /> Top Converting Posts (AI Learns From These)
+            <Star className="w-4 h-4 text-yellow-700 dark:text-yellow-400" /> Top Converting Posts (AI Learns From These)
           </h3>
           <div className="grid sm:grid-cols-3 gap-3">
             {topPerformers.map(p => (
@@ -77,7 +77,7 @@ export default function PostLibrary() {
                 <CardContent className="pt-4">
                   <p className="text-xs text-foreground line-clamp-3 mb-2">{p.content}</p>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <TrendingUp className="w-3 h-3 text-green-400" />
+                    <TrendingUp className="w-3 h-3 text-green-700 dark:text-green-400" />
                     <span>{p.conversions} conversions</span>
                     <span>•</span>
                     <span>{p.clicks} clicks</span>
@@ -137,7 +137,7 @@ export default function PostLibrary() {
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     <Star className="w-3 h-3 text-primary" />
                     <span>{post.ai_score}/10</span>
-                    {post.conversions > 0 && <><span>•</span><span className="text-green-400">{post.conversions} conv.</span></>}
+                    {post.conversions > 0 && <><span>•</span><span className="text-green-700 dark:text-green-400">{post.conversions} conv.</span></>}
                   </div>
                 </div>
 

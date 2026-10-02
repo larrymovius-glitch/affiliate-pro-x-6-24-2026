@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import test from "node:test";
 import vm from "node:vm";
 import { applyClickBankAffiliateId } from "../api/_lib/affiliates.js";
+import { networkForDestination } from "../api/_lib/tracking.js";
 
 test("a regeneration creates isolated links and carries its round number", async () => {
   const calls = { links: [], posts: [] };
@@ -34,6 +35,7 @@ test("a regeneration creates isolated links and carries its round number", async
     // copy was consolidated there, and the module graph here needs updating
     // to match every time that import list changes.
     if (specifier === "./_lib/affiliates.js") return synthetic(["applyClickBankAffiliateId"], { applyClickBankAffiliateId });
+    if (specifier === "./_lib/tracking.js") return synthetic(["networkForDestination"], { networkForDestination });
     throw new Error(`Unexpected import ${specifier}`);
   });
   await module.evaluate();
@@ -44,6 +46,9 @@ test("a regeneration creates isolated links and carries its round number", async
   });
 
   assert.deepEqual(calls.links.map((link) => link.campaign_id), ["autopilot:product-1:r1:v1", "autopilot:product-1:r1:v2", "autopilot:product-1:r1:v3"]);
+  // example.com with a niche category proves no network, so none is claimed --
+  // not the column's 'clickbank' default.
+  assert.ok(calls.links.every((link) => link.network === null));
   assert.equal(calls.posts.length, 3);
   assert.ok(calls.posts.every((post) => post.regenerations === 1));
 });

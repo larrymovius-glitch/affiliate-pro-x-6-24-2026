@@ -20,7 +20,7 @@ export default function PerformanceChart({ data, isLoading }) {
           className="w-10 h-10 rounded-xl flex items-center justify-center"
           style={{ background: "linear-gradient(135deg, rgba(124,58,237,0.4), rgba(245,158,11,0.25))", border: "1px solid rgba(245,158,11,0.3)" }}
         >
-          <TrendingUp className="w-5 h-5 text-amber-400" />
+          <TrendingUp className="w-5 h-5 text-amber-700 dark:text-amber-400" />
         </div>
         <div>
           <h3 className="font-display font-bold text-card-foreground text-base">Performance Overview</h3>

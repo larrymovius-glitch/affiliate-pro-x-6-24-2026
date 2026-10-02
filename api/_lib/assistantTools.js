@@ -1,9 +1,27 @@
 import { db } from "./db.js";
-import { getClickBankAffiliateId, applyClickBankAffiliateId } from "./affiliates.js";
+import {
+  getClickBankAffiliateId,
+  applyClickBankAffiliateId,
+  getDigistoreAffiliateId,
+  CLICKBANK_AFFILIATE_ID,
+  DIGISTORE_AFFILIATE_ID,
+} from "./affiliates.js";
+import { detectNetwork, networkForDestination } from "./tracking.js";
+import { largestEbayImage } from "./images.js";
+import { findVendorImage } from "./productImages.js";
+
+function hostOf(url) {
+  try {
+    return new URL(String(url || "")).hostname;
+  } catch {
+    return "";
+  }
+}
 import { invokeLLM } from "./llm.js";
 import { AFFILIATE_NETWORKS, connectedNetworkIds } from "./affiliateNetworks.js";
 import { adminClient } from "./supabase.js";
 import * as videoAdsLib from "./videoAds.js";
+import { FDA_DISCLAIMER, TIKTOK_POLICY_URL, tiktokPostingChecklist, tiktokRule, vendorCreativeCheck } from "./platformRules.js";
 
 // Tools Maya and Atlas can actually call.
 //
@@ -29,20 +47,58 @@ import * as videoAdsLib from "./videoAds.js";
 
 const MAX_ROWS = 25;
 
-/** Trim a row down to what is useful in a conversation, and keep tokens sane. */
-function linkSummary(l) {
+// Trim a row down to what is useful in a conversation, and keep tokens sane.
+//
+// Carries both addresses. Without them the assistant could count a user's
+// links but not give them one, and told the owner, correctly, that she didn't
+// have his URLs -- so he was left pasting his own list into the chat, where
+// it is forgotten once the history is trimmed.
+function linkSummary(l, origin) {
   return {
     id: l.id,
     product_name: l.product_name,
-    short_code: l.short_code,
+    network: l.network || null,
+    is_active: l.is_active !== false,
+    share_url: l.short_code ? (origin ? `${origin}/r/${l.short_code}` : `/r/${l.short_code}`) : null,
+    destination_url: l.destination_url || null,
     clicks: l.clicks || 0,
     conversions: l.conversions || 0,
     earnings: Number(l.earnings) || 0,
   };
 }
 
+// A user's whole list of links or products has to fit in one call: the owner
+// has 36 links and 35 products, and a cap of 25 meant any question about "all
+// of them" came back short -- so the assistant answered about the ones it saw.
+const MAX_LIST_ROWS = 100;
+
+function listLimit(v) {
+  return Math.max(1, Math.min(Math.trunc(Number(v) || 50), MAX_LIST_ROWS));
+}
+
+// image_url is included because create_video_ad needs one. Without it the
+// assistant couldn't see that a product already had its picture and kept
+// asking the owner to send one -- which her text-only chat can't take.
 function productSummary(p) {
-  return { id: p.id, name: p.name, category: p.category, commission_rate: p.commission_rate, url: p.url };
+  return {
+    id: p.id,
+    name: p.name,
+    category: p.category,
+    commission_rate: p.commission_rate,
+    url: p.url,
+    image_url: p.image_url || null,
+    // So the assistant can say which products may go on TikTok at all,
+    // before anyone spends a render on one TikTok would take down.
+    tiktok: tiktokRule(p, { isEbay: isEbayProduct(p) }).status,
+    // The vendor's rule on which pictures and videos may appear in an ad,
+    // and where the saved picture came from. See vendorCreativeCheck.
+    creative_rule: isEbayProduct(p) ? "ebay" : p.creative_rule || "not_checked",
+    image_source: p.image_source || null,
+  };
+}
+
+function isEbayProduct(p) {
+  return detectNetwork(hostOf(p.url), String(p.category || "").split("_")[0]) === "ebay";
 }
 
 export const TOOL_DEFINITIONS = [
@@ -55,21 +111,22 @@ export const TOOL_DEFINITIONS = [
   {
     name: "list_my_links",
     description:
-      "The user's affiliate links with per-link clicks, conversions and earnings. Use when asked which links exist or which are performing.",
+      "The user's affiliate links, newest first, with full addresses and per-link clicks, conversions and earnings. Use whenever the user asks for their links or URLs, or which ones are performing -- you do have them, through this. share_url is the one to give the user to post: it counts the click and adds tracking. destination_url is where it leads, with the affiliate ID in it; give that only if they ask for it specifically. When they ask for all of their links, set limit to the maximum.",
     input_schema: {
       type: "object",
       properties: {
-        limit: { type: "number", description: `How many to return, 1-${MAX_ROWS}. Default 10.` },
+        limit: { type: "number", description: `How many to return, 1-${MAX_LIST_ROWS}. Default 50.` },
       },
       required: [],
     },
   },
   {
     name: "list_my_products",
-    description: "Products the user has added, which are what links and autopilot ads get built from.",
+    description:
+      "Products the user has added, newest first, which are what links and ads get built from. image_url shows whether a product already has its picture: one that does is ready for create_video_ad. tiktok says what TikTok allows for it: 'banned' (weight-loss products and get-rich offers -- never suggest a TikTok ad for these), 'restricted' (supplements: adults only, mild wording) or 'allowed'. creative_rule is the vendor's rule on which pictures and videos an ad may use: 'own_or_official' (the user's own footage, or the vendor's affiliate-kit creatives -- never anything from the sales page or sales video), 'official_only' (the vendor's official creatives only), 'unaltered' (the vendor's ads posted as supplied, no AI ads), 'any', 'ebay', or 'not_checked' (no ad until the vendor's affiliate page has been checked). image_source says where the saved picture came from: 'official', 'own', 'sales_page' or null (unknown). When asked which products are ready, or about all of them, set limit to the maximum.",
     input_schema: {
       type: "object",
-      properties: { limit: { type: "number", description: `1-${MAX_ROWS}. Default 10.` } },
+      properties: { limit: { type: "number", description: `1-${MAX_LIST_ROWS}. Default 50.` } },
       required: [],
     },
   },
@@ -126,14 +183,102 @@ export const TOOL_DEFINITIONS = [
     },
   },
   {
+    name: "list_ad_creatives",
+    description:
+      "The user's saved ad creatives -- videos and images they uploaded (from Firefly, Premiere, their phone) plus the AI video ads already made. Call this when they refer to a clip of theirs, e.g. 'use my Firefly video', so you can pass its url to create_video_ad as footage.",
+    input_schema: {
+      type: "object",
+      properties: {
+        file_type: { type: "string", description: "Optional filter: 'video' or 'image'." },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "update_product",
+    description:
+      "Change one of the user's own products: its name, description, category, or the image the video ads are built from. Use this instead of telling the user to go and edit the product themselves. It cannot change a product's affiliate URL -- that decides where a sale is credited, so it stays a deliberate edit the user makes on the Products page.",
+    input_schema: {
+      type: "object",
+      properties: {
+        product_id: { type: "string", description: "id from list_my_products." },
+        name: { type: "string", description: "New product name. Use the vendor's own name for it -- never invent a catchier one." },
+        description: { type: "string" },
+        category: { type: "string" },
+        image_url: { type: "string", description: "Web address of a picture (https). Used as the picture in video ads." },
+        image_source: {
+          type: "string",
+          enum: ["official", "own"],
+          description:
+            "Where the new image_url came from, only when the user has told you: 'official' if it is from the vendor's own affiliate creatives kit, 'own' if they made it themselves (e.g. in Firefly). Never 'official' for a picture from the vendor's sales page. Leave it out if they haven't said -- the picture is then unconfirmed, and vendors that restrict creatives won't allow it in an ad.",
+        },
+      },
+      required: ["product_id"],
+    },
+  },
+  {
+    name: "find_product_images",
+    description:
+      "Find pictures for the user's products by reading each vendor's own sales page for the picture the vendor set for sharing it. With no product_ids it checks every product that has no picture yet. Call it first WITHOUT save: show each picture found in your reply as markdown, ![Product name](image_url), say it is the vendor's own picture from their page, list the ones not found and why, and ask the user which to keep. With the pictures, always remind the user in one line that some vendors only allow their official creatives in ads (HepatoBurn, for one, allows only the images in its Google Drive folder, nothing from the sales page or its video), so they should keep a picture only if that vendor's affiliate page allows it. Only after they say yes, call it again with save: true and product_ids set to just the ones they approved. Never pass save: true on the first call. ClickBank and Digistore24 links are handled safely: they are opened rebuilt with no affiliate id, so no click is ever made on the user's account -- there is no permission to ask for and nothing to override. A result may still need help: an encrypted ClickBank HopLink needs the vendor's sales page address or ClickBank vendor nickname (from the product's Marketplace listing) -- ask for it and pass it as page_url with that one product_id; a result that says a link is broken means the saved link itself is wrong, so tell the user plainly it needs replacing. Never tell the user to search Google for pages, and never guess a page_url.",
+    input_schema: {
+      type: "object",
+      properties: {
+        product_ids: {
+          type: "array",
+          items: { type: "string" },
+          description: "ids from list_my_products. Omit to check every product with no picture.",
+        },
+        page_url: {
+          type: "string",
+          description: "Only with exactly one product_id: the vendor's sales page address as the user gave it, or a ClickBank vendor nickname written as https://hop.clickbank.net/?vendor=NICKNAME.",
+        },
+        save: {
+          type: "boolean",
+          description: "true only after the user has approved the pictures from an earlier call. Saves each found picture as that product's picture.",
+        },
+      },
+      required: [],
+    },
+  },
+  {
     name: "create_video_ad",
     description:
-      "Start generating a short AI voiceover video ad (image + TTS voiceover + caption) for one of the user's products. Rendering happens on an external service and takes roughly a minute -- this only submits the job and returns a render_id. Call check_video_ad with that id a little later to see if it's done; do not call it back to back, space it out across the conversation. Requires the product to have an image_url. If this returns a 'not set up' error, tell the user this feature needs an API key configured and do not try again this turn.",
+      "Start generating a short AI voiceover video ad (image + TTS voiceover + caption) for one of the user's products. Rendering happens on an external service and takes roughly a minute -- this only submits the job and returns a render_id. Call check_video_ad with that id a little later to see if it's done; do not call it back to back, space it out across the conversation. Uses the product's image_url (shown by list_my_products) or a clip passed as video_url; if the product already has an image_url, don't ask the user for a picture -- just use it. Users can't send you images in this chat; pictures are added on the Products page or found with list_ad_creatives. If this returns a 'not set up' error, tell the user this feature needs an API key configured and do not try again this turn. It refuses a vertical (TikTok) ad for a product TikTok bans; when it does, tell the user why in one line and suggest a product whose tiktok is 'allowed' -- never remake it in another shape to get around the rule. It also refuses an ad that breaks the vendor's creative rules (see creative_rule in list_my_products): say why plainly, and never work around it -- no other picture or clip the user hasn't confirmed, and never a clip cut from a vendor's sales video. Always pass on the posting_checklist and any vendor_rules it returns.",
     input_schema: {
       type: "object",
       properties: {
         product_id: { type: "string", description: "id from list_my_products." },
         script: { type: "string", description: "Optional ad script/voiceover text, roughly 2-4 short sentences. Omit to have one written automatically." },
+        format: {
+          type: "string",
+          description:
+            "Shape of the video: 'vertical' (default -- TikTok, Reels, Shorts), 'square' (Facebook/Instagram feed) or 'landscape' (YouTube). Leave it out unless the user names a platform that needs another shape.",
+        },
+        video_url: {
+          type: "string",
+          description:
+            "Optional https address of footage to use behind the ad instead of the product photo -- e.g. a clip the user uploaded, from list_ad_creatives. It is silenced and looped to fit the voiceover. Only pass a url the user gave you or that came from list_ad_creatives; never invent one.",
+        },
+        footage_is_official: {
+          type: "boolean",
+          description:
+            "True only when the user has told you this clip came from the vendor's own official creatives kit (e.g. its Google Drive folder). Needed for vendors whose creative_rule is 'official_only'. Never true for the user's own footage or anything from a sales video.",
+        },
+        voice: {
+          type: "string",
+          description:
+            "Voiceover voice: alloy, ash, ballad, coral, echo, fable, onyx, nova, sage, shimmer or verse. Defaults to nova. Pass one only if the user asks for a different voice.",
+        },
+        tone: {
+          type: "string",
+          description:
+            "Plain-English direction for how the voice should read it, e.g. 'calm and serious' or 'excited, fast, like a friend who just found a deal'. Defaults to warm and conversational.",
+        },
+        captions: {
+          type: "boolean",
+          description:
+            "On-screen captions of the voiceover, on by default. Pass false when the user says they'll edit the video themselves in CapCut or TikTok's editor -- those add their own captions, and burned-in text can't be restyled or moved afterwards.",
+        },
       },
       required: ["product_id"],
     },
@@ -147,6 +292,7 @@ export const TOOL_DEFINITIONS = [
       properties: {
         render_id: { type: "string", description: "render_id returned by create_video_ad." },
         product_id: { type: "string", description: "The same product_id passed to create_video_ad, so the saved creative gets the right title." },
+        format: { type: "string", description: "The same format passed to create_video_ad, so the saved creative records which platform it is shaped for." },
       },
       required: ["render_id"],
     },
@@ -206,10 +352,11 @@ export async function availableBalance(D, userId) {
  *
  * @param {string} name
  * @param {Record<string, any>} input model-supplied, treat as untrusted
- * @param {{ user: any, origin: string|null, D?: any, invokeLLM?: Function, videoAds?: any, storageClient?: any }} ctx
- *        `D`, `invokeLLM`, `videoAds` and `storageClient` are injectable so
- *        tools can be tested without a database, a live web search, or a
- *        real render/storage call. Production callers omit all of them.
+ * @param {{ user: any, origin: string|null, D?: any, invokeLLM?: Function, videoAds?: any, storageClient?: any, fetch?: typeof fetch }} ctx
+ *        `D`, `invokeLLM`, `videoAds`, `storageClient` and `fetch` are
+ *        injectable so tools can be tested without a database, a live web
+ *        search, a real render/storage call, or a vendor's page. Production
+ *        callers omit all of them.
  */
 export async function executeTool(name, input = {}, ctx = {}) {
   const { user, origin } = ctx;
@@ -236,12 +383,12 @@ export async function executeTool(name, input = {}, ctx = {}) {
       }
 
       case "list_my_links": {
-        const rows = await D.AffiliateLink.filter({ created_by_id: user.id }, "-created_at", clampLimit(input.limit));
-        return { links: rows.map(linkSummary) };
+        const rows = await D.AffiliateLink.filter({ created_by_id: user.id }, "-created_at", listLimit(input.limit));
+        return { links: rows.map((l) => linkSummary(l, origin)) };
       }
 
       case "list_my_products": {
-        const rows = await D.Product.filter({ created_by_id: user.id }, "-created_at", clampLimit(input.limit));
+        const rows = await D.Product.filter({ created_by_id: user.id }, "-created_at", listLimit(input.limit));
         return { products: rows.map(productSummary) };
       }
 
@@ -253,6 +400,23 @@ export async function executeTool(name, input = {}, ctx = {}) {
           new URL(url);
         } catch {
           return { error: `"${url}" is not a valid URL. Ask the user for the full destination URL.` };
+        }
+        // A product's url is where a buyer ends up. This app's own /r/ link
+        // is not that: a link built on it would run the click through the
+        // tracker twice and bury the network's tracking id inside our own
+        // URL. On 2026-09-23 the assistant made exactly that product -- a
+        // second "Advanced Amino Formula" pointing at the first one's share
+        // link.
+        if (origin && hostOf(url) && hostOf(url) === hostOf(origin)) {
+          return { error: "That address is one of this app's own share links, not the vendor's page. Use the product's real destination URL -- or, if the product already exists, use it instead of creating another." };
+        }
+        const mine = await D.Product.filter({ created_by_id: user.id });
+        const same = mine.find((p) => String(p.name || "").trim().toLowerCase() === name_.toLowerCase());
+        if (same) {
+          return {
+            error: `There is already a product called "${same.name}". Use that one (update_product can change its picture or description) instead of creating a duplicate.`,
+            existing: productSummary(same),
+          };
         }
         const created = await D.Product.create({
           created_by_id: user.id,
@@ -278,18 +442,20 @@ export async function executeTool(name, input = {}, ctx = {}) {
           code = Math.random().toString(36).slice(2, 8).toUpperCase();
         } while (taken.has(code));
 
+        const destination = applyClickBankAffiliateId(product.url, getClickBankAffiliateId(user));
         const link = await D.AffiliateLink.create({
           created_by_id: user.id,
           product_id: product.id,
           product_name: product.name,
-          destination_url: applyClickBankAffiliateId(product.url, getClickBankAffiliateId(user)),
+          destination_url: destination,
+          network: networkForDestination(destination, product.category),
           short_code: code,
           clicks: 0,
           conversions: 0,
           earnings: 0,
         });
         return {
-          link: linkSummary(link),
+          link: linkSummary(link, origin),
           share_url: origin ? `${origin}/r/${link.short_code}` : `/r/${link.short_code}`,
         };
       }
@@ -365,11 +531,158 @@ export async function executeTool(name, input = {}, ctx = {}) {
         return { products };
       }
 
+      case "list_ad_creatives": {
+        const rows = await D.AdAsset.filter({ created_by_id: user.id }, "-created_at", 50);
+        const wanted = String(input.file_type || "").trim().toLowerCase();
+        return {
+          creatives: rows
+            .filter((a) => !wanted || a.file_type === wanted)
+            .map((a) => ({ id: a.id, title: a.title, file_type: a.file_type, url: a.file_url, notes: a.notes || null })),
+        };
+      }
+
+      case "update_product": {
+        const owned = await D.Product.filter({ created_by_id: user.id, id: String(input.product_id || "") });
+        const product = owned[0];
+        if (!product) return { error: "No product of yours with that id. Call list_my_products first." };
+
+        /** @type {Record<string, any>} */
+        const patch = {};
+        if (typeof input.name === "string" && input.name.trim()) patch.name = input.name.trim().slice(0, 200);
+        if (typeof input.description === "string") patch.description = input.description.slice(0, 500);
+        if (typeof input.category === "string" && input.category.trim()) patch.category = input.category.trim().slice(0, 60);
+        if (typeof input.image_url === "string" && input.image_url.trim()) {
+          const image = input.image_url.trim();
+          if (!/^https:\/\//i.test(image)) {
+            return { error: "The image address has to start with https:// -- a file on your computer can't be reached by the renderer." };
+          }
+          // A picture copied out of an eBay listing is usually the 500px one;
+          // the ad needs the full-size version of the same photo.
+          patch.image_url = largestEbayImage(image);
+          // Set with every new picture, never carried over from the old one.
+          patch.image_source = ["official", "own"].includes(input.image_source) ? input.image_source : null;
+        }
+        if (!Object.keys(patch).length) {
+          return { error: "Nothing to change. Pass a name, description, category or image_url." };
+        }
+
+        const updated = await D.Product.update(product.id, patch);
+        return { product: productSummary(updated || { ...product, ...patch }), changed: Object.keys(patch) };
+      }
+
+      case "find_product_images": {
+        const mine = await D.Product.filter({ created_by_id: user.id }, "-created_at", MAX_LIST_ROWS);
+        const wanted = Array.isArray(input.product_ids) ? input.product_ids.map(String) : [];
+        // Only ids that are the caller's own: a foreign or invented id is
+        // reported, never looked up.
+        const products = wanted.length
+          ? mine.filter((p) => wanted.includes(String(p.id)))
+          : mine.filter((p) => !p.image_url);
+        const unknown = wanted.filter((id) => !mine.some((p) => String(p.id) === id));
+        if (!products.length) {
+          return wanted.length
+            ? { error: "None of those ids are products of yours. Call list_my_products first.", unknown_ids: unknown }
+            : { results: [], message: "Every product already has a picture." };
+        }
+
+        const pageUrl = String(input.page_url || "").trim();
+        if (pageUrl && products.length !== 1) {
+          return { error: "page_url goes with exactly one product_id -- it's that one product's sales page." };
+        }
+
+        const ownHost = hostOf(origin);
+        // Every id this user earns under. findVendorImage refuses any address
+        // with one of these in it, wherever it sits.
+        const affiliateIds = [
+          getClickBankAffiliateId(user),
+          getDigistoreAffiliateId(user),
+          CLICKBANK_AFFILIATE_ID,
+          DIGISTORE_AFFILIATE_ID,
+          ...Object.values(user.affiliate_network_ids || {}),
+        ].filter(Boolean);
+        const opts = { fetch: ctx.fetch, ownHost, affiliateIds };
+        const results = [];
+        // A few at a time: fast enough for a whole catalogue in one call,
+        // without firing thirty requests at once.
+        for (let i = 0; i < products.length; i += 4) {
+          const batch = products.slice(i, i + 4);
+          results.push(
+            ...(await Promise.all(
+              batch.map(async (p) => {
+                const found = await findVendorImage(pageUrl || p.url, { ...opts, productName: p.name, networkHint: p.category });
+                return { product_id: p.id, product_name: p.name, had_picture: !!p.image_url, ...found };
+              })
+            ))
+          );
+        }
+
+        let saved = 0;
+        if (input.save === true) {
+          for (const r of results) {
+            if (!r.image_url) continue;
+            // Recorded so the ad check knows this picture is sales-page
+            // material, which most vendors don't allow in ads.
+            const p = products.find((x) => String(x.id) === String(r.product_id));
+            await D.Product.update(r.product_id, { image_url: r.image_url, image_source: p && isEbayProduct(p) ? null : "sales_page" });
+            r.saved = true;
+            saved += 1;
+          }
+        }
+
+        const found = results.filter((r) => r.image_url).length;
+        return {
+          results,
+          found,
+          not_found: results.length - found,
+          saved,
+          ...(unknown.length ? { unknown_ids: unknown } : {}),
+          message:
+            input.save === true
+              ? `Saved ${saved} picture${saved === 1 ? "" : "s"}. Those products are ready for create_video_ad.`
+              : "Nothing saved yet. Show the user each picture found as markdown ![name](image_url), explain any not found, and ask which to keep before calling again with save: true.",
+        };
+      }
+
       case "create_video_ad": {
         const owned = await D.Product.filter({ created_by_id: user.id, id: String(input.product_id || "") });
         const product = owned[0];
         if (!product) return { error: "No product of yours with that id. Call list_my_products first." };
-        if (!product.image_url) return { error: `"${product.name}" has no image yet -- add one on the product before a video ad can be made.` };
+
+        // Footage stands in for the product photo, so an ad can be made for a
+        // product that has no picture as long as there is a clip to use.
+        const footage = String(input.video_url || "").trim();
+        if (footage && !/^https:\/\//i.test(footage)) {
+          return { error: "The footage address has to start with https:// -- upload the clip on the AutoPilot page first, then use the address it gets." };
+        }
+        if (!footage && !product.image_url) {
+          return { error: `"${product.name}" has no image yet -- add one with update_product, or pass video_url to use a clip instead.` };
+        }
+
+        // Vertical is the TikTok shape. TikTok's Branded Content Policy covers
+        // every affiliate-link post, and a product it bans gets the video
+        // pulled and the account marked -- so no render is spent on one.
+        const format = videoAds.adFormat(input.format);
+        const forTikTok = format.platform === "tiktok";
+        const rule = tiktokRule(product, { isEbay: isEbayProduct(product) });
+        if (forTikTok && rule.status === "banned") {
+          return { error: `Not made: ${rule.reason} "${product.name}" can't be promoted there.`, tiktok: rule.status, policy: TIKTOK_POLICY_URL };
+        }
+        const supplement = rule.status === "restricted";
+
+        // The vendor's own rules, on every platform: many allow only their own
+        // creatives and forbid anything from the sales page or sales video.
+        const creative = vendorCreativeCheck(product, {
+          isEbay: isEbayProduct(product),
+          footage: !!footage,
+          footageIsOfficial: input.footage_is_official === true,
+        });
+        if (!creative.ok) {
+          return {
+            error: `Not made: ${creative.reason}`,
+            ...(creative.note ? { vendor_rules: creative.note } : {}),
+            ...(creative.source ? { vendor_rules_source: creative.source } : {}),
+          };
+        }
 
         if (!videoAds.videoAdsConfigured()) {
           return { error: "Video ad generation isn't set up yet -- it needs an OpenAI and a JSON2Video API key configured on the server. Nothing you can fix from chat.", configured: false };
@@ -378,24 +691,62 @@ export async function executeTool(name, input = {}, ctx = {}) {
         let script = String(input.script || "").trim();
         if (!script) {
           const written = await callLLM({
-            prompt: `Write a short, energetic 15-20 second video ad voiceover script for this affiliate product. 2-4 short sentences, spoken out loud, no stage directions, no emoji, no hashtags. End with a clear call to action.\n\nProduct: ${product.name}\nDescription: ${product.description || "N/A"}\nCategory: ${product.category || "N/A"}`,
+            prompt: `Write a short 15-20 second video ad voiceover script for this affiliate product. 2-4 short sentences, spoken out loud, no stage directions, no emoji, no hashtags. End with a clear call to action.
+
+Say the things a buyer decides on -- condition, where it ships from, shipping cost or speed, what's included -- but ONLY where they appear in the details below. Never state a price: this video outlives the listing's price.
+
+Invent nothing. No "fast free shipping", no "brand new sealed", no "limited time", no guarantees, no health or income claims, unless the words are in the details below. A claim that isn't in the listing is the kind of thing that gets an affiliate account closed.
+${supplement ? `
+This is a dietary supplement. Say only what it is and how it is taken, in plain label-level words. No health, disease, symptom, weight or body-change claims, no before/after, no testimonials -- not even if the details below make them.
+` : ""}
+Product: ${product.name}
+Details: ${product.description || "none recorded"}
+Category: ${product.category || "N/A"}`,
           });
           script = String(written.text || "").trim();
           if (!script) return { error: "Couldn't write a script for this product. Try passing your own." };
         }
 
-        const audioBuffer = await videoAds.synthesizeSpeechBuffer(script);
+        const audioBuffer = await videoAds.synthesizeSpeechBuffer(
+          script,
+          String(input.voice || "").trim() || undefined,
+          String(input.tone || "").trim() || undefined
+        );
         const audioUrl = await videoAds.uploadPublicAsset(storageClient(), audioBuffer, `${product.id}.mp3`, "audio/mpeg");
         const duration = videoAds.estimateDurationSeconds(script);
-        const renderId = await videoAds.submitAdVideoRender({ imageUrl: product.image_url, audioUrl, caption: product.name, duration });
+        // eBay is the one network here that hands affiliates a logo and asks
+        // for it to be used exactly as supplied; the file is served from this
+        // app's own /brand, unmodified from their Creative Gallery download.
+        const goesToEbay = detectNetwork(hostOf(product.url), product.category?.split("_")[0]) === "ebay";
+        const renderId = await videoAds.submitAdVideoRender({
+          imageUrl: largestEbayImage(product.image_url),
+          videoUrl: footage || undefined,
+          audioUrl,
+          caption: product.name,
+          duration,
+          format: input.format,
+          captions: input.captions !== false,
+          badgeUrl: goesToEbay && origin ? `${origin}/brand/ebay-logo.png` : undefined,
+        });
 
         return {
           render_id: renderId,
           product_id: product.id,
           product_name: product.name,
           script,
+          format: `${format.width}x${format.height} (${format.where})`,
+          // Handed over with the video rather than left to the user to write:
+          // the on-screen line covers the muted scroller, this covers the
+          // platform's own check for #ad and the AI-content wording
+          // Digistore24's terms require.
+          // A supplement ad carries the FDA line: Advanced Bionutritionals'
+          // terms require it, and it is standard for any supplement claim.
+          suggested_caption: videoAds.suggestedAdCaption(product.name) + (supplement ? `\n\n${FDA_DISCLAIMER}` : ""),
+          ...(forTikTok ? { tiktok: rule.status, posting_checklist: tiktokPostingChecklist(rule) } : {}),
+          ...(creative.note ? { vendor_rules: creative.note } : {}),
           estimated_wait_seconds: 60,
-          message: "Rendering started -- call check_video_ad with this render_id in about a minute.",
+          message:
+            "Rendering started -- call check_video_ad with this render_id in about a minute. Give the user the suggested_caption to post with it and the posting_checklist steps; the video already carries the disclosure on screen.",
         };
       }
 
@@ -416,17 +767,54 @@ export async function executeTool(name, input = {}, ctx = {}) {
           if (owned[0]) title = `${owned[0].name} -- AI video ad`;
         }
 
+        // Only columns ad_assets actually has. A `source` field was being sent
+        // too, and Postgres rejects an insert naming a column that isn't
+        // there -- so every finished render failed at the last step and no ad
+        // creative was ever saved.
+        const shape = videoAds.adFormat(input.format);
         const asset = await D.AdAsset.create({
           created_by_id: user.id,
           title,
           file_url: status.url,
           file_type: "video",
-          platform: "general",
-          notes: `Rendered via JSON2Video (render ${renderId}).`,
-          source: "ai_generated_video",
+          platform: shape.platform,
+          notes: `AI-generated video ad, ${shape.width}x${shape.height} for ${shape.where}. Rendered via JSON2Video (render ${renderId}).`,
         });
 
-        return { status: "done", url: status.url, ad_asset_id: asset.id, message: "Saved to your ad creatives." };
+        // An ad only exists if the product passed TikTok's rules and the
+        // vendor's, and a "link in bio" ad has to lead to the product -- so
+        // its link goes onto the share page without a separate step.
+        let onSharePage = null;
+        if (input.product_id) {
+          // The ad is already saved; a failure here must not report it lost.
+          try {
+            const links = await D.AffiliateLink.filter({ created_by_id: user.id, product_id: String(input.product_id) }, "-created_at", 20);
+            const live = links.filter((l) => l.is_active !== false);
+            if (live.some((l) => l.bio_featured_at)) onSharePage = "already";
+            else if (live[0]) {
+              await D.AffiliateLink.update(live[0].id, { bio_featured_at: new Date().toISOString() });
+              onSharePage = "added";
+            } else onSharePage = "no_link";
+          } catch (e) {
+            console.error("check_video_ad: share page update failed:", e.message);
+            onSharePage = "failed";
+          }
+        }
+
+        return {
+          status: "done",
+          url: status.url,
+          ad_asset_id: asset.id,
+          ...(onSharePage ? { share_page: onSharePage } : {}),
+          message:
+            onSharePage === "no_link"
+              ? "Saved to your ad creatives. This product has no affiliate link yet, so it isn't on the share page -- create one before posting."
+              : onSharePage === "failed"
+                ? "Saved to your ad creatives, but adding it to the share page failed -- add it with the star on the Links page."
+                : onSharePage
+                  ? "Saved to your ad creatives, and the product is on the share page."
+                  : "Saved to your ad creatives.",
+        };
       }
 
       case "connect_affiliate_network": {

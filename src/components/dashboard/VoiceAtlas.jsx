@@ -45,9 +45,16 @@ export function ReplyMarkdown({ text }) {
     return <span>{children}</span>;
   };
 
+  // Maya shows the product pictures she finds so they can be approved before
+  // they're saved. Kept small, and https only.
+  const Picture = ({ src = "", alt = "" }) =>
+    /^https:\/\//i.test(src) ? (
+      <img src={src} alt={alt} loading="lazy" className="max-h-48 max-w-full rounded-md border border-white/10 bg-white object-contain" />
+    ) : null;
+
   return (
     <div className="text-base text-[color:var(--voice-text)] leading-relaxed space-y-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_strong]:font-semibold [&_code]:font-mono [&_code]:text-sm">
-      <ReactMarkdown components={{ a: Anchor }}>{String(text || "")}</ReactMarkdown>
+      <ReactMarkdown components={{ a: Anchor, img: Picture }}>{String(text || "")}</ReactMarkdown>
     </div>
   );
 }
@@ -57,7 +64,6 @@ const VOICE_OPTIONS = [
   { id: "onyx", label: "Onyx", note: "Deep male mentor", assistant: "atlas" },
   { id: "fable", label: "Fable", note: "Expressive male storyteller", assistant: "atlas" },
   { id: "ash", label: "Ash", note: "Warm, measured male voice", assistant: "atlas" },
-  { id: "verse", label: "Verse", note: "Versatile, neutral male voice", assistant: "atlas" },
   { id: "nova", label: "Nova", note: "Bright female guide", assistant: "maya" },
   { id: "shimmer", label: "Shimmer", note: "Clear female coach", assistant: "maya" },
   { id: "sage", label: "Sage", note: "Calm, wise female voice", assistant: "maya" },
@@ -71,11 +77,64 @@ const EXPERIENCE_OPTIONS = [
 ];
 
 const cleanSpeechForVoice = (text) => text
+  // Pictures are for looking at; reading one out would only say "link".
+  .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
   .replace(/https?:\/\/\S+/g, "link")
   .replace(/[#*_`>\[\](){}]/g, "")
   .replace(/[•–—]/g, ", ")
   .replace(/\s+/g, " ")
   .trim();
+
+// Splits a reply into an opening piece that is quick to voice and the rest,
+// so she can start talking before the whole answer has been turned into
+// audio. The opening piece is whole sentences, at least OPENING_MIN
+// characters where the reply allows, so the change between pieces falls at a
+// full stop, where a pause sounds natural. Short replies stay in one piece:
+// splitting them saves nothing and adds a seam.
+const OPENING_MIN = 90;
+const SPLIT_ABOVE = 220;
+
+function splitForSpeech(text) {
+  if (text.length <= SPLIT_ABOVE) return [text];
+  const sentences = text.match(/[^.!?]+[.!?]+["')\]]*\s*|[^.!?]+$/g) || [text];
+  let opening = "";
+  let i = 0;
+  while (i < sentences.length && opening.length < OPENING_MIN) opening += sentences[i++];
+  const rest = sentences.slice(i).join("").trim();
+  return rest ? [opening.trim(), rest] : [text];
+}
+
+// Speech recognition reports every refusal as the same "not-allowed", but a
+// refusal has three different causes with three different fixes:
+//   - this site's own Permissions-Policy header (nothing the user can change);
+//   - the browser's permission for this site;
+//   - the operating system's microphone privacy setting.
+// Naming the browser one alone cost this app's owner a full browser and laptop
+// reset for a block that was the header, so ask what the cause is instead.
+const MIC_FIX_SITE =
+  "The app itself is blocking the microphone, so no browser or computer setting will help. Please report this message.";
+const MIC_FIX_BROWSER =
+  "Your browser is blocking the mic for this site. Click the icon at the left of the address bar, open Site settings, set Microphone to Allow, then reload the page and tap the mic again.";
+const MIC_FIX_SYSTEM =
+  "The browser is allowed to use the mic, so the block is coming from your computer. On Windows: Settings > Privacy & security > Microphone, and turn on both \"Microphone access\" and \"Let desktop apps access your microphone\". On a Mac: System Settings > Privacy & Security > Microphone.";
+
+async function describeMicBlock() {
+  const policy = /** @type {any} */ (document).featurePolicy;
+  try {
+    if (policy && !policy.allowsFeature("microphone")) return MIC_FIX_SITE;
+  } catch {
+    // Older browsers throw on an unknown feature name -- fall through.
+  }
+  try {
+    const status = await navigator.permissions.query(/** @type {any} */ ({ name: "microphone" }));
+    if (status.state === "denied") return MIC_FIX_BROWSER;
+    return MIC_FIX_SYSTEM;
+  } catch {
+    // Firefox and Safari don't answer for "microphone": name both fixes rather
+    // than pick one, since a wrong instruction here wastes hours.
+    return `${MIC_FIX_BROWSER} If it is already set to Allow: ${MIC_FIX_SYSTEM}`;
+  }
+}
 
 function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, experienceLevel, themeMode }) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -99,6 +158,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
   const conversationRef = useRef(null);
   const recognitionRef = useRef(null);
   const audioRef = useRef(null);
+  const speechQueueRef = useRef(null);
   const synthRef = useRef(window.speechSynthesis);
   const mountedRef = useRef(true);
   const responseUnsubscribeRef = useRef(null);
@@ -123,6 +183,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
     runIdRef.current += 1;
     clearResponseHandlers();
     recognitionRef.current?.abort?.();
+    speechQueueRef.current = null;
     if (audioRef.current) audioRef.current.pause();
     synthRef.current?.cancel?.();
     conversationRef.current = null;
@@ -160,6 +221,15 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
         });
         if (!mountedRef.current || initRunId !== runIdRef.current) return;
         conversationRef.current = convo;
+      } catch (error) {
+        // Without this the failure escaped as an unhandled rejection: the
+        // button dropped its "Starting session" label and read "Tap mic to
+        // speak", but startListening bails on a null conversation, so every
+        // tap did nothing and nothing said why.
+        console.error(`${name} session failed to start:`, error);
+        if (mountedRef.current && initRunId === runIdRef.current) {
+          setMicError(`Couldn't start a session with ${name}. Refresh the page to try again.`);
+        }
       } finally {
         if (mountedRef.current && initRunId === runIdRef.current) setIsInitializing(false);
       }
@@ -173,6 +243,9 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
 
   const stopSpeaking = useCallback(() => {
     recognitionRef.current?.abort?.();
+    // Dropping the queue is what stops the pieces still to come: a playback
+    // loop that finds its queue replaced goes quiet.
+    speechQueueRef.current = null;
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -182,66 +255,96 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
     setSpeaking(false);
   }, []);
 
-  const speakText = useCallback(async (text) => {
-    if (!text) return;
-    stopSpeaking();
-    setNeedsTapToSpeak(false);
-    setSpeaking(true);
-
-    try {
-      const voiceReadyText = cleanSpeechForVoice(text);
-      const speechText = voiceReadyText.length > 1400 ? `${voiceReadyText.slice(0, 1400)}...` : voiceReadyText;
-      let audioUrl = null;
-      // Premium tier: try OpenAI voices first — only activates once the
-      // OPENAI_API_KEY secret exists; otherwise falls back silently.
-      if (user?.voice_tier === "premium") {
-        try {
-          const premiumRes = await withTimeout(
-            base44.functions.invoke("generatePremiumSpeech", { text: speechText, voice: voiceChoice }),
-            20000, "Premium voice"
-          );
-          if (premiumRes?.data?.url) audioUrl = premiumRes.data.url;
-        } catch (e) { console.warn("Premium voice unavailable, using standard:", e); }
-      }
-      if (!audioUrl) {
-        // GenerateSpeech hits the same OpenAI-backed generatePremiumSpeech
-        // endpoint as the premium branch above (base44Client.js) -- it isn't
-        // a separate provider needing its own voice names. SPEECH_VOICE_MAP
-        // used to translate to a different TTS service's ids ("honey",
-        // "river", ...), none of which OpenAI recognizes, so every standard-
-        // tier request silently fell back server-side to "alloy" regardless
-        // of which voice -- or which assistant -- was actually selected.
-        const res = await withTimeout(
-          base44.integrations.Core.GenerateSpeech({ text: speechText, voice: voiceChoice }),
-          20000, "Voice generation"
+  // Fetches one piece of speech. Both branches reach the same OpenAI-backed
+  // generatePremiumSpeech endpoint (base44Client.js), so the second is in
+  // effect one retry. It isn't a separate provider needing its own voice
+  // names: SPEECH_VOICE_MAP used to translate to another TTS service's ids
+  // ("honey", "river", ...), none of which OpenAI recognizes, so every
+  // standard-tier request silently fell back server-side to "alloy".
+  const fetchSpeech = useCallback(async (part) => {
+    if (user?.voice_tier === "premium") {
+      try {
+        const premiumRes = await withTimeout(
+          base44.functions.invoke("generatePremiumSpeech", { text: part, voice: voiceChoice }),
+          20000, "Premium voice"
         );
-        audioUrl = res?.url || res?.data?.url;
+        if (premiumRes?.data?.url) return premiumRes.data.url;
+      } catch (e) { console.warn("Premium voice unavailable, using standard:", e); }
+    }
+    const res = await withTimeout(
+      base44.integrations.Core.GenerateSpeech({ text: part, voice: voiceChoice }),
+      20000, "Voice generation"
+    );
+    return res?.url || res?.data?.url || null;
+  }, [user?.voice_tier, voiceChoice]);
+
+  // Plays a queue's pieces in order, waiting on each piece's audio only when
+  // it is next. Stops as soon as the queue is no longer the current one.
+  const playSpeechQueue = useCallback(async (queue) => {
+    const isCurrent = () => mountedRef.current && speechQueueRef.current === queue;
+    while (queue.index < queue.pieces.length) {
+      const audioUrl = await queue.pieces[queue.index];
+      if (!isCurrent()) return;
+      if (!audioUrl) {
+        // This used to fall back to the browser's built-in voice -- a
+        // transient failure (a timeout, a network blip) made Maya or Atlas
+        // suddenly sound like a different, robotic voice for one reply.
+        // Skipping the piece (the text is still shown) keeps the voice the
+        // same person.
+        queue.index += 1;
+        continue;
       }
       const audio = new Audio(audioUrl);
       audioRef.current = audio;
-      audio.onended = () => mountedRef.current && setSpeaking(false);
-      audio.onerror = () => mountedRef.current && setSpeaking(false);
+      // pause covers stopSpeaking: a paused piece never fires ended.
+      const done = new Promise((resolve) => {
+        audio.onended = resolve;
+        audio.onerror = resolve;
+        audio.onpause = resolve;
+      });
       try {
         await audio.play();
       } catch (playError) {
         console.warn("Mobile browser blocked automatic voice playback:", playError);
-        if (mountedRef.current) {
+        if (isCurrent()) {
           setNeedsTapToSpeak(true);
           setSpeaking(false);
         }
+        return;
       }
-    } catch (error) {
-      // This used to fall back to the browser's generic built-in
-      // SpeechSynthesisUtterance voice -- a transient failure of the chosen
-      // premium voice (a timeout, a network blip) made Maya or Atlas
-      // suddenly sound like a completely different, generic robotic voice
-      // for one reply, then switch back once the premium call recovered.
-      // Staying silent for that one reply (the text is still shown) keeps
-      // the voice identity consistent instead of swapping voices mid-chat.
-      console.error("Voice playback failed:", error);
-      if (mountedRef.current) setSpeaking(false);
+      await done;
+      if (!isCurrent()) return;
+      queue.index += 1;
     }
-  }, [stopSpeaking, voiceChoice]);
+    speechQueueRef.current = null;
+    if (mountedRef.current) setSpeaking(false);
+  }, []);
+
+  // A reply used to be sent for speech in one piece and played only once all
+  // of it was ready, so a long answer meant a long silence before she said a
+  // word. Now the opening sentence is spoken as soon as it is ready while the
+  // rest is prepared alongside it.
+  const speakText = useCallback((text) => {
+    if (!text) return;
+    stopSpeaking();
+    const voiceReadyText = cleanSpeechForVoice(text);
+    const speechText = voiceReadyText.length > 1400 ? `${voiceReadyText.slice(0, 1400)}...` : voiceReadyText;
+    const queue = {
+      index: 0,
+      // Every piece is requested now, in parallel; a failed one resolves to
+      // null so nothing is left as an unhandled rejection.
+      pieces: splitForSpeech(speechText).map((part) =>
+        fetchSpeech(part).catch((error) => {
+          console.error("Voice generation failed:", error);
+          return null;
+        })
+      ),
+    };
+    speechQueueRef.current = queue;
+    setNeedsTapToSpeak(false);
+    setSpeaking(true);
+    playSpeechQueue(queue);
+  }, [stopSpeaking, fetchSpeech, playSpeechQueue]);
 
   const sendMessage = useCallback(async (text) => {
     const cleanText = text.trim();
@@ -324,7 +427,9 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
           setWorkingStatus("");
           setReply(`${name} is still working on that. Please try a smaller request or send it again.`);
         }
-      }, 60000);
+        // Long enough for a long reply to a long paste (up to 8k tokens of
+        // output, plus tool rounds), still inside the server's 300s limit.
+      }, 180000);
 
       base44.agents.addMessage(activeConversation, { role: "user", content: assistantText })
         .then((updatedConversation) => {
@@ -386,7 +491,11 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
 
   const startListening = useCallback(() => {
     if (speaking) stopSpeaking();
-    if (!supported || isInitializing || !conversationRef.current) return;
+    if (!supported || isInitializing) return;
+    if (!conversationRef.current) {
+      setMicError(`${name} isn't connected yet. Refresh the page to try again.`);
+      return;
+    }
     setMicError("");
     if (recognitionRef.current) recognitionRef.current.abort();
 
@@ -413,13 +522,28 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       setListening(false);
       setPulse(false);
       if (silenceTimer) clearTimeout(silenceTimer);
-      // no-speech is the ordinary "didn't catch anything, timed out" case --
-      // everything else means the mic itself never worked, which used to
-      // fail totally silently and look identical to Maya just not hearing
-      // anything at all.
-      if (e.error === "no-speech" || e.error === "aborted") return;
+      // aborted is us: startListening aborts the previous run before a new one.
+      // Everything else means the mic never delivered speech, which used to
+      // fail silently and look identical to the assistant just not listening.
+      if (e.error === "aborted") return;
+      if (e.error === "no-speech") {
+        // Chrome only reports no-speech after hearing nothing for the whole
+        // run. Once in a while that's someone who didn't speak; when it keeps
+        // happening it's nearly always Windows feeding the browser the wrong
+        // or a muted input device, which permission errors never catch.
+        setMicError("I didn't hear anything. Tap the mic and try again. If this keeps happening, your computer may be listening to a different or muted microphone.");
+        return;
+      }
       if (e.error === "not-allowed" || e.error === "service-not-allowed") {
-        setMicError("Microphone access is blocked. Check your browser's site permissions to allow the mic, then tap the mic again.");
+        // "Blocked" has three different causes and only one of them is the
+        // browser's site permission -- sending everyone to that one setting
+        // sent this user through a full browser and laptop reset for a block
+        // that was actually this site's own Permissions-Policy header. Ask
+        // the browser which it is instead of guessing.
+        setMicError("Microphone access is blocked. Checking why...");
+        describeMicBlock().then((message) => {
+          if (mountedRef.current) setMicError(message);
+        });
       } else if (e.error === "audio-capture") {
         setMicError("No microphone found. Check that one is connected and enabled.");
       } else if (e.error === "network") {
@@ -436,7 +560,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
       if (result.isFinal) { setTranscript(textVal); sendMessage(textVal); }
     };
     recognition.start();
-  }, [supported, isInitializing, speaking, sendMessage, stopSpeaking]);
+  }, [supported, isInitializing, speaking, sendMessage, stopSpeaking, name]);
 
   const stopListening = useCallback(() => {
     recognitionRef.current?.stop();
@@ -444,18 +568,13 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
     setPulse(false);
   }, []);
 
-  const playBlockedVoice = async () => {
-    if (!audioRef.current) return;
+  // The tap is the gesture the browser wanted before it would play sound.
+  // Carry on from the piece that was blocked, not from the start.
+  const playBlockedVoice = () => {
+    if (!speechQueueRef.current) return;
     setNeedsTapToSpeak(false);
     setSpeaking(true);
-    try {
-      audioRef.current.currentTime = 0;
-      await audioRef.current.play();
-    } catch (error) {
-      console.warn("Voice playback still blocked:", error);
-      setSpeaking(false);
-      setNeedsTapToSpeak(true);
-    }
+    playSpeechQueue(speechQueueRef.current);
   };
 
   useEffect(() => {
@@ -520,7 +639,8 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
         {transcript && (
           <div className="w-full rounded-xl px-4 py-3" style={{ background: "var(--voice-card)", border: "1px solid var(--voice-border)" }}>
             <p className="text-sm font-bold mb-1" style={{ color: "var(--voice-muted)" }}>You said:</p>
-            <p className="text-base text-[color:var(--voice-text)] leading-relaxed">\"{transcript}\"</p>
+            {/* A pasted page would otherwise push the reply off the screen. */}
+            <p className="text-base text-[color:var(--voice-text)] leading-relaxed whitespace-pre-wrap break-words max-h-40 overflow-y-auto">“{transcript}”</p>
           </div>
         )}
 
@@ -559,13 +679,27 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
         )}
 
         {activeTab === "text" && (
-          <div className="flex gap-3">
-            <input type="text" value={textInput}
-              onChange={e => setTextInput(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && handleTextSend()}
-              placeholder={isInitializing ? `Starting ${name}…` : loading ? "Please wait…" : `Ask ${name} anything…`}
+          <div className="flex items-end gap-3">
+            {/* A textarea, not a one-line input: a pasted page, email or
+                vendor form keeps its line breaks and can be read back before
+                sending. It grows with its content up to a cap, then scrolls.
+                Enter sends; Shift+Enter starts a new line. */}
+            <textarea value={textInput} rows={1}
+              onChange={e => {
+                setTextInput(e.target.value);
+                e.target.style.height = "auto";
+                e.target.style.height = `${e.target.scrollHeight}px`;
+              }}
+              onKeyDown={e => {
+                if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  handleTextSend();
+                  e.currentTarget.style.height = "auto";
+                }
+              }}
+              placeholder={isInitializing ? `Starting ${name}…` : loading ? "Please wait…" : `Ask ${name} anything, or paste text…`}
               disabled={blocked}
-              className="flex-1 rounded-xl px-4 py-3 text-base text-[color:var(--voice-text)] placeholder:text-slate-300 outline-none disabled:opacity-50"
+              className="flex-1 min-w-0 resize-none rounded-xl px-4 py-3 text-base leading-snug text-[color:var(--voice-text)] placeholder:text-slate-300 outline-none disabled:opacity-50 max-h-[40vh] overflow-y-auto"
               style={{ background: "var(--voice-card-strong)", border: "1px solid rgba(216,180,254,0.45)", fontSize: 16 }}
             />
             <button onClick={handleTextSend} disabled={blocked || !textInput.trim()}
@@ -625,22 +759,27 @@ export default function VoiceAtlas({ onClose } = {}) {
     const saved = localStorage.getItem("affiliateProVoicePreferences");
     if (saved) {
       try {
-        return { atlas: "onyx", maya: "shimmer", ...JSON.parse(saved) };
+        return { atlas: "onyx", maya: "nova", ...JSON.parse(saved) };
       } catch {
-        return { atlas: "onyx", maya: "shimmer" };
+        return { atlas: "onyx", maya: "nova" };
       }
     }
-    return { atlas: "onyx", maya: "shimmer" };
+    return { atlas: "onyx", maya: "nova" };
   });
   const [themeMode, setThemeMode] = useState(() => localStorage.getItem("affiliateProThemeMode") || "light");
   const activePreviewRef = useRef(null);
 
   useEffect(() => {
-    if (localStorage.getItem("affiliateProVoiceMapV2") === "true") return;
-    const correctedVoices = { atlas: "onyx", maya: "shimmer" };
-    localStorage.setItem("affiliateProVoicePreferences", JSON.stringify(correctedVoices));
-    localStorage.setItem("affiliateProVoiceMapV2", "true");
-    setVoicePreferences(correctedVoices);
+    // V3: Maya's voice is Nova, the owner's choice, and Verse is gone because
+    // tts-1-hd doesn't have it. Runs once per browser, so a voice picked
+    // after this is kept.
+    if (localStorage.getItem("affiliateProVoiceMapV3") === "true") return;
+    setVoicePreferences((prev) => {
+      const correctedVoices = { atlas: prev.atlas === "verse" ? "onyx" : prev.atlas || "onyx", maya: "nova" };
+      localStorage.setItem("affiliateProVoicePreferences", JSON.stringify(correctedVoices));
+      return correctedVoices;
+    });
+    localStorage.setItem("affiliateProVoiceMapV3", "true");
   }, []);
 
   const { data: avatars = [] } = useQuery({
@@ -656,7 +795,7 @@ export default function VoiceAtlas({ onClose } = {}) {
     maya:  { avatar: mayaAvatar,  accentColor: "#f0abfc", name: "Maya",  gradient: "linear-gradient(90deg, #f0abfc, #c084fc)", border: "2px solid rgba(240,171,252,0.55)",  bg: "linear-gradient(135deg, rgba(236,72,153,0.34), rgba(168,85,247,0.24))" },
   };
   const current = config[selectedAssistant];
-  const currentVoiceChoice = voicePreferences[selectedAssistant] || (selectedAssistant === "atlas" ? "onyx" : "shimmer");
+  const currentVoiceChoice = voicePreferences[selectedAssistant] || (selectedAssistant === "atlas" ? "onyx" : "nova");
   const availableVoices = VOICE_OPTIONS.filter(voice => voice.assistant === selectedAssistant);
   const isLight = themeMode === "light";
 

@@ -87,8 +87,8 @@ export default function AvatarUploader() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-lg font-bold text-white font-display">AI Assistant Avatars</h2>
-        <p className="text-sm text-slate-400 mt-1">Upload high-quality custom avatars for Maya and Atlas</p>
+        <h2 className="text-lg font-bold text-foreground font-display">AI Assistant Avatars</h2>
+        <p className="text-sm text-muted-foreground mt-1">Upload high-quality custom avatars for Maya and Atlas</p>
       </div>
 
       {/* Assistant Selector */}
@@ -137,10 +137,10 @@ export default function AvatarUploader() {
           )}
         </div>
         <div className="text-center">
-          <p className="text-sm font-semibold text-white">
+          <p className="text-sm font-semibold text-foreground">
             {currentAvatar ? "Custom Avatar Active" : "Using Default Avatar"}
           </p>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             {currentAvatar ? "Your uploaded image is being used" : "Default AI-generated image"}
           </p>
         </div>
@@ -171,7 +171,7 @@ export default function AvatarUploader() {
             <Button
               variant="ghost"
               disabled={deleteMutation.isPending}
-              className="h-11 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+              className="h-11 text-red-700 dark:text-red-300 hover:text-red-700 dark:hover:text-red-200 hover:bg-red-500/10"
               onClick={handleReset}
             >
               <Trash2 className="w-4 h-4 mr-2" />
@@ -183,17 +183,17 @@ export default function AvatarUploader() {
         {uploadMsg && (
           <div className={`flex items-center gap-2 text-sm rounded-xl p-3 ${
             uploadMsg.type === "success"
-              ? "bg-green-500/10 text-green-400 border border-green-500/20"
-              : "bg-red-500/10 text-red-400 border border-red-500/20"
+              ? "bg-green-500/10 text-green-700 dark:text-green-400 border border-green-500/20"
+              : "bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/20"
           }`}>
             {uploadMsg.type === "success" ? <CheckCircle className="w-4 h-4 flex-shrink-0" /> : <ImageIcon className="w-4 h-4 flex-shrink-0" />}
             {uploadMsg.text}
           </div>
         )}
 
-        <div className="rounded-xl p-4 bg-white/5 border border-white/10 space-y-2">
-          <p className="text-xs text-slate-400 font-semibold uppercase tracking-wide">Tips for Best Results</p>
-          <ul className="text-xs text-slate-500 space-y-1 list-disc list-inside">
+        <div className="rounded-xl p-4 bg-card border border-border space-y-2">
+          <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">Tips for Best Results</p>
+          <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
             <li>Use high-resolution images (at least 512x512px)</li>
             <li>Square images work best (1:1 aspect ratio)</li>
             <li>PNG or JPG format recommended</li>

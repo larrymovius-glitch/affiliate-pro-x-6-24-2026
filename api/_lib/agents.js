@@ -16,6 +16,21 @@ go do it themselves when you could just do it.
 - Never state a number about clicks, earnings, or balance from memory or from
   earlier in the conversation. Call get_my_stats. Numbers change between turns.
 - Before creating a link, call list_my_products. Do not invent a product id.
+- The same goes for products, pictures, links and creatives: call the tool
+  again when asked about them. What an earlier tool call returned in this
+  conversation may be out of date -- pictures get added, links get created.
+- When products need pictures, find them yourself with find_product_images
+  instead of sending the user to hunt for them -- the person using this app
+  may not be able to. It reads the vendor's own sharing picture from their
+  sales page. Show what it found and get a yes before saving. Some vendors
+  allow only their official creatives (HepatoBurn: only the images in its
+  Google Drive folder, nothing from the sales page or its sales video), so
+  remind the user to check the vendor's affiliate terms before keeping one.
+  Never suggest using clips or stills from a vendor's sales video (VSL). Never tell the
+  user to right-click or copy images off a page themselves. eBay products get
+  their listing photo automatically. If a picture can't be found, the other
+  routes are the network's affiliate materials (Digistore24: "Go to
+  advertising media") or a picture of their own saved in their creatives.
 - Never invent a destination URL or a ClickBank vendor nickname. If you do not
   have one, ask. A wrong vendor nickname produces a link that looks fine,
   redirects fine, and pays nobody.
@@ -44,7 +59,8 @@ go do it themselves when you could just do it.
 
 THINGS YOU CANNOT DO -- link the user to the page instead:
 - Payout details (Stripe account, payout email) live on /payouts.
-- Connecting Instagram or LinkedIn is on /social, and is not finished yet.
+- Connecting Instagram or LinkedIn happens on /social, where each user
+  connects their own account.
 - Connecting a new affiliate network (Amazon, ShareASale, etc.) is on
   /networks -- you can tell the user what's trending there and whether
   they're connected, but saving a new network id happens on that page.
@@ -96,6 +112,39 @@ export function getAgent(agentName) {
 // function timeout.
 const MAX_TOOL_ROUNDS = 5;
 
+// The whole conversation goes to the model on every turn, and the history is
+// kept forever, so each reply took longer than the last: by 2026-09-23 Maya's
+// conversation was 130 messages and roughly 86,000 characters, re-read in
+// full before every answer. Once it passes HISTORY_TRIM_AT it is cut back to
+// about the last HISTORY_KEEP. Cut in one step rather than sliding a window
+// every turn: prompt caching needs an unchanged prefix, and a window that
+// moves every turn would change the prefix every turn.
+const HISTORY_TRIM_AT = 60;
+const HISTORY_KEEP = 30;
+
+// A cut has to land on something the user said. Starting on an assistant turn
+// or on a tool_result (whose tool_use would be cut off) is rejected by the API.
+function isUserText(message) {
+  if (message?.role !== "user") return false;
+  if (typeof message.content === "string") return true;
+  return Array.isArray(message.content) && !message.content.some((block) => block?.type === "tool_result");
+}
+
+/**
+ * @param {Array} messages full history, ending in the user's new message
+ * @returns {Array} the same array if short enough, otherwise its tail starting
+ *          at the first user text message within the last HISTORY_KEEP
+ */
+export function trimHistory(messages) {
+  if (messages.length <= HISTORY_TRIM_AT) return messages;
+  for (let i = messages.length - HISTORY_KEEP; i < messages.length; i += 1) {
+    if (isUserText(messages[i])) return messages.slice(i);
+  }
+  // The newest message is always the user's own, so this is not reached in
+  // practice; keep the full history rather than send something invalid.
+  return messages;
+}
+
 /** A short note about who is asking, so the assistant does not have to ask. */
 function userContext(user) {
   if (!user) return "";
@@ -142,13 +191,24 @@ export async function chatWithAgent({ agent_name, messages, user, origin, client
   const system = agent.instructions + userContext(user);
 
   // Only the fields the API accepts; anything the client tacked on is dropped.
-  const working = messages.map(({ role, content }) => ({ role, content }));
+  // The trimmed history is also what goes back to be saved, so the stored
+  // conversation stops growing too.
+  const working = trimHistory(messages).map(({ role, content }) => ({ role, content }));
   const toolCalls = [];
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
     const response = await api.messages.create({
       model: MODEL,
-      max_tokens: 2048,
+      // Room for a full answer to a long paste -- drafting from a whole
+      // email or a vendor's application form. At 2048 a reply like that was
+      // cut off mid-sentence. Replies to ordinary questions stay short; this
+      // is a ceiling, not a target.
+      max_tokens: 8192,
+      // Caches everything up to the newest message. Tools, the persona and
+      // the history before this turn are identical to the last request, so
+      // the model picks up where it left off instead of re-reading all of it,
+      // on each tool round and on the next message sent within five minutes.
+      cache_control: { type: "ephemeral" },
       system,
       tools: TOOL_DEFINITIONS,
       messages: working,

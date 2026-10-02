@@ -29,14 +29,13 @@
       "type": "string",
       "enum": [
         "stripe",
-        "paypal",
         "bank_transfer"
       ],
       "default": "stripe"
     },
     "transaction_id": {
       "type": "string",
-      "description": "Stripe/PayPal transaction ID"
+      "description": "Stripe transaction ID"
     },
     "plan_type": {
       "type": "string",

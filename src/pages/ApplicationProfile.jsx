@@ -83,17 +83,17 @@ export default function ApplicationProfile() {
           <ClipboardList className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-white font-display">Affiliate Application Profile</h1>
-          <p className="text-sm text-slate-400">
+          <h1 className="text-2xl font-bold text-foreground font-display">Affiliate Application Profile</h1>
+          <p className="text-sm text-muted-foreground">
             Fill this in once. Ask Maya or Atlas for form answers next time a vendor asks you to apply, and paste
             them in instead of retyping everything.
           </p>
         </div>
       </div>
 
-      <Card className="border-white/10 bg-white/5">
+      <Card className="border-border bg-card">
         <CardHeader>
-          <CardTitle className="text-white text-base">Your Info</CardTitle>
+          <CardTitle className="text-foreground text-base">Your Info</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid sm:grid-cols-2 gap-3">
@@ -122,19 +122,19 @@ export default function ApplicationProfile() {
               <Input value={form.website_url} onChange={(e) => setForm({ ...form, website_url: e.target.value })} placeholder="https://..." />
             </div>
           </div>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-muted-foreground">
             Your ClickBank ID is already saved on <a href="/networks" className="underline">/networks</a> -- no need to repeat it here.
           </p>
         </CardContent>
       </Card>
 
-      <Card className="border-white/10 bg-white/5">
+      <Card className="border-border bg-card">
         <CardHeader>
-          <CardTitle className="text-white text-base">Traffic Sources</CardTitle>
+          <CardTitle className="text-foreground text-base">Traffic Sources</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-3">
           {TRAFFIC_SOURCES.map((source) => (
-            <label key={source} className="flex items-center gap-2 text-sm text-slate-300">
+            <label key={source} className="flex items-center gap-2 text-sm text-foreground/80">
               <Checkbox
                 checked={form.traffic_sources.includes(source)}
                 onCheckedChange={() => setForm({ ...form, traffic_sources: toggleInList(form.traffic_sources, source) })}
@@ -145,13 +145,13 @@ export default function ApplicationProfile() {
         </CardContent>
       </Card>
 
-      <Card className="border-white/10 bg-white/5">
+      <Card className="border-border bg-card">
         <CardHeader>
-          <CardTitle className="text-white text-base">Other Networks You're On</CardTitle>
+          <CardTitle className="text-foreground text-base">Other Networks You're On</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-3">
           {NETWORKS_USED.map((network) => (
-            <label key={network} className="flex items-center gap-2 text-sm text-slate-300">
+            <label key={network} className="flex items-center gap-2 text-sm text-foreground/80">
               <Checkbox
                 checked={form.networks_used.includes(network)}
                 onCheckedChange={() => setForm({ ...form, networks_used: toggleInList(form.networks_used, network) })}
@@ -162,13 +162,13 @@ export default function ApplicationProfile() {
         </CardContent>
       </Card>
 
-      <Card className="border-white/10 bg-white/5">
+      <Card className="border-border bg-card">
         <CardHeader>
-          <CardTitle className="text-white text-base">ClickBank Status</CardTitle>
+          <CardTitle className="text-foreground text-base">ClickBank Status</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-3 gap-3">
           {CLICKBANK_STATUS_OPTIONS.map((tier) => (
-            <label key={tier} className="flex items-center gap-2 text-sm text-slate-300">
+            <label key={tier} className="flex items-center gap-2 text-sm text-foreground/80">
               <input
                 type="radio"
                 name="clickbank_status"
@@ -186,7 +186,7 @@ export default function ApplicationProfile() {
         {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCheck className="w-4 h-4" />} Save Profile
       </Button>
       {lastSavedAt && (
-        <p className="text-center text-xs text-emerald-400 flex items-center justify-center gap-1.5">
+        <p className="text-center text-xs text-emerald-700 dark:text-emerald-400 flex items-center justify-center gap-1.5">
           <CheckCheck className="w-3.5 h-3.5" /> Saved at {lastSavedAt.toLocaleTimeString()}
         </p>
       )}

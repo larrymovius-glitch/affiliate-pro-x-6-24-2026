@@ -1,6 +1,7 @@
 import { db } from "./_lib/db.js";
 import { getAuthedUser, isCronRequest } from "./_lib/supabase.js";
 import { invokeLLM } from "./_lib/llm.js";
+import { largestEbayImage } from "./_lib/images.js";
 
 const EBAY_API_BASE = "https://api.ebay.com";
 
@@ -40,6 +41,26 @@ async function searchTopEbayItem(token, campaignId, query) {
   if (!res.ok) return null;
   const data = await res.json().catch(() => ({}));
   return data.itemSummaries?.[0] || null;
+}
+
+// What a buyer actually decides on, in the listing's own words: condition,
+// where it ships from, whether shipping is free. Recorded on the product so
+// the ad script can say them -- and, just as much, so it cannot say them when
+// eBay hasn't. "New in sealed box, ships free from the US" is a great line in
+// an ad and a serious problem when it isn't true of the listing.
+//
+// Deliberately no price: a video outlives the price it quotes.
+export function listingFacts(item) {
+  const facts = [];
+  if (item?.condition) facts.push(`Condition: ${item.condition}`);
+  const country = item?.itemLocation?.country;
+  if (country) facts.push(`Ships from: ${country}`);
+  const shipping = (item?.shippingOptions || [])[0];
+  if (shipping?.shippingCostType === "FIXED" && Number(shipping?.shippingCost?.value) === 0) {
+    facts.push("Shipping: free");
+  }
+  if (item?.seller?.feedbackPercentage) facts.push(`Seller feedback: ${item.seller.feedbackPercentage}%`);
+  return facts.join(". ");
 }
 
 function affiliateUrlFor(item, campaignId) {
@@ -109,7 +130,8 @@ Return ONLY real, verified products that are currently trending on eBay. Do NOT 
         name: topItem.title || item.name || item.search_term,
         category: item.category,
         url,
-        image: topItem.image?.imageUrl || "",
+        image: largestEbayImage(topItem.image?.imageUrl || ""),
+        facts: listingFacts(topItem),
       });
     }
 
@@ -124,6 +146,9 @@ Return ONLY real, verified products that are currently trending on eBay. Do NOT 
     for (const link of existingLinks) {
       if (!newTrendingUrls.has(link.destination_url)) {
         if ((link.earnings || 0) > 0) continue;
+        // On the share page means an ad may point at it: a TikTok ad lives for
+        // weeks, and "link in bio" must still lead somewhere tomorrow.
+        if (link.bio_featured_at) continue;
         await D.AffiliateLink.delete(link.id);
         const products = await D.Product.filter({ url: link.destination_url, category: "ebay_trending" });
         for (const p of products) await D.Product.delete(p.id);
@@ -144,7 +169,10 @@ Return ONLY real, verified products that are currently trending on eBay. Do NOT 
           created_by_id: owner.id,
           name: r.name,
           url: r.url,
-          description: `eBay trending product — ${r.category || "general"}`,
+          // The listing's own facts, so an ad script has something true to
+          // say about condition and shipping instead of reaching for
+          // "fast free shipping" on its own.
+          description: [`eBay trending product — ${r.category || "general"}`, r.facts].filter(Boolean).join(". "),
           category: "ebay_trending",
           image_url: r.image,
           commission_rate: 0,
@@ -152,12 +180,18 @@ Return ONLY real, verified products that are currently trending on eBay. Do NOT 
         productId = product.id;
       }
 
-      const slug = r.name.replace(/\s+/g, "_").toLowerCase().substring(0, 15);
+      // Letters and digits only: this becomes the /r/<code> path people share,
+      // and a product name's apostrophes and ampersands ("Levi's", "B&W") make
+      // for a link that breaks when pasted into a post.
+      const slug = r.name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").substring(0, 15);
       await D.AffiliateLink.create({
         created_by_id: owner.id,
         product_id: productId,
         product_name: r.name,
         destination_url: r.url,
+        // Set explicitly: affiliate_links.network defaults to 'clickbank', so
+        // leaving it off labelled every eBay link a ClickBank one.
+        network: "ebay",
         short_code: `ebay_trend_${slug}_${Math.random().toString(36).slice(2, 6)}`,
         clicks: 0, conversions: 0, earnings: 0,
       });

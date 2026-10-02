@@ -40,12 +40,12 @@ export default function NetworkCard({ network, savedId }) {
   };
 
   return (
-    <Card className="border-white/10 bg-white/5">
+    <Card className="border-border bg-card">
       <CardHeader>
-        <CardTitle className="text-white text-base flex items-center justify-between gap-2">
+        <CardTitle className="text-foreground text-base flex items-center justify-between gap-2">
           <span>{network.name}</span>
           {!network.instant && (
-            <span className="text-[10px] font-normal uppercase tracking-wide text-slate-400">approval required</span>
+            <span className="text-[10px] font-normal uppercase tracking-wide text-muted-foreground">approval required</span>
           )}
         </CardTitle>
       </CardHeader>
@@ -56,11 +56,11 @@ export default function NetworkCard({ network, savedId }) {
           }`}
         >
           {connected ? (
-            <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+            <CheckCircle className="w-4 h-4 text-green-700 dark:text-green-400 flex-shrink-0" />
           ) : (
-            <AlertCircle className="w-4 h-4 text-orange-400 flex-shrink-0" />
+            <AlertCircle className="w-4 h-4 text-orange-700 dark:text-orange-300 flex-shrink-0" />
           )}
-          <p className={`text-sm ${connected ? "text-green-300" : "text-orange-300"}`}>
+          <p className={`text-sm ${connected ? "text-green-700 dark:text-green-300" : "text-orange-700 dark:text-orange-300"}`}>
             {connected ? `Connected as ${savedId}` : "Not connected"}
           </p>
         </div>

@@ -174,14 +174,14 @@ Return a JSON object with:
         </CardHeader>
         <CardContent className="grid sm:grid-cols-3 gap-4">
           <div className="space-y-2">
-            <Label className="text-white font-semibold">Affiliate Link</Label>
+            <Label className="text-foreground font-semibold">Affiliate Link</Label>
             <Select value={selectedLink} onValueChange={setSelectedLink}>
-              <SelectTrigger className="bg-white/15 border-white/30 text-white h-12">
-                <SelectValue placeholder="Select a link..." className="text-white" />
+              <SelectTrigger className="bg-background border-border text-foreground h-12">
+                <SelectValue placeholder="Select a link..." className="text-foreground" />
               </SelectTrigger>
-              <SelectContent className="bg-slate-900 border-white/20">
+              <SelectContent className="bg-popover border-border">
                 {links.map(l => (
-                  <SelectItem key={l.id || l._id} value={l.id || l._id} className="text-white focus:bg-white/20">
+                  <SelectItem key={l.id || l._id} value={l.id || l._id} className="text-popover-foreground focus:bg-accent focus:text-accent-foreground">
                     {l.product_name || l.title || l.short_code}
                   </SelectItem>
                 ))}
@@ -190,21 +190,21 @@ Return a JSON object with:
           </div>
 
           <div className="space-y-2">
-            <Label className="text-white font-semibold">Platform</Label>
+            <Label className="text-foreground font-semibold">Platform</Label>
             <Select value={platform} onValueChange={setPlatform}>
-              <SelectTrigger className="bg-white/15 border-white/30 text-white h-12"><SelectValue className="text-white" /></SelectTrigger>
-              <SelectContent className="bg-slate-900 border-white/20">
-                {platforms.map(p => <SelectItem key={p} value={p} className="capitalize text-white focus:bg-white/20">{p}</SelectItem>)}
+              <SelectTrigger className="bg-background border-border text-foreground h-12"><SelectValue className="text-foreground" /></SelectTrigger>
+              <SelectContent className="bg-popover border-border">
+                {platforms.map(p => <SelectItem key={p} value={p} className="capitalize text-popover-foreground focus:bg-accent focus:text-accent-foreground">{p}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label className="text-white font-semibold">Tone</Label>
+            <Label className="text-foreground font-semibold">Tone</Label>
             <Select value={tone} onValueChange={setTone}>
-              <SelectTrigger className="bg-white/15 border-white/30 text-white h-12"><SelectValue className="text-white" /></SelectTrigger>
-              <SelectContent className="bg-slate-900 border-white/20">
-                {tones.map(t => <SelectItem key={t} value={t} className="capitalize text-white focus:bg-white/20">{t}</SelectItem>)}
+              <SelectTrigger className="bg-background border-border text-foreground h-12"><SelectValue className="text-foreground" /></SelectTrigger>
+              <SelectContent className="bg-popover border-border">
+                {tones.map(t => <SelectItem key={t} value={t} className="capitalize text-popover-foreground focus:bg-accent focus:text-accent-foreground">{t}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -233,7 +233,7 @@ Return a JSON object with:
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="capitalize">{post.platform}</Badge>
                     <Badge variant="outline" className="capitalize">{post.tone}</Badge>
-                    {post.status === "posted" && <Badge className="bg-green-500/20 text-green-400 border-green-500/30">Posted</Badge>}
+                    {post.status === "posted" && <Badge className="bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/30">Posted</Badge>}
                   </div>
                   <div className="flex items-center gap-1">
                     <span className="text-xs text-muted-foreground">AI Score:</span>

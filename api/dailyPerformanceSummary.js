@@ -88,11 +88,27 @@ export default async function handler(req, res) {
       recipients = admins.map((a) => a.email).filter(Boolean);
     }
 
+    // sendEmail fails soft, so its return value is the only signal that a
+    // summary actually went out. Reporting `sentTo: recipients` regardless of
+    // that value is how this job spent weeks claiming success while Resend
+    // rejected every message.
+    const sentTo = [];
+    const failed = [];
     for (const to of recipients) {
-      await sendEmail({ to, subject: `Your Daily Affiliate Summary — ${today}`, body: emailBody });
+      const ok = await sendEmail({ to, subject: `Your Daily Affiliate Summary — ${today}`, body: emailBody });
+      (ok ? sentTo : failed).push(to);
     }
+    if (failed.length) console.error("Daily summary failed to send to:", failed.join(", "));
+    if (!recipients.length) console.warn("Daily summary has no recipient: no admin profile has an email.");
 
-    res.status(200).json({ success: true, totalClicks, totalConversions, totalEarnings, sentTo: recipients });
+    res.status(200).json({
+      success: failed.length === 0 && recipients.length > 0,
+      totalClicks,
+      totalConversions,
+      totalEarnings,
+      sentTo,
+      failed,
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

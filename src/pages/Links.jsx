@@ -8,16 +8,18 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Link2, Copy, Trash2, ExternalLink, Search, MousePointerClick, RefreshCw, ShoppingBag } from "lucide-react";
+import { Plus, Link2, Copy, Trash2, ExternalLink, Search, MousePointerClick, RefreshCw, ShoppingBag, Star } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import AffiliateDisclosure from "@/components/AffiliateDisclosure";
+import SharePageCard from "@/components/links/SharePageCard";
 import { useAuth } from "@/lib/AuthContext";
 import { applyClickBankAffiliateId, getClickBankAffiliateId } from "@/lib/affiliate-id";
 import { getTrackableUrl as buildTrackingUrl } from "@/lib/links";
-import { digistorePromoLink, getDigistoreAffiliateId } from "../../api/_lib/affiliates.js";
+import { getDigistoreAffiliateId, parseDigistoreInput } from "../../api/_lib/affiliates.js";
+import { networkForDestination } from "../../api/_lib/tracking.js";
 
 function sanitizeShortCode(value) {
   return String(value || "link")
@@ -59,6 +61,9 @@ export default function Links() {
   const [dsDialogOpen, setDsDialogOpen] = useState(false);
   const [dsProductId, setDsProductId] = useState("");
   const [dsProductName, setDsProductName] = useState("");
+  // Parsed on every keystroke so the dialog shows exactly what will be saved,
+  // or why it won't be, before anything is created.
+  const dsParsed = dsProductId.trim() ? parseDigistoreInput(dsProductId, getDigistoreAffiliateId(user)) : null;
   const [jvProductName, setJvProductName] = useState("");
   const [jvProductUrl, setJvProductUrl] = useState("");
   const [search, setSearch] = useState("");
@@ -81,10 +86,12 @@ export default function Links() {
     mutationFn: async (productId) => {
       const product = products.find(p => p.id === productId);
       if (!product) throw new Error("Product not found");
+      const destination = applyClickBankAffiliateId(product.url, affiliateId);
       return base44.entities.AffiliateLink.create({
         product_id: product.id,
         product_name: product.name,
-        destination_url: applyClickBankAffiliateId(product.url, affiliateId),
+        destination_url: destination,
+        network: networkForDestination(destination, product.category),
         short_code: generateShortCode(links),
         clicks: 0,
         conversions: 0,
@@ -162,6 +169,7 @@ export default function Links() {
         product_id: productId,
         product_name: vendor,
         destination_url: hopLink,
+        network: "clickbank",
         short_code: makeUniqueShortCode(`cb_${vendor}`, links),
         clicks: 0, conversions: 0, earnings: 0,
       });
@@ -178,9 +186,14 @@ export default function Links() {
 
   const addDigistoreMutation = useMutation({
     mutationFn: async () => {
-      const productId = dsProductId.trim();
-      const name = dsProductName.trim() || `DS24 Product ${productId}`;
-      const url = digistorePromoLink(productId, getDigistoreAffiliateId(user));
+      const parsed = parseDigistoreInput(dsProductId, getDigistoreAffiliateId(user));
+      if (parsed.error) throw new Error(parsed.error);
+      const { url, productId } = parsed;
+      // A vendor-page link has no product number, so name and code it after
+      // the vendor's site -- not after the pasted text, which is how a link
+      // came out as "ds_https_hydrolean".
+      const site = new URL(url).hostname.replace(/^www\./, "").split(".")[0];
+      const name = dsProductName.trim() || (productId ? `DS24 Product ${productId}` : site);
       const existing = await base44.entities.Product.filter({ url });
       let productEntityId;
       if (existing.length > 0) {
@@ -189,7 +202,7 @@ export default function Links() {
         const product = await base44.entities.Product.create({
           name,
           url,
-          description: `Digistore24 product — ID: ${productId}`,
+          description: productId ? `Digistore24 product — ID: ${productId}` : `Digistore24 product — vendor page on ${site}`,
           category: "digistore24",
         });
         productEntityId = product.id;
@@ -198,7 +211,10 @@ export default function Links() {
         product_id: productEntityId,
         product_name: name,
         destination_url: url,
-        short_code: makeUniqueShortCode(`ds_${productId}`, links),
+        // Explicit: affiliate_links.network defaults to 'clickbank', and a
+        // vendor's own domain gives the redirect no other way to tell.
+        network: "digistore24",
+        short_code: makeUniqueShortCode(`ds_${productId || site}`, links),
         clicks: 0, conversions: 0, earnings: 0,
       });
     },
@@ -210,7 +226,7 @@ export default function Links() {
       setDsProductName("");
       toast.success("Digistore24 link added!");
     },
-    onError: () => toast.error("Failed to add Digistore24 link"),
+    onError: (error) => toast.error(error?.message || "Failed to add Digistore24 link"),
   });
 
   const addAnyLinkMutation = useMutation({
@@ -234,6 +250,7 @@ export default function Links() {
         product_id: productEntityId,
         product_name: name,
         destination_url: url,
+        network: networkForDestination(url),
         short_code: makeUniqueShortCode(`link_${name}`, links),
         clicks: 0, conversions: 0, earnings: 0,
       });
@@ -247,6 +264,33 @@ export default function Links() {
       toast.success("Link added!");
     },
     onError: () => toast.error("Failed to add link"),
+  });
+
+  // Starring a link puts it on the public share page; starring it again moves
+  // it back to the top there, since the page orders by this timestamp.
+  const featureMutation = useMutation({
+    mutationFn: (/** @type {any} */ link) =>
+      base44.entities.AffiliateLink.update(link.id, {
+        bio_featured_at: link.bio_featured_at ? null : new Date().toISOString(),
+      }),
+    onMutate: async (link) => {
+      await queryClient.cancelQueries({ queryKey: ["links"] });
+      const previous = queryClient.getQueryData(["links"]);
+      queryClient.setQueryData(["links"], (/** @type {any} */ old) =>
+        (old || []).map((l) =>
+          l.id === link.id ? { ...l, bio_featured_at: link.bio_featured_at ? null : new Date().toISOString() } : l
+        )
+      );
+      return { previous, wasFeatured: !!link.bio_featured_at };
+    },
+    onError: (_err, _link, context) => {
+      queryClient.setQueryData(["links"], context.previous);
+      toast.error("Couldn't update your share page");
+    },
+    onSuccess: (_data, _link, context) => {
+      queryClient.invalidateQueries({ queryKey: ["links"] });
+      toast.success(context.wasFeatured ? "Removed from your share page" : "Added to your share page");
+    },
   });
 
   const copyLink = (link) => {
@@ -263,7 +307,7 @@ export default function Links() {
     <div className="space-y-6" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
       {/* Pull-to-refresh indicator */}
       <div className="ptr-indicator" style={{ height: pullDistance }}>
-        <RefreshCw className={`w-5 h-5 text-violet-400 transition-transform ${pulling ? "animate-spin" : ""}`} style={{ transform: `rotate(${pullDistance * 2}deg)` }} />
+        <RefreshCw className={`w-5 h-5 text-violet-700 dark:text-violet-300 transition-transform ${pulling ? "animate-spin" : ""}`} style={{ transform: `rotate(${pullDistance * 2}deg)` }} />
       </div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -274,13 +318,15 @@ export default function Links() {
 
       <AffiliateDisclosure />
 
+      <SharePageCard links={links} />
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex gap-2 flex-wrap">
         {/* ClickBank HopLink Dialog */}
         <Dialog open={cbDialogOpen} onOpenChange={setCbDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" className="gap-2 h-11" style={{ userSelect: "none" }}>
-              <ShoppingBag className="w-4 h-4 text-orange-400" /> ClickBank
+              <ShoppingBag className="w-4 h-4 text-orange-700 dark:text-orange-300" /> ClickBank
             </Button>
           </DialogTrigger>
           <DialogContent>
@@ -318,7 +364,7 @@ export default function Links() {
         <Dialog open={dsDialogOpen} onOpenChange={setDsDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" className="gap-2 h-11" style={{ userSelect: "none" }}>
-              <ShoppingBag className="w-4 h-4 text-blue-400" /> Digistore24
+              <ShoppingBag className="w-4 h-4 text-blue-700 dark:text-blue-300" /> Digistore24
             </Button>
           </DialogTrigger>
           <DialogContent>
@@ -326,7 +372,11 @@ export default function Links() {
               <DialogTitle className="font-display">Add Digistore24 Link</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">Enter the <strong>product ID</strong> from the Digistore24 product page URL.</p>
+              <p className="text-sm text-muted-foreground">
+                Paste the product&apos;s link from Digistore24 → <strong>Go to advertising media</strong>. Many vendors
+                only accept links on their own domain, and that page has the one they expect. A plain product number
+                works for vendors that don&apos;t.
+              </p>
               <div className="space-y-2">
                 <Label>Product Name</Label>
                 <Input
@@ -336,23 +386,28 @@ export default function Links() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Product ID</Label>
+                <Label>Affiliate Link or Product Number</Label>
                 <Input
-                  placeholder="e.g. 123456"
+                  placeholder="https://vendor.com/redir/123456/YourID/  or  123456"
                   value={dsProductId}
                   onChange={e => setDsProductId(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && dsProductId.trim() && addDigistoreMutation.mutate()}
+                  onKeyDown={e => e.key === "Enter" && dsParsed?.url && addDigistoreMutation.mutate()}
                 />
               </div>
-              {dsProductId.trim() && (
+              {dsParsed?.error && (
+                <div className="p-3 rounded-lg text-xs bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-300">
+                  {dsParsed.error}
+                </div>
+              )}
+              {dsParsed?.url && (
                 <div className="p-3 rounded-lg bg-muted text-xs">
                   <p className="text-muted-foreground">Your affiliate link will be:</p>
-                  <p className="font-mono text-foreground break-all mt-1">{digistorePromoLink(dsProductId, getDigistoreAffiliateId(user))}</p>
+                  <p className="font-mono text-foreground break-all mt-1">{dsParsed.url}</p>
                 </div>
               )}
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={() => setDsDialogOpen(false)}>Cancel</Button>
-                <Button onClick={() => addDigistoreMutation.mutate()} disabled={addDigistoreMutation.isPending || !dsProductId.trim()}>
+                <Button onClick={() => addDigistoreMutation.mutate()} disabled={addDigistoreMutation.isPending || !dsParsed?.url}>
                   {addDigistoreMutation.isPending ? "Adding..." : "Add Link"}
                 </Button>
               </div>
@@ -451,6 +506,19 @@ export default function Links() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => featureMutation.mutate(link)}
+                          aria-pressed={!!link.bio_featured_at}
+                          aria-label={`${link.bio_featured_at ? "Remove" : "Add"} ${link.product_name || "link"} ${link.bio_featured_at ? "from" : "to"} your share page`}
+                          title={link.bio_featured_at ? "On your share page" : "Add to your share page"}
+                        >
+                          <Star
+                            className={`w-3.5 h-3.5 ${link.bio_featured_at ? "fill-amber-400 text-amber-500" : "text-muted-foreground"}`}
+                          />
+                        </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => copyLink(link)} aria-label={`Copy tracking link for ${link.product_name || "product"}`}>
                           <Copy className="w-3.5 h-3.5" />
                         </Button>

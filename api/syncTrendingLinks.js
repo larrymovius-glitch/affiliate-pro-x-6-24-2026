@@ -5,6 +5,7 @@ import {
   CLICKBANK_AFFILIATE_ID,
   DIGISTORE_AFFILIATE_ID,
   digistorePromoLink,
+  isDigistoreProductId,
 } from "./_lib/affiliates.js";
 
 export default async function handler(req, res) {
@@ -49,7 +50,7 @@ Return ONLY real, verified products that are currently trending. Do NOT make up 
       newTrendingUrls.add(`https://${cbNickname}.${item.vendor.trim().toLowerCase()}.hop.clickbank.net`);
     }
     for (const item of trendingResult.digistore24 || []) {
-      if (!item.product_id) continue;
+      if (!isDigistoreProductId(item.product_id)) continue;
       newTrendingUrls.add(digistorePromoLink(item.product_id));
     }
 
@@ -80,12 +81,12 @@ Return ONLY real, verified products that are currently trending. Do NOT make up 
         const product = await D.Product.create({ created_by_id: ownerId, name: item.name || vendor, url: hopLink, description: `ClickBank trending product — vendor: ${vendor}`, category: "clickbank_trending" });
         productId = product.id;
       }
-      await D.AffiliateLink.create({ created_by_id: ownerId, product_id: productId, product_name: item.name || vendor, destination_url: hopLink, short_code: `trend_cb_${vendor}`, clicks: 0, conversions: 0, earnings: 0 });
+      await D.AffiliateLink.create({ created_by_id: ownerId, product_id: productId, product_name: item.name || vendor, destination_url: hopLink, network: "clickbank", short_code: `trend_cb_${vendor}`, clicks: 0, conversions: 0, earnings: 0 });
       added.push(item.name || vendor);
     }
 
     for (const item of trendingResult.digistore24 || []) {
-      if (!item.product_id) continue;
+      if (!isDigistoreProductId(item.product_id)) continue;
       const dsUrl = digistorePromoLink(item.product_id);
       if (existingLinkUrls.has(dsUrl)) continue;
 
@@ -96,7 +97,10 @@ Return ONLY real, verified products that are currently trending. Do NOT make up 
         const product = await D.Product.create({ created_by_id: ownerId, name: item.name || `DS24 Product ${item.product_id}`, url: dsUrl, description: `Digistore24 trending product — ID: ${item.product_id}`, category: "digistore24_trending" });
         productId = product.id;
       }
-      await D.AffiliateLink.create({ created_by_id: ownerId, product_id: productId, product_name: item.name || `DS24 Product ${item.product_id}`, destination_url: dsUrl, short_code: `trend_ds_${item.product_id}`, clicks: 0, conversions: 0, earnings: 0 });
+      // network must be explicit: affiliate_links.network defaults to
+      // 'clickbank', which is how every Digistore24 link this job made ended up
+      // labelled ClickBank.
+      await D.AffiliateLink.create({ created_by_id: ownerId, product_id: productId, product_name: item.name || `DS24 Product ${item.product_id}`, destination_url: dsUrl, network: "digistore24", short_code: `trend_ds_${item.product_id}`, clicks: 0, conversions: 0, earnings: 0 });
       added.push(item.name || `DS24 ${item.product_id}`);
     }
 

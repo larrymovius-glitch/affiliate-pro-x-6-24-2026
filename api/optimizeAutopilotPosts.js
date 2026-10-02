@@ -17,9 +17,11 @@ import { createAutopilotPack } from "./createAutopilotPack.js";
 const CYCLE_HOURS = 48;
 const CYCLE_MS = CYCLE_HOURS * 60 * 60 * 1000;
 
-// Nothing in this app publishes a post on its own: Instagram and LinkedIn have
-// no OAuth connect flow, so `status` only reaches 'posted' when a human marks
-// it. A variant sitting at zero therefore usually means "never went out",
+// Publishing is opt-in and manual. Instagram and LinkedIn do have real connect
+// flows now (api/instagramConnect.js, api/linkedinConnect.js), but they only
+// fire when a user presses post -- nothing here puts a post out on a schedule
+// -- so `status` still only reaches 'posted' once someone actually sends one.
+// A variant sitting at zero therefore usually means "never went out",
 // not "bad ad". Only a post that actually went out is allowed to fail, or the
 // rotation would archive good copy and order fresh creative forever, spending
 // model tokens to learn nothing.

@@ -22,8 +22,8 @@ export default function Networks() {
           <Globe2 className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-white font-display">Affiliate Networks</h1>
-          <p className="text-sm text-slate-400">
+          <h1 className="text-2xl font-bold text-foreground font-display">Affiliate Networks</h1>
+          <p className="text-sm text-muted-foreground">
             Sign up and save your id for any network — Maya and Atlas use this to tell you what's trending and whether
             you're already set up to promote it.
           </p>
@@ -35,7 +35,7 @@ export default function Networks() {
         if (networks.length === 0) return null;
         return (
           <div key={category.id} className="space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{category.label}</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{category.label}</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {networks.map((network) => (
                 <NetworkCard key={network.id} network={network} savedId={savedIdFor(user, network)} />

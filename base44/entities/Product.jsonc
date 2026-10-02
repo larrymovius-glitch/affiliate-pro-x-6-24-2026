@@ -25,6 +25,24 @@
     "image_url": {
       "type": "string",
       "description": "Product image URL"
+    },
+    "image_source": {
+      "type": "string",
+      "enum": ["official", "own", "sales_page"],
+      "description": "Where image_url came from; cleared whenever the picture changes"
+    },
+    "creative_rule": {
+      "type": "string",
+      "enum": ["any", "own_or_official", "official_only", "unaltered"],
+      "description": "The vendor's rule on which pictures and videos ads may use; empty = not checked"
+    },
+    "creative_rule_note": {
+      "type": "string",
+      "description": "The vendor's other ad rules, in brief"
+    },
+    "creative_rule_source": {
+      "type": "string",
+      "description": "Where the vendor's rules were read"
     }
   },
   "required": [

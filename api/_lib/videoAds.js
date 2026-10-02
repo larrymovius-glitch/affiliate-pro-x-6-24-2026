@@ -29,14 +29,28 @@ export function videoAdsConfigured() {
  * fetches movie assets by URL, not inline, so the caller must upload this
  * somewhere public (see uploadPublicAsset) before using it in a render.
  */
-export async function synthesizeSpeechBuffer(text, voice = "alloy") {
+// gpt-4o-mini-tts takes plain-English direction on delivery, which is the
+// difference between an ad that sounds like a phone menu and one that sounds
+// like a person. Without it the read is flat and evenly paced -- the single
+// clearest giveaway that nobody was behind the microphone.
+export const AD_VOICE = "nova";
+export const AD_VOICE_DIRECTION =
+  "Speak like a real person recommending something to a friend: warm, upbeat and unhurried, with natural emphasis on the details that matter. Not an announcer, not a hard sell, no shouting.";
+
+export async function synthesizeSpeechBuffer(text, voice = AD_VOICE, instructions = AD_VOICE_DIRECTION) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY not configured");
-  const selectedVoice = OPENAI_VOICES.includes(voice) ? voice : "alloy";
+  const selectedVoice = OPENAI_VOICES.includes(voice) ? voice : AD_VOICE;
   const res = await fetch("https://api.openai.com/v1/audio/speech", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "gpt-4o-mini-tts", input: text, voice: selectedVoice, response_format: "mp3" }),
+    body: JSON.stringify({
+      model: "gpt-4o-mini-tts",
+      input: text,
+      voice: selectedVoice,
+      response_format: "mp3",
+      ...(instructions ? { instructions: String(instructions).slice(0, 1000) } : {}),
+    }),
   });
   if (!res.ok) throw new Error(`TTS failed: ${await res.text()}`);
   return Buffer.from(await res.arrayBuffer());
@@ -64,30 +78,189 @@ export function estimateDurationSeconds(script) {
   return Math.min(30, Math.max(8, Math.round(words / 2.5) + 1));
 }
 
-function buildMovie({ imageUrl, audioUrl, caption, duration }) {
+// Shapes an ad can be rendered in. Vertical is the default and the one that
+// matters here: TikTok, Reels and Shorts are all 9:16 full-screen, and a
+// landscape video posted there shows as a letterboxed strip through the middle
+// of the phone with black above and below -- which is what every ad this file
+// produced before would have done.
+//
+// "resolution" takes named presets too, but their exact pixel sizes are not
+// documented, so the sizes are given outright.
+// `platform` is written to ad_assets.platform, which has a CHECK constraint
+// allowing only facebook, instagram, tiktok, twitter, email and general --
+// anything else fails the insert and loses a finished render. `where` is for
+// people to read and belongs in prose, not in that column.
+export const AD_FORMATS = {
+  vertical: { width: 1080, height: 1920, platform: "tiktok", where: "TikTok, Reels, Shorts" },
+  square: { width: 1080, height: 1080, platform: "instagram", where: "Facebook and Instagram feed" },
+  landscape: { width: 1920, height: 1080, platform: "general", where: "YouTube" },
+};
+
+export function adFormat(name) {
+  return AD_FORMATS[String(name || "").trim().toLowerCase()] || AD_FORMATS.vertical;
+}
+
+// Burned into every ad, not left to whoever posts it to remember.
+//
+// Two separate obligations, both met by one line. Digistore24's terms ban
+// "undisclosed AI-generated promotional content" outright, alongside deepfakes
+// and synthetic spokespeople -- and every ad this file makes is an AI script
+// read by an AI voice. The FTC (16 CFR Part 255) requires the commission to be
+// disclosed where the recommendation is, which on a muted, scrolled video
+// means on the picture, not only in a caption someone taps to expand.
+//
+// It sits on the frame itself so it survives being downloaded, re-edited in
+// CapCut and posted somewhere none of us chose.
+export const AD_DISCLOSURE = "AI-generated ad · Affiliate link — I may earn a commission";
+
+/**
+ * The caption to post alongside the video. The on-screen line covers the
+ * viewer who never reads captions; this covers the platforms that look for
+ * the words, and #ad is what TikTok and Instagram actually scan for.
+ */
+export function suggestedAdCaption(productName, linkHint = "Link in bio") {
+  return `${String(productName || "").trim()} — ${linkHint}.\n\n#ad Affiliate link: I may earn a commission if you buy through it, at no extra cost to you. This ad's voiceover and script were AI-generated.`;
+}
+
+/**
+ * `captions: false` leaves the spoken words off the picture. That is the
+ * version to take into an editor -- CapCut and the TikTok editor both add
+ * their own captions and trending audio, and burned-in text can't be moved or
+ * restyled once it is part of the frame.
+ *
+ * `videoUrl` puts real footage behind the ad instead of one still photo --
+ * something exported from Firefly, Premiere or a phone. It fills the frame and
+ * is silenced, because the ad's voice is the voiceover, and a clip's own audio
+ * would talk over it. A clip shorter than the script loops rather than
+ * freezing on its last frame.
+ */
+export function buildMovie({ imageUrl, videoUrl, audioUrl, caption, duration, format, captions = true, badgeUrl }) {
+  const { width, height } = adFormat(format);
+  const vertical = height > width;
+
+  // Footage fills the frame; a product photo does not. "cover" on a square
+  // photo in a 9:16 frame crops away a third of its width -- half the LEGO
+  // box, the label off a bottle -- so a still is fitted whole into the upper
+  // two thirds instead, with a slow push-in for the only movement it has.
+  const backdrop = videoUrl
+    ? { type: "video", src: videoUrl, duration, resize: "cover", muted: true, loop: -1 }
+    : {
+        type: "image",
+        src: imageUrl,
+        duration,
+        resize: "fit",
+        zoom: 2,
+        position: "custom",
+        x: "center",
+        y: vertical ? "46%" : "center",
+        width: Math.round(width * 0.92),
+        height: Math.round(height * (vertical ? 0.58 : 0.82)),
+      };
+
   return {
-    resolution: "full-hd",
+    resolution: "custom",
+    width,
+    height,
     scenes: [
       {
+        // A deliberate dark backdrop rather than the default black, so a
+        // fitted photo sits on something that looks chosen.
+        "background-color": "#0B0B10",
         elements: [
-          // zoom: 1-10, a slow Ken-Burns-style push-in over a single still
-          // image -- the only visual movement a one-image ad has to work with.
-          { type: "image", src: imageUrl, duration, zoom: 3 },
+          backdrop,
           { type: "audio", src: audioUrl, duration },
-          { type: "text", text: caption, duration },
+          // Kept in the upper third on purpose: on TikTok the bottom of the
+          // screen is covered by the poster's name and caption, and the right
+          // edge by the like/comment/share buttons. Text centred or low gets
+          // sat on by the app's own interface.
+          {
+            type: "text",
+            text: caption,
+            duration,
+            position: "custom",
+            x: "center",
+            y: vertical ? "8%" : "6%",
+            width: Math.round(width * 0.86),
+            settings: {
+              "font-family": "Roboto",
+              "font-size": vertical ? "64px" : "48px",
+              color: "#FFFFFF",
+              "text-align": "center",
+              // Product photos are often pale, and white on white is invisible.
+              "text-shadow": "0 4px 18px rgba(0,0,0,0.85)",
+            },
+          },
+          // Directly under the product name, where the eye already is, and
+          // never in the bottom fifth that the app's own interface covers.
+          {
+            type: "text",
+            text: AD_DISCLOSURE,
+            duration,
+            position: "custom",
+            x: "center",
+            y: vertical ? "14%" : "13%",
+            width: Math.round(width * 0.86),
+            settings: {
+              "font-family": "Roboto",
+              "font-size": vertical ? "34px" : "28px",
+              color: "#F2F2F5",
+              "text-align": "center",
+              "text-shadow": "0 3px 12px rgba(0,0,0,0.9)",
+            },
+          },
+          // A network's own logo, when that network gives affiliates one.
+          // Centred rather than tucked in a corner: the corners of a phone
+          // screen belong to the app -- buttons down the right, name and
+          // caption along the bottom. Square, unscaled in proportion and
+          // unrecoloured, because eBay's terms require their logo to be used
+          // exactly as supplied in the Creative Gallery.
+          ...(badgeUrl ? [{
+            type: "image",
+            src: badgeUrl,
+            duration,
+            position: "custom",
+            x: "center",
+            y: vertical ? "20%" : "17%",
+            width: Math.round(width * 0.1),
+            height: Math.round(width * 0.1),
+          }] : []),
+          // Spoken words burned onto the picture, highlighted as they are
+          // said. Most of a short-video audience watches with the sound off,
+          // so an ad whose whole message is in a voiceover says nothing to
+          // them; this is also what the platform's own viewers are used to
+          // seeing. Transcribed from the voiceover we just made, so it cannot
+          // drift out of sync with it.
+          ...(captions ? [{
+            type: "subtitles",
+            language: "en",
+            settings: {
+              style: "classic-progressive",
+              "font-family": "Roboto",
+              "font-size": vertical ? 90 : 70,
+              "line-color": "#FFFFFF",
+              "word-color": "#FFE100",
+              "outline-color": "#000000",
+              "outline-width": 8,
+              position: "custom",
+              x: Math.round(width / 2),
+              // Middle of the frame, not the bottom: the bottom fifth of a
+              // phone screen is the app's own caption and username.
+              y: Math.round(height * 0.78),
+            },
+          }] : []),
         ],
       },
     ],
   };
 }
 
-export async function submitAdVideoRender({ imageUrl, audioUrl, caption, duration }) {
+export async function submitAdVideoRender({ imageUrl, videoUrl, audioUrl, caption, duration, format, captions, badgeUrl }) {
   const apiKey = process.env.JSON2VIDEO_API_KEY;
   if (!apiKey) throw new Error("JSON2VIDEO_API_KEY not configured");
   const res = await fetch(`${JSON2VIDEO_BASE}/movies`, {
     method: "POST",
     headers: { "x-api-key": apiKey, "Content-Type": "application/json" },
-    body: JSON.stringify(buildMovie({ imageUrl, audioUrl, caption, duration })),
+    body: JSON.stringify(buildMovie({ imageUrl, videoUrl, audioUrl, caption, duration, format, captions, badgeUrl })),
   });
   const body = await res.json();
   if (!res.ok || !body?.success || !body?.project) throw new Error(`Render submit failed: ${JSON.stringify(body)}`);

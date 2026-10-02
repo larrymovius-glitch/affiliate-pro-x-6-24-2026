@@ -22,7 +22,10 @@ export const AFFILIATE_NETWORKS = [
   // account needs the former, not a straight shot to account creation.
   { id: "clickbank", name: "ClickBank", category: "digital", idLabel: "ClickBank Nickname", signupUrl: "https://www.clickbank.com", instant: true },
   { id: "digistore24", name: "Digistore24", category: "digital", idLabel: "Digistore24 ID", signupUrl: "https://www.digistore24.com", instant: true },
-  { id: "ebay", name: "eBay Partner Network", category: "retail", idLabel: "Campaign ID", signupUrl: "https://partnernetwork.ebay.com", instant: true },
+  // eBay skips its partnernetwork.ebay.com info site and goes straight to the
+  // partner dashboard, whose login page has both "Sign in with eBay" and
+  // "Sign up now" -- same Login + Sign Up pairing, one less click.
+  { id: "ebay", name: "eBay Partner Network", category: "retail", idLabel: "Campaign ID", signupUrl: "https://partner.ebay.com/", instant: true },
 
   // Digital products / courses / info-products -- same territory as ClickBank/Digistore24
   { id: "jvzoo", name: "JVZoo", category: "digital", idLabel: "JVZoo ID", signupUrl: "https://www.jvzoo.com", instant: true },

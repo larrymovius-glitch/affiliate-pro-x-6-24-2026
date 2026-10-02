@@ -2,6 +2,7 @@ import { db } from "./_lib/db.js";
 import { getAuthedUser } from "./_lib/supabase.js";
 import { invokeLLM } from "./_lib/llm.js";
 import { applyClickBankAffiliateId } from "./_lib/affiliates.js";
+import { networkForDestination } from "./_lib/tracking.js";
 
 function cleanCode(v) { return String(v || "product").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 18) || "product"; }
 function uniqueCode(base, existing) {
@@ -44,11 +45,13 @@ export async function createAutopilotPack({ user, payload = {}, origin }) {
           : `autopilot:${product.id}:v${variant}`;
         let link = existingLinks.find((l) => l.product_id === product.id && l.campaign_id === campaignId);
         if (!link) {
+          const destination = applyClickBankAffiliateId(product.url, affiliateId);
           link = await D.AffiliateLink.create({
             created_by_id: user.id,
             product_id: product.id,
             product_name: product.name,
-            destination_url: applyClickBankAffiliateId(product.url, affiliateId),
+            destination_url: destination,
+            network: networkForDestination(destination, product.category),
             short_code: uniqueCode(`${product.name}_${variant}`, existingCodes),
             campaign_id: campaignId,
             clicks: 0, conversions: 0, earnings: 0,

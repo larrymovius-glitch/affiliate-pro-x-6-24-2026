@@ -49,11 +49,69 @@ list is in `CLAUDE.md` under "Environment variables".
 | `npm run typecheck` | `tsc -p ./jsconfig.json` — JS type-checking via `checkJs`        |
 | `npm test`          | Node's built-in test runner over `tests/*.test.mjs`             |
 
-Run the test suite with `npm test` (Node's built-in runner over `tests/*.test.mjs`).
-
 ## Deployment
 
-Vercel builds `dist/` and serves `api/*` as serverless functions. `vercel.json`
-rewrites the legacy `/functions/<name>` paths to `/api/<name>` and defines three
-cron jobs (auto-payouts, daily performance summary, trending-link sync), which
-authenticate with `CRON_SECRET` rather than a user token.
+Pushing to `main` on GitLab deploys to production: Vercel builds `dist/` and
+serves `api/*` as serverless functions. Server-side secrets live in the Vercel
+project's environment variables (full list in `CLAUDE.md`), and a changed value
+only takes effect on the next deploy.
+
+`vercel.json` rewrites the legacy `/functions/<name>` paths to `/api/<name>` and
+schedules six daily jobs (times in UTC):
+
+| Job                       | Time  | Does                                                    |
+| ------------------------- | ----- | ------------------------------------------------------- |
+| `refreshInstagramToken`   | 04:00 | Keeps every connected Instagram account's token alive   |
+| `syncTrendingLinks`       | 06:00 | Adds links for currently trending ClickBank products    |
+| `syncEbayTrending`        | 07:00 | Adds links for currently trending eBay products         |
+| `optimizeAutopilotPosts`  | 09:00 | Autopilot's 48-hour keep-what-earned rotation           |
+| `dailyPerformanceSummary` | 12:00 | Emails admins a summary of links, clicks and earnings   |
+| `processAutoPayouts`      | 13:00 | Creates payouts that are due under users' schedules     |
+
+Three depend on integrations beyond the basics: the eBay sync needs
+`EBAY_APP_ID`, `EBAY_CERT_ID` and an eBay Partner Network campaign ID saved on
+the Networks page; the Instagram refresh needs `INSTAGRAM_APP_SECRET`; and the
+daily summary sends through Resend (see below).
+
+Scheduled runs authenticate with `CRON_SECRET`, not a user token. It can be any
+long random string, but Vercel refuses to deploy if it has leading or trailing
+whitespace.
+
+## Stripe setup
+
+- `STRIPE_SECRET_KEY` is the `sk_live_…` value from Developers → API keys →
+  Secret key, not the key's ID (`mk_…`) that Stripe lists next to it.
+- Monthly and Yearly prices are looked up by lookup key
+  (`affiliate_pro_x_monthly`, `affiliate_pro_x_yearly`) in whichever Stripe
+  account the key belongs to, and created there on the first checkout at the
+  amounts in `src/lib/pricingPlans.js`. Lifetime is priced inline. There is
+  nothing to create in the Stripe dashboard.
+- The webhook has to exist in Stripe (Workbench → Webhooks → Add destination),
+  pointed at `https://<your-domain>/api/stripeWebhook` and listening to
+  `checkout.session.completed`, `customer.subscription.created`,
+  `customer.subscription.updated`, `customer.subscription.deleted` and
+  `invoice.payment_succeeded`. Its signing secret (`whsec_…`) goes in
+  `STRIPE_WEBHOOK_SECRET`. Without the webhook, customers pay but are never
+  upgraded.
+
+## Email setup
+
+`api/_lib/email.js` sends through [Resend](https://resend.com). Email is the
+only integration here that fails soft on purpose — a send that cannot go out
+logs and returns false rather than taking down the job that asked for it — so
+misconfiguration is quiet by design. Two variables control it:
+
+- `RESEND_API_KEY` — the `re_…` value from Resend → API Keys. Resend shows a
+  key once, at creation; there is no way to read it back later. Without this,
+  nothing is sent at all.
+- `RESEND_FROM` — optional. Defaults to `Affiliate Pro X
+  <onboarding@resend.dev>`, Resend's shared sender, which works on an account
+  with no DNS configured. Point it at your own address only after verifying
+  that domain in Resend → Domains, which means adding the DKIM, SPF and return
+  path records it gives you. Resend rejects any `From` on an unverified domain,
+  so setting this ahead of verification turns every send into a 403.
+
+Only `dailyPerformanceSummary` sends mail today, and only to profiles with
+`role = 'admin'`. Nothing in the app emails end users, so an unverified domain
+is not currently a limitation — Resend's shared sender delivers to the account
+owner's own address, which is who the summary is for.

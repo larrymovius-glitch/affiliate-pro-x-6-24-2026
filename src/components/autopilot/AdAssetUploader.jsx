@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, Trash2, ImageIcon, VideoIcon, Loader2, ExternalLink } from "lucide-react";
+import { Upload, Trash2, ImageIcon, VideoIcon, Loader2, ExternalLink, Download } from "lucide-react";
 import { toast } from "sonner";
 
 export default function AdAssetUploader() {
@@ -132,7 +132,7 @@ export default function AdAssetUploader() {
               <Card key={asset.id} className="bg-card border-border overflow-hidden">
                 <div className="relative aspect-video bg-muted flex items-center justify-center">
                   {asset.file_type === "video"
-                    ? <video src={asset.file_url} className="w-full h-full object-cover" />
+                    ? <video src={asset.file_url} className="w-full h-full object-contain bg-black" controls playsInline preload="metadata" />
                     : <img src={asset.file_url} alt={asset.title} className="w-full h-full object-cover" />
                   }
                   <div className="absolute top-2 left-2">
@@ -157,6 +157,14 @@ export default function AdAssetUploader() {
                     </Button>
                   </div>
                   {asset.notes && <p className="text-xs text-muted-foreground">{asset.notes}</p>}
+                  {/* The files live on other hosts (JSON2Video, Supabase), where a
+                      browser ignores the download attribute -- so this opens the
+                      file on its own, where phones offer Download / Save Video. */}
+                  <Button asChild size="sm" variant="outline" className="w-full gap-2">
+                    <a href={asset.file_url} target="_blank" rel="noreferrer" download>
+                      <Download className="w-4 h-4" /> Download
+                    </a>
+                  </Button>
                 </CardContent>
               </Card>
             ))}

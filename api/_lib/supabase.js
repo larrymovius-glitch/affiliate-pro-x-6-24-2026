@@ -13,6 +13,11 @@ export async function getAuthedUser(req) {
   const header = req.headers["authorization"] || req.headers["Authorization"] || "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : null;
   if (!token) return { user: null, token: null };
+  // Vercel Cron sends CRON_SECRET in this same header. It is not a Supabase
+  // token, and handing it to getUser logged a 403 "bad_jwt" in Supabase's
+  // auth logs on every scheduled run -- the jobs still worked, but it read as
+  // a nightly auth failure. Cron callers are recognised by isCronRequest.
+  if (process.env.CRON_SECRET && token === process.env.CRON_SECRET) return { user: null, token };
 
   const admin = adminClient();
   const { data, error } = await admin.auth.getUser(token);
