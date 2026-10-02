@@ -53,6 +53,24 @@ export default function Pricing() {
 
   const checkoutMutation = useStripeCheckout();
 
+  const paypalCheckoutMutation = useMutation({
+    mutationFn: async (/** @type {any} */ data) => {
+      if (window.self !== window.top) {
+        throw new Error("Checkout works only from the published app. Please open the app in a new tab.");
+      }
+      const response = await base44.functions.invoke('createPaypalOrder', data);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      if (data.veteranAccess) {
+        toast.success("Veteran discount applied! Free access granted.");
+      } else if (data.url) {
+        window.location.href = data.url;
+      }
+    },
+    onError: (/** @type {any} */ err) => toast.error(err.response?.data?.error || err.message || "Failed to start PayPal checkout")
+  });
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 py-12 px-4">
       <div className="max-w-6xl mx-auto space-y-12">
@@ -155,6 +173,14 @@ export default function Pricing() {
                 >
                   {checkoutMutation.isPending ? "Processing..." : "Get Started"}
                 </Button>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => paypalCheckoutMutation.mutate({ planType: plan.id })}
+                  disabled={paypalCheckoutMutation.isPending || veteranRequestStatus === "verified"}
+                >
+                  {paypalCheckoutMutation.isPending ? "Processing..." : "Pay with PayPal"}
+                </Button>
               </CardContent>
             </Card>
           ))}
@@ -162,7 +188,7 @@ export default function Pricing() {
 
         {/* Trust Badges */}
         <div className="text-center pt-8 border-t">
-          <p className="text-sm text-muted-foreground mb-4">Secure payments powered by Stripe</p>
+          <p className="text-sm text-muted-foreground mb-4">Secure payments powered by Stripe & PayPal</p>
           <div className="flex justify-center gap-6 opacity-60">
             <Shield className="w-8 h-8" />
             <Star className="w-8 h-8" />
