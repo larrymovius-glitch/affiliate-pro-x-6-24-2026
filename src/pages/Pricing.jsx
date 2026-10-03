@@ -166,21 +166,22 @@ export default function Pricing() {
                     </li>
                   ))}
                 </ul>
-                <Button
-                  className="w-full"
-                  onClick={() => checkoutMutation.mutate({ planType: plan.id })}
-                  disabled={checkoutMutation.isPending || veteranRequestStatus === "verified"}
-                >
-                  {checkoutMutation.isPending ? "Processing..." : "Get Started"}
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => paypalCheckoutMutation.mutate({ planType: plan.id })}
-                  disabled={paypalCheckoutMutation.isPending || veteranRequestStatus === "verified"}
-                >
-                  {paypalCheckoutMutation.isPending ? "Processing..." : "Pay with PayPal"}
-                </Button>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    className="w-full"
+                    onClick={() => paypalCheckoutMutation.mutate({ planType: plan.id })}
+                    disabled={paypalCheckoutMutation.isPending || veteranRequestStatus === "verified"}
+                  >
+                    {paypalCheckoutMutation.isPending ? "Processing..." : "Pay with PayPal"}
+                  </Button>
+                  <Button
+                    className="w-full"
+                    onClick={() => checkoutMutation.mutate({ planType: plan.id })}
+                    disabled={checkoutMutation.isPending || veteranRequestStatus === "verified"}
+                  >
+                    {checkoutMutation.isPending ? "Processing..." : "Pay with Stripe"}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}

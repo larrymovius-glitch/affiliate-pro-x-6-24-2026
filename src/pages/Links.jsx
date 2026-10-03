@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Link2, Copy, Trash2, ExternalLink, Search, MousePointerClick, RefreshCw, ShoppingBag, Star } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -20,6 +19,17 @@ import { applyClickBankAffiliateId, getClickBankAffiliateId } from "@/lib/affili
 import { getTrackableUrl as buildTrackingUrl } from "@/lib/links";
 import { getDigistoreAffiliateId, parseDigistoreInput } from "../../api/_lib/affiliates.js";
 import { networkForDestination } from "../../api/_lib/tracking.js";
+import { groupLinks } from "@/lib/linkGroups";
+
+const NETWORK_BADGE = {
+  ebay: "bg-yellow-500/15 text-yellow-800 dark:text-yellow-300 border-yellow-500/30",
+  digistore24: "bg-blue-500/15 text-blue-800 dark:text-blue-300 border-blue-500/30",
+  clickbank: "bg-orange-500/15 text-orange-800 dark:text-orange-300 border-orange-500/30",
+};
+
+function networkBadgeClass(id) {
+  return NETWORK_BADGE[id] || "bg-muted text-foreground";
+}
 
 function sanitizeShortCode(value) {
   return String(value || "link")
@@ -298,10 +308,16 @@ export default function Links() {
     toast.success("Tracking link copied to clipboard!");
   };
 
+  const copyAffiliateUrl = (url) => {
+    navigator.clipboard.writeText(url);
+    toast.success("Affiliate link copied to clipboard!");
+  };
+
   const filtered = links.filter(l =>
     !search || l.short_code?.toLowerCase().includes(search.toLowerCase()) ||
     l.product_name?.toLowerCase().includes(search.toLowerCase())
   );
+  const grouped = groupLinks(filtered);
 
   return (
     <div className="space-y-6" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
@@ -472,72 +488,91 @@ export default function Links() {
           <p className="text-muted-foreground mt-4">No links yet — create one from a product above</p>
         </Card>
       ) : (
-        <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Product</TableHead>
-                  <TableHead>Short Code</TableHead>
-                  <TableHead>Clicks</TableHead>
-                  <TableHead>Earnings</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((link) => (
-                  <TableRow key={link.id}>
-                    <TableCell className="font-medium text-sm">{link.product_name || "—"}</TableCell>
-                    <TableCell>
-                      <code className="text-xs bg-muted px-2 py-1 rounded font-mono">{link.short_code}</code>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <MousePointerClick className="w-3 h-3 text-muted-foreground" />
-                        <Badge variant="secondary">{link.clicks || 0}</Badge>
+        <div className="space-y-8">
+          {grouped.map((group) => (
+            <section key={group.networkId} className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Badge className={networkBadgeClass(group.networkId)}>{group.label}</Badge>
+                <span className="text-sm text-muted-foreground">
+                  {group.linkCount} {group.linkCount === 1 ? "link" : "links"}
+                </span>
+              </div>
+              {group.products.map((product) => (
+                <Card key={product.key} className="p-4 space-y-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm">{product.productName}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Product #: <span className="font-mono text-foreground">{product.productNumber || "—"}</span>
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm">
+                      <span className="flex items-center gap-1 text-muted-foreground">
+                        <MousePointerClick className="w-3 h-3" /> {product.clicks}
+                      </span>
+                      <span className="text-emerald-500 font-medium">${product.earnings.toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2 rounded-lg bg-muted p-2">
+                    <p className="flex-1 min-w-0 font-mono text-xs break-all">{product.destinationUrl || "—"}</p>
+                    {product.destinationUrl && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        onClick={() => copyAffiliateUrl(product.destinationUrl)}
+                        aria-label={`Copy affiliate link for ${product.productName}`}
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="divide-y rounded-lg border">
+                    {product.copies.map((link) => (
+                      <div key={link.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <code className="text-xs bg-muted px-2 py-1 rounded font-mono truncate">{link.short_code}</code>
+                          <span className="text-xs text-muted-foreground">
+                            {link.clicks || 0} clicks
+                            {link.created_at ? ` · ${format(new Date(link.created_at), "MMM d, yyyy")}` : ""}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => featureMutation.mutate(link)}
+                            aria-pressed={!!link.bio_featured_at}
+                            aria-label={`${link.bio_featured_at ? "Remove" : "Add"} ${link.product_name || "link"} ${link.bio_featured_at ? "from" : "to"} your share page`}
+                            title={link.bio_featured_at ? "On your share page" : "Add to your share page"}
+                          >
+                            <Star
+                              className={`w-3.5 h-3.5 ${link.bio_featured_at ? "fill-amber-400 text-amber-500" : "text-muted-foreground"}`}
+                            />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => copyLink(link)} aria-label={`Copy tracking link for ${link.product_name || "product"}`} title="Copy tracking link">
+                            <Link2 className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                            <a href={buildTrackingUrl(link)} target="_blank" rel="noopener noreferrer" aria-label={`Open tracking link for ${link.product_name || "product"}`}>
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(link.id)} aria-label={`Delete ${link.product_name || "link"}`}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-emerald-500 font-medium text-sm">${(link.earnings || 0).toFixed(2)}</span>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {link.created_at ? format(new Date(link.created_at), "MMM d, yyyy") : "—"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => featureMutation.mutate(link)}
-                          aria-pressed={!!link.bio_featured_at}
-                          aria-label={`${link.bio_featured_at ? "Remove" : "Add"} ${link.product_name || "link"} ${link.bio_featured_at ? "from" : "to"} your share page`}
-                          title={link.bio_featured_at ? "On your share page" : "Add to your share page"}
-                        >
-                          <Star
-                            className={`w-3.5 h-3.5 ${link.bio_featured_at ? "fill-amber-400 text-amber-500" : "text-muted-foreground"}`}
-                          />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => copyLink(link)} aria-label={`Copy tracking link for ${link.product_name || "product"}`}>
-                          <Copy className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                          <a href={buildTrackingUrl(link)} target="_blank" rel="noopener noreferrer" aria-label={`Open tracking link for ${link.product_name || "product"}`}>
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </a>
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(link.id)} aria-label={`Delete ${link.product_name || "link"}`}>
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </Card>
+                    ))}
+                  </div>
+                </Card>
+              ))}
+            </section>
+          ))}
+        </div>
       )}
     </div>
   );
