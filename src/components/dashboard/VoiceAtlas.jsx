@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import { useQuery } from "@tanstack/react-query";
-import { Mic, MicOff, Loader2, Volume2, Send, Settings2 } from "lucide-react";
+import { Mic, MicOff, Loader2, Volume2, Send, Settings2, ChevronDown } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useAssistantSession } from "@/lib/AssistantSessionProvider";
 import { useAuth } from "@/lib/AuthContext";
@@ -755,6 +755,7 @@ function AssistantChat({ agentName, avatar, accentColor, name, voiceChoice, expe
 export default function VoiceAtlas({ onClose } = {}) {
   const [selectedAssistant, setSelectedAssistant] = useState("maya");
   const [experienceLevel, setExperienceLevel] = useState(() => localStorage.getItem("affiliateProExperienceLevel") || "new");
+  const [showVoices, setShowVoices] = useState(false);
   const [voicePreferences, setVoicePreferences] = useState(() => {
     const saved = localStorage.getItem("affiliateProVoicePreferences");
     if (saved) {
@@ -876,10 +877,16 @@ export default function VoiceAtlas({ onClose } = {}) {
       </div>
 
       <div className="px-5 py-3 border-b border-violet-400/20">
-        <div className="flex items-center gap-2 mb-2 text-sm font-bold" style={{ color: "var(--voice-text)" }}>
-          <Settings2 className="w-4 h-4" /> Official voice choice
-        </div>
-        <div className="grid grid-cols-1 gap-2">
+        <button
+          onClick={() => setShowVoices((open) => !open)}
+          aria-expanded={showVoices}
+          className="flex w-full items-center gap-2 text-sm font-bold"
+          style={{ color: "var(--voice-text)" }}
+        >
+          <Settings2 className="w-4 h-4" /> Voice: {availableVoices.find(v => v.id === currentVoiceChoice)?.label || currentVoiceChoice}
+          <ChevronDown className={`w-4 h-4 ml-auto transition-transform ${showVoices ? "rotate-180" : ""}`} />
+        </button>
+        {showVoices && <div className="grid grid-cols-1 gap-2 mt-2">
           {availableVoices.map(voice => (
             <div key={voice.id} className="rounded-xl px-3 py-2 transition-all"
               style={{ background: currentVoiceChoice === voice.id ? "rgba(216,180,254,0.24)" : "var(--voice-card)", border: currentVoiceChoice === voice.id ? "1px solid rgba(124,58,237,0.65)" : "1px solid var(--voice-border)", color: "var(--voice-text)" }}>
@@ -895,7 +902,7 @@ export default function VoiceAtlas({ onClose } = {}) {
               </div>
             </div>
           ))}
-        </div>
+        </div>}
       </div>
 
       {!experienceLevel ? (
