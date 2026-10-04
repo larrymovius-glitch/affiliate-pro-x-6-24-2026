@@ -1,5 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { useAuth } from "@/lib/AuthContext";
+import { startHereComplete, startHereSteps } from "@/lib/startHere";
+import StartHere from "@/components/onboarding/StartHere";
 import { buildPerformanceChartData, buildPerformanceMetrics } from "@/lib/performance-calculations";
 import { MoreVertical, TrendingUp, TrendingDown } from "lucide-react";
 import {
@@ -122,6 +125,7 @@ function useOverviewData() {
 
   return {
     loading,
+    links,
     earnings: {
       value: `$${metrics.totalEarnings.toFixed(2)}`,
       delta: formatDelta(pctChange(earningsThisWeek, earningsLastWeek)),
@@ -454,6 +458,8 @@ function SourcesCard({ data }) {
 
 export default function PreviewDashboard() {
   const d = useOverviewData();
+  const { user } = useAuth();
+  const steps = startHereSteps({ user, links: d.links });
 
   if (d.loading) {
     return (
@@ -480,6 +486,13 @@ export default function PreviewDashboard() {
       style={BG_GLOW}
     >
       <div className="mx-auto max-w-[1200px]">
+        {d.links.length === 0 ? (
+          // Charts of zeros tell a new user nothing about what to do. Until
+          // their first link exists, the steps to get one are the dashboard.
+          <StartHere steps={steps} />
+        ) : (
+        <>
+        {!startHereComplete(steps) && <StartHere steps={steps} compact />}
         <h2 className="mb-3 text-[15px] font-semibold tracking-tight" style={{ color: C.text }}>
           Today's Performance
         </h2>
@@ -495,6 +508,8 @@ export default function PreviewDashboard() {
           <GrowthCard data={d.growth} />
           <SourcesCard data={d.sources} />
         </div>
+        </>
+        )}
 
         <footer className="pt-6 pb-2 text-center">
           <p className="text-[11px]" style={{ color: C.dim }}>
