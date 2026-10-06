@@ -16,6 +16,7 @@ import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import BulkImporter from "@/components/products/BulkImporter";
 import { PRODUCT_CATEGORIES } from "@/lib/productCategories";
 import { networkForDestination } from "../../api/_lib/tracking.js";
+import { productsToCsv } from "@/lib/productCsv";
 
 function ProductForm({ product, onSave, onCancel, saving }) {
   const [form, setForm] = useState({
@@ -176,37 +177,7 @@ export default function Products() {
         search,
         category: categoryFilter
       });
-      const allProducts = response.data.products;
-      // The first four columns stay in BulkImporter's order so an export can be re-imported.
-      const columns = [
-        { h: "name", get: (p) => p.name },
-        { h: "url", get: (p) => p.url },
-        { h: "category", get: (p) => p.category },
-        { h: "commission_rate", get: (p) => p.commission_rate },
-        { h: "network", get: (p) => p.network },
-        { h: "description", get: (p) => p.description },
-        { h: "image_url", get: (p) => p.image_url },
-        { h: "image_source", get: (p) => p.image_source },
-        { h: "creative_rule", get: (p) => p.creative_rule },
-        { h: "creative_rule_note", get: (p) => p.creative_rule_note },
-        { h: "creative_rule_source", get: (p) => p.creative_rule_source },
-        { h: "active", get: (p) => (p.is_active === false ? "no" : "yes") },
-        { h: "added", get: (p) => (p.created_at || "").split("T")[0] },
-      ];
-      // Quotes doubled so a name like 12" Ruler survives; a leading = + - @ is
-      // defused because eBay listing titles come from strangers and Excel would
-      // run them as formulas.
-      const cell = (v) => {
-        let s = v == null ? "" : String(v);
-        if (/^[=+\-@]/.test(s)) s = `'${s}`;
-        return `"${s.replace(/"/g, '""')}"`;
-      };
-      const csv = [
-        columns.map((c) => c.h).join(","),
-        ...allProducts.map((p) => columns.map((c) => cell(c.get(p))).join(",")),
-      ].join("\r\n");
-      // The BOM tells Excel the file is UTF-8, so dashes and curly quotes don't turn into junk.
-      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+      const blob = new Blob([productsToCsv(response.data.products)], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;

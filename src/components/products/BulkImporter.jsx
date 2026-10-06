@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,23 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { networkForDestination } from "../../../api/_lib/tracking.js";
+import { productsFromCsv } from "@/lib/productCsv";
+
+/** @param {string} text */
+function productsFromJson(text) {
+  const parsed = JSON.parse(text);
+  const array = Array.isArray(parsed) ? parsed : [parsed];
+  return array
+    .filter(p => p?.name && p?.url)
+    .map(p => ({
+      name: p.name,
+      url: p.url,
+      category: p.category || "",
+      commission_rate: p.commission_rate,
+      description: p.description || "",
+      image_url: p.image_url || ""
+    }));
+}
 
 export default function BulkImporter({ onComplete }) {
   const [input, setInput] = useState("");
@@ -13,62 +30,51 @@ export default function BulkImporter({ onComplete }) {
 
   const importMutation = useMutation({
     mutationFn: async (/** @type {any} */ text) => {
-      let products = [];
-
       // JSON parses the whole blob once. It used to be handled inside the
       // per-line loop with an early `return`, which skipped the insert below
       // entirely while still reporting "Imported N products".
-      if (format === "json") {
-        const parsed = JSON.parse(text);
-        const array = Array.isArray(parsed) ? parsed : [parsed];
-        products = array
-          .filter(p => p?.name && p?.url)
-          .map(p => ({
-            name: p.name,
-            url: p.url,
-            category: p.category || "",
-            commission_rate: p.commission_rate,
-            description: p.description || "",
-            image_url: p.image_url || ""
-          }));
-      } else {
-        for (const line of text.trim().split("\n")) {
-          if (!line.trim()) continue;
-          const [name, url, category, commission_rate] = line.split(",").map(s => s?.trim().replace(/"/g, ""));
-          if (name && url) {
-            products.push({
-              name,
-              url,
-              category: category || "",
-              commission_rate: commission_rate ? parseFloat(commission_rate) : undefined,
-              description: "",
-              image_url: ""
-            });
-          }
-        }
-      }
+      const products = format === "json" ? productsFromJson(text) : productsFromCsv(text);
 
       if (products.length === 0) {
         throw new Error("No valid products found");
       }
 
+      // Skip links already saved, so importing an export back in doesn't
+      // double every product.
+      const have = new Set((await base44.entities.Product.list()).map((p) => p.url));
+      const fresh = products.filter((p) => !have.has(p.url));
+      const skipped = products.length - fresh.length;
+
       // Insert inside mutationFn, not onSuccess: react-query does not route an
       // onSuccess throw to onError, so a failed import used to report nothing
       // at all — no success toast, no error toast.
       // network set per row: the column's 'clickbank' default mislabels every other network.
-      await base44.entities.Product.bulkCreate(
-        products.map((p) => ({ ...p, network: networkForDestination(p.url, p.category) }))
-      );
-      return products;
+      if (fresh.length > 0) {
+        await base44.entities.Product.bulkCreate(
+          fresh.map((p) => ({ ...p, network: networkForDestination(p.url, p.category) || p.network || null }))
+        );
+      }
+      return { added: fresh.length, skipped };
     },
-    onSuccess: (products) => {
-      toast.success(`Imported ${products.length} products`);
+    onSuccess: ({ added, skipped }) => {
+      toast.success(`Imported ${added} products${skipped ? ` (skipped ${skipped} already saved)` : ""}`);
       onComplete?.();
     },
     onError: (err) => {
       toast.error(`Import failed: ${err.message}`);
     }
   });
+
+  // Counted the way the import will read it: a header row, or a line break
+  // inside a quoted description, isn't a product.
+  const count = useMemo(() => {
+    if (!input.trim()) return 0;
+    try {
+      return (format === "json" ? productsFromJson(input) : productsFromCsv(input)).length;
+    } catch {
+      return 0;
+    }
+  }, [input, format]);
 
   const handleImport = () => {
     if (!input.trim()) {
@@ -115,7 +121,7 @@ export default function BulkImporter({ onComplete }) {
         <Textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={format === "csv" 
+          placeholder={format === "csv"
             ? 'name,url,category,commission_rate\n"Product","https://...", "Tech", 10'
             : '[{"name": "Product", "url": "https://..."}]'
           }
@@ -128,18 +134,18 @@ export default function BulkImporter({ onComplete }) {
         <Button variant="outline" size="sm" onClick={loadExample}>
           Load Example
         </Button>
-        <Button 
-          onClick={handleImport} 
-          disabled={importMutation.isPending || !input.trim()}
+        <Button
+          onClick={handleImport}
+          disabled={importMutation.isPending || count === 0}
         >
-          {importMutation.isPending ? "Importing..." : `Import ${input.trim() ? input.trim().split("\n").length : 0} Products`}
+          {importMutation.isPending ? "Importing..." : `Import ${count} Products`}
         </Button>
       </div>
 
       <div className="text-xs text-muted-foreground bg-muted p-3 rounded-lg">
         <p className="font-semibold mb-1">Format Guide:</p>
         {format === "csv" ? (
-          <p>One product per line: name, url, category, commission_rate</p>
+          <p>One product per line: name, url, category, commission_rate. A file from the Products page&apos;s Download button can be pasted as-is, header row included.</p>
         ) : (
           <p>JSON array of product objects with name, url, and optional fields</p>
         )}
