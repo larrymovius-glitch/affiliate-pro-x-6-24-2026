@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { networkForDestination } from "../../../api/_lib/tracking.js";
 
 export default function BulkImporter({ onComplete }) {
   const [input, setInput] = useState("");
@@ -54,7 +55,10 @@ export default function BulkImporter({ onComplete }) {
       // Insert inside mutationFn, not onSuccess: react-query does not route an
       // onSuccess throw to onError, so a failed import used to report nothing
       // at all — no success toast, no error toast.
-      await base44.entities.Product.bulkCreate(products);
+      // network set per row: the column's 'clickbank' default mislabels every other network.
+      await base44.entities.Product.bulkCreate(
+        products.map((p) => ({ ...p, network: networkForDestination(p.url, p.category) }))
+      );
       return products;
     },
     onSuccess: (products) => {

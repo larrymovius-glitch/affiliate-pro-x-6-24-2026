@@ -78,7 +78,7 @@ Return ONLY real, verified products that are currently trending. Do NOT make up 
       let productId;
       if (existing.length > 0) productId = existing[0].id;
       else {
-        const product = await D.Product.create({ created_by_id: ownerId, name: item.name || vendor, url: hopLink, description: `ClickBank trending product — vendor: ${vendor}`, category: "clickbank_trending" });
+        const product = await D.Product.create({ created_by_id: ownerId, name: item.name || vendor, url: hopLink, description: `ClickBank trending product — vendor: ${vendor}`, category: "clickbank_trending", network: "clickbank" });
         productId = product.id;
       }
       await D.AffiliateLink.create({ created_by_id: ownerId, product_id: productId, product_name: item.name || vendor, destination_url: hopLink, network: "clickbank", short_code: `trend_cb_${vendor}`, clicks: 0, conversions: 0, earnings: 0 });
@@ -94,7 +94,7 @@ Return ONLY real, verified products that are currently trending. Do NOT make up 
       let productId;
       if (existing.length > 0) productId = existing[0].id;
       else {
-        const product = await D.Product.create({ created_by_id: ownerId, name: item.name || `DS24 Product ${item.product_id}`, url: dsUrl, description: `Digistore24 trending product — ID: ${item.product_id}`, category: "digistore24_trending" });
+        const product = await D.Product.create({ created_by_id: ownerId, name: item.name || `DS24 Product ${item.product_id}`, url: dsUrl, description: `Digistore24 trending product — ID: ${item.product_id}`, category: "digistore24_trending", network: "digistore24" });
         productId = product.id;
       }
       // network must be explicit: affiliate_links.network defaults to

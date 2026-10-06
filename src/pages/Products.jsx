@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import BulkImporter from "@/components/products/BulkImporter";
 import { PRODUCT_CATEGORIES } from "@/lib/productCategories";
+import { networkForDestination } from "../../api/_lib/tracking.js";
 
 function ProductForm({ product, onSave, onCancel, saving }) {
   const [form, setForm] = useState({
@@ -111,7 +112,9 @@ export default function Products() {
   const { onTouchStart, onTouchMove, onTouchEnd, pullDistance, pulling } = usePullToRefresh(() => refetch());
 
   const createMutation = useMutation({
-    mutationFn: (/** @type {any} */ data) => base44.entities.Product.create(data),
+    // network set here: the column's 'clickbank' default mislabels every other network.
+    mutationFn: (/** @type {any} */ data) =>
+      base44.entities.Product.create({ ...data, network: networkForDestination(data.url, data.category) }),
     onMutate: async (data) => {
       await queryClient.cancelQueries({ queryKey: ["products"] });
       const previous = queryClient.getQueryData(["products"]);

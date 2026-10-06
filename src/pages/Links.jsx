@@ -172,6 +172,7 @@ export default function Links() {
           url: hopLink,
           description: `ClickBank product — vendor: ${vendor}`,
           category: "clickbank",
+          network: "clickbank",
         });
         productId = product.id;
       }
@@ -214,6 +215,8 @@ export default function Links() {
           url,
           description: productId ? `Digistore24 product — ID: ${productId}` : `Digistore24 product — vendor page on ${site}`,
           category: "digistore24",
+          // products.network defaults to 'clickbank', like the link's below.
+          network: "digistore24",
         });
         productEntityId = product.id;
       }
@@ -253,6 +256,7 @@ export default function Links() {
           url,
           description: `Affiliate product`,
           category: "general",
+          network: networkForDestination(url),
         });
         productEntityId = product.id;
       }

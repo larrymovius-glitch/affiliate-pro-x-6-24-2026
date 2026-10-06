@@ -418,11 +418,15 @@ export async function executeTool(name, input = {}, ctx = {}) {
             existing: productSummary(same),
           };
         }
+        const category = String(input.category || "other").trim().slice(0, 60);
         const created = await D.Product.create({
           created_by_id: user.id,
           name: name_,
           url,
-          category: String(input.category || "other").trim().slice(0, 60),
+          category,
+          // Left unset, products.network's 'clickbank' default mislabels
+          // every eBay and Digistore24 product.
+          network: networkForDestination(url, category),
           description: String(input.description || "").slice(0, 500),
         });
         return { product: productSummary(created) };

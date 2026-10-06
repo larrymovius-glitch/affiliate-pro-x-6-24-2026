@@ -174,6 +174,9 @@ Return ONLY real, verified products that are currently trending on eBay. Do NOT 
           // "fast free shipping" on its own.
           description: [`eBay trending product — ${r.category || "general"}`, r.facts].filter(Boolean).join(". "),
           category: "ebay_trending",
+          // products.network defaults to 'clickbank' too, the same trap the
+          // link below sets its network to avoid.
+          network: "ebay",
           image_url: r.image,
           commission_rate: 0,
         });
