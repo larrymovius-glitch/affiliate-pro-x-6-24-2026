@@ -7,6 +7,7 @@ import {
   digistorePromoLink,
   isDigistoreProductId,
 } from "./_lib/affiliates.js";
+import { trendingKeepCheck } from "./_lib/trendingKeep.js";
 
 export default async function handler(req, res) {
   try {
@@ -58,9 +59,9 @@ Return ONLY real, verified products that are currently trending. Do NOT make up 
 
     for (const link of existingLinks) {
       if (!newTrendingUrls.has(link.destination_url)) {
-        if ((link.earnings || 0) > 0) continue;
+        const { reason, products } = await trendingKeepCheck(D, link, ["clickbank_trending", "digistore24_trending"]);
+        if (reason) continue;
         await D.AffiliateLink.delete(link.id);
-        const products = await D.Product.filter({ url: link.destination_url, category: { $in: ["clickbank_trending", "digistore24_trending"] } });
         for (const p of products) await D.Product.delete(p.id);
         removed.push(link.product_name);
       }

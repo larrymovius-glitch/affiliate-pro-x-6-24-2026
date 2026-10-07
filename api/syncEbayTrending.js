@@ -2,6 +2,7 @@ import { db } from "./_lib/db.js";
 import { getAuthedUser, isCronRequest } from "./_lib/supabase.js";
 import { invokeLLM } from "./_lib/llm.js";
 import { largestEbayImage } from "./_lib/images.js";
+import { trendingKeepCheck } from "./_lib/trendingKeep.js";
 
 const EBAY_API_BASE = "https://api.ebay.com";
 
@@ -145,12 +146,9 @@ Return ONLY real, verified products that are currently trending on eBay. Do NOT 
 
     for (const link of existingLinks) {
       if (!newTrendingUrls.has(link.destination_url)) {
-        if ((link.earnings || 0) > 0) continue;
-        // On the share page means an ad may point at it: a TikTok ad lives for
-        // weeks, and "link in bio" must still lead somewhere tomorrow.
-        if (link.bio_featured_at) continue;
+        const { reason, products } = await trendingKeepCheck(D, link, ["ebay_trending"]);
+        if (reason) continue;
         await D.AffiliateLink.delete(link.id);
-        const products = await D.Product.filter({ url: link.destination_url, category: "ebay_trending" });
         for (const p of products) await D.Product.delete(p.id);
         removed.push(link.product_name);
       }
