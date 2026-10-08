@@ -12,7 +12,7 @@ conversions, and paying out earnings.
 | Backend  | Vercel serverless functions in `api/` (Node, one file per route)          |
 | Data     | Supabase — Postgres + Auth + Storage                                      |
 | AI       | Anthropic (Maya/Atlas assistants, post generation), OpenAI (text-to-speech) |
-| Payments | Stripe (subscription checkout, webhooks, Connect payouts)                 |
+| Payments | Stripe and PayPal checkout (both live), webhooks, Stripe Connect payouts |
 | Email    | Resend                                                                    |
 
 This app began on Base44 and was migrated to the stack above. `base44/` still
@@ -57,18 +57,21 @@ project's environment variables (full list in `CLAUDE.md`), and a changed value
 only takes effect on the next deploy.
 
 `vercel.json` rewrites the legacy `/functions/<name>` paths to `/api/<name>` and
-schedules six daily jobs (times in UTC):
+schedules seven jobs — one hourly, six daily (times in UTC):
 
-| Job                       | Time  | Does                                                    |
-| ------------------------- | ----- | ------------------------------------------------------- |
-| `refreshInstagramToken`   | 04:00 | Keeps every connected Instagram account's token alive   |
-| `syncTrendingLinks`       | 06:00 | Adds links for currently trending ClickBank products    |
-| `syncEbayTrending`        | 07:00 | Adds links for currently trending eBay products         |
-| `optimizeAutopilotPosts`  | 09:00 | Autopilot's 48-hour keep-what-earned rotation           |
-| `dailyPerformanceSummary` | 12:00 | Emails admins a summary of links, clicks and earnings   |
-| `processAutoPayouts`      | 13:00 | Creates payouts that are due under users' schedules     |
+| Job                       | Time   | Does                                                    |
+| ------------------------- | ------ | ------------------------------------------------------- |
+| `reconcilePaypalPayments` | hourly | Finishes PayPal checkouts left pending over 15 minutes  |
+| `refreshInstagramToken`   | 04:00  | Keeps every connected Instagram account's token alive   |
+| `syncTrendingLinks`       | 06:00  | Adds links for currently trending ClickBank products    |
+| `syncEbayTrending`        | 07:00  | Adds links for currently trending eBay products         |
+| `optimizeAutopilotPosts`  | 09:00  | Autopilot's 48-hour keep-what-earned rotation           |
+| `dailyPerformanceSummary` | 12:00  | Emails admins a summary of links, clicks and earnings   |
+| `processAutoPayouts`      | 13:00  | Creates payouts that are due under users' schedules     |
 
-Three depend on integrations beyond the basics: the eBay sync needs
+The hourly job needs Vercel Pro (Hobby allows daily crons only) and the PayPal
+variables under "PayPal setup". Three others depend on integrations beyond the
+basics: the eBay sync needs
 `EBAY_APP_ID`, `EBAY_CERT_ID` and an eBay Partner Network campaign ID saved on
 the Networks page; the Instagram refresh needs `INSTAGRAM_APP_SECRET`; and the
 daily summary sends through Resend (see below).
@@ -93,6 +96,38 @@ whitespace.
   `invoice.payment_succeeded`. Its signing secret (`whsec_…`) goes in
   `STRIPE_WEBHOOK_SECRET`. Without the webhook, customers pay but are never
   upgraded.
+
+## PayPal setup
+
+PayPal runs alongside Stripe: the Pricing page offers both for every plan.
+Lifetime is a one-time PayPal Order; Monthly and Yearly are PayPal
+Subscriptions. Everything below goes in the Vercel project's environment
+variables.
+
+- **App credentials.** In developer.paypal.com → Apps & Credentials, switch to
+  **Live** and open the app. Its Client ID goes in `VITE_PAYPAL_CLIENT_ID` and
+  its secret in `PAYPAL_CLIENT_SECRET`. The server functions read the client ID
+  too, so the `VITE_` name is deliberate.
+- **Plans.** Unlike Stripe, PayPal will not start a subscription without a plan
+  that already exists. Create one Monthly and one Yearly plan (Pay & Get Paid →
+  Subscriptions → Plans) at the amounts in `src/lib/pricingPlans.js`, and put
+  their IDs (`P-…`) in `PAYPAL_MONTHLY_PLAN_ID` and `PAYPAL_YEARLY_PLAN_ID`.
+  Lifetime needs no plan.
+- **Webhook.** On the same app, add a webhook pointed at
+  `https://<your-domain>/api/paypalWebhook` and subscribed to
+  `BILLING.SUBSCRIPTION.ACTIVATED`, `BILLING.SUBSCRIPTION.CANCELLED`,
+  `BILLING.SUBSCRIPTION.SUSPENDED`, `BILLING.SUBSCRIPTION.EXPIRED` and
+  `PAYMENT.SALE.COMPLETED`. Its Webhook ID goes in `PAYPAL_WEBHOOK_ID`. Without
+  it the webhook rejects every event (it cannot verify signatures), so renewals
+  and cancellations never reach the app.
+- **Sandbox.** `PAYPAL_ENV=sandbox` points the API at PayPal's sandbox. It only
+  changes the host, so the client ID, secret, plan IDs and webhook ID must all
+  be swapped to the sandbox app's values as well. Leave it unset for live.
+
+A buyer who pays and then closes the tab before returning to
+`/payment-success` is not lost: checkout records a pending payment first, and
+the hourly `reconcilePaypalPayments` job captures or abandons anything still
+pending after 15 minutes.
 
 ## Email setup
 
