@@ -26,6 +26,7 @@ const NETWORK_BADGE = {
   ebay: "bg-yellow-500/15 text-yellow-800 dark:text-yellow-300 border-yellow-500/30",
   digistore24: "bg-blue-500/15 text-blue-800 dark:text-blue-300 border-blue-500/30",
   clickbank: "bg-orange-500/15 text-orange-800 dark:text-orange-300 border-orange-500/30",
+  impact: "bg-pink-500/15 text-pink-800 dark:text-pink-300 border-pink-500/30",
 };
 
 function networkBadgeClass(id) {

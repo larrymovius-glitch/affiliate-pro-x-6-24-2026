@@ -20,6 +20,8 @@
 //   eBay (EPN)   ?customid=<code>                  EPN's own per-link field. The
 //                                                  Browse API hands back links
 //                                                  with it present but empty.
+//   Impact       ?subId1=<code>                    Impact's own sub-id field,
+//                                                  reported back per action.
 //   anything else ?subid=<code>                    common convention -- CONFIRM
 //                                                  against your network's docs
 //                                                  before trusting it.
@@ -52,6 +54,15 @@ const EBAY_DOMAINS = [
   "ebay.it", "ebay.es", "ebay.ie", "ebay.at", "ebay.ch", "ebay.nl", "ebay.be", "ebay.pl",
 ];
 
+// Impact's tracking domains. A brand on Impact either uses one of these
+// (shopify.pxf.io, *.sjv.io, ...) or a "goto." vanity host of its own, like
+// goto.samsclub.com and goto.walmart.com.
+const IMPACT_DOMAINS = ["sjv.io", "pxf.io", "evyy.net", "7eer.net", "ojrq.net", "mvq.net", "vrm8.net", "ugdi.net", "uzbm.net"];
+
+function isImpactHost(h) {
+  return IMPACT_DOMAINS.some((d) => hostMatches(h, d)) || /^goto\.[a-z0-9-]+\.[a-z.]+$/.test(h) || /(^|\.)i\d{5,}\.net$/.test(h);
+}
+
 /**
  * Which network's tracking rules apply to a destination.
  *
@@ -66,18 +77,19 @@ const EBAY_DOMAINS = [
  *
  * @param {string} host lowercased hostname of the destination
  * @param {string} [label] the link's stored network, if any
- * @returns {string} "clickbank" | "digistore24" | "ebay" | the label | ""
+ * @returns {string} "clickbank" | "digistore24" | "ebay" | "impact" | the label | ""
  */
 export function detectNetwork(host, label) {
   const h = String(host || "").toLowerCase();
   if (hostMatches(h, "hop.clickbank.net")) return "clickbank";
   if (hostMatches(h, "digistore24.com") || hostMatches(h, "checkout-ds24.com")) return "digistore24";
   if (EBAY_DOMAINS.some((d) => hostMatches(h, d))) return "ebay";
+  if (isImpactHost(h)) return "impact";
   return String(label || "").toLowerCase();
 }
 
 // The networks this file has specific tracking rules for.
-const KNOWN_NETWORKS = ["clickbank", "digistore24", "ebay"];
+const KNOWN_NETWORKS = ["clickbank", "digistore24", "ebay", "impact"];
 
 /**
  * The `network` to store on a new AffiliateLink, or null when nothing proves
@@ -153,6 +165,8 @@ export function applyTrackingCode(destinationUrl, shortCode, network) {
     url.searchParams.set("sid1", code);
   } else if (net === "ebay") {
     url.searchParams.set("customid", normalizeTrackingCode(shortCode).slice(0, 256));
+  } else if (net === "impact") {
+    url.searchParams.set("subId1", shortCode);
   } else {
     url.searchParams.set("subid", shortCode);
   }
