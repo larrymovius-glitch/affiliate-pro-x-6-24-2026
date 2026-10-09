@@ -561,13 +561,16 @@ export default function Links() {
                     </div>
                   </div>
 
-                  <div className="flex items-start gap-2 rounded-lg bg-muted p-2">
-                    <p className="flex-1 min-w-0 font-mono text-xs break-all">{product.destinationUrl || "—"}</p>
+                  {/* One line: the full address is in the tooltip and the copy button. */}
+                  <div className="flex items-center gap-2 rounded-lg bg-muted px-2 py-1">
+                    <p className="flex-1 min-w-0 font-mono text-[11px] truncate text-muted-foreground" title={product.destinationUrl || undefined}>
+                      {product.destinationUrl || "—"}
+                    </p>
                     {product.destinationUrl && (
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 shrink-0"
+                        className="h-7 w-7 shrink-0"
                         onClick={() => copyAffiliateUrl(product.destinationUrl)}
                         aria-label={`Copy affiliate link for ${product.productName}`}
                       >
