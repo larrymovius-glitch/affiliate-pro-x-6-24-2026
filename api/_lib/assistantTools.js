@@ -853,8 +853,10 @@ export async function executeTool(name, input = {}, ctx = {}) {
           ...(token && !campaignId
             ? { campaign_note: "No eBay Partner Network campaign id is saved, so these can be shown but not added with a tracked link until the user connects eBay (connect_affiliate_network)." }
             : {}),
+          // The owner was confused by "none of these are already in your
+          // products, so everything below is fresh" -- app words, not his.
           message:
-            "Nothing saved. Show the picks by item type -- eBay ones as ![title](image_url) with price and condition -- say which are already the user's, and ask which eBay ones to add with add_ebay_items.",
+            "Nothing saved. Talk like a friend helping them shop, in plain everyday words -- never app terms like 'products', 'fresh', 'already_yours', 'item_id' or 'add_ebay_items'. Open with something like: \"I found these on eBay. Tell me which ones you like and I'll save them to your app with your affiliate link, so you earn if someone buys.\" If some match things they already have in the app, say so simply (\"You already have a white tee that would work: ...\"); if none do, don't mention it. Then show the picks by type (tops, socks, ...), each eBay one as ![title](image_url) with its price and condition. If a condition is 'Pre-owned' or 'Fair', say it's used. Nothing is bought or saved until they choose.",
         };
       }
 
@@ -918,8 +920,8 @@ export async function executeTool(name, input = {}, ctx = {}) {
           added,
           skipped,
           message: added.length
-            ? `Added ${added.length} as products with tracked eBay links${skipped.length ? `; ${skipped.length} skipped (see skipped)` : ""}. They're on the Links page and ready for create_video_ad.`
-            : "Nothing added (see skipped).",
+            ? `Added ${added.length} as products with tracked eBay links${skipped.length ? `; ${skipped.length} skipped (see skipped)` : ""}. Tell the user in plain words: they're saved in the app with their eBay link (on the Links page), and you can make a video ad for any of them. Say why any were skipped, e.g. "the earrings sold before I could save them".`
+            : "Nothing added (see skipped). Tell the user plainly why, e.g. the item sold.",
         };
       }
 
