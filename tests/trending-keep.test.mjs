@@ -14,6 +14,10 @@ test("every kind of owner work keeps the product", () => {
   assert.ok(trendingKeepReason({ ...bare, link: { ...link, bio_featured_at: "2026-10-01" } }));
   assert.ok(trendingKeepReason({ ...bare, product: { id: "P1", creative_rule: "official_only" } }));
   assert.ok(trendingKeepReason({ ...bare, product: { id: "P1", image_source: "official" } }));
+  assert.ok(trendingKeepReason({ ...bare, product: { id: "P1", image_source: "own" } }));
+  // The picture finder saves a sales-page picture on its own; that alone is
+  // not the owner's work.
+  assert.equal(trendingKeepReason({ ...bare, product: { id: "P1", image_source: "sales_page" } }), null);
   assert.ok(trendingKeepReason({ ...bare, otherLinks: 1 }));
   assert.ok(trendingKeepReason({ ...bare, posts: 1 }));
 });

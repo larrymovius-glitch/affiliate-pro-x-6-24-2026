@@ -21,7 +21,10 @@ export function trendingKeepReason({ link, product, otherLinks, posts }) {
   // weeks, and "link in bio" must still lead somewhere tomorrow.
   if (link?.bio_featured_at) return "on the share page";
   if (product?.creative_rule) return "vendor rules checked";
-  if (product?.image_source) return "picture confirmed";
+  // Official or the owner's own. A sales-page picture is what the automatic
+  // picture finder saves for every product, so it says nothing about the
+  // owner's work -- counting it would keep every trending product forever.
+  if (["official", "own"].includes(product?.image_source)) return "picture confirmed";
   if (otherLinks > 0) return "has the owner's own links";
   if (posts > 0) return "has posts";
   return null;

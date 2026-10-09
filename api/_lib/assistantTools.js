@@ -1,15 +1,10 @@
 import { db } from "./db.js";
-import {
-  getClickBankAffiliateId,
-  applyClickBankAffiliateId,
-  getDigistoreAffiliateId,
-  CLICKBANK_AFFILIATE_ID,
-  DIGISTORE_AFFILIATE_ID,
-} from "./affiliates.js";
+import { getClickBankAffiliateId, applyClickBankAffiliateId } from "./affiliates.js";
 import { detectNetwork, networkForDestination } from "./tracking.js";
 import { largestEbayImage } from "./images.js";
 import { findVendorImage } from "./productImages.js";
 import { importDriveCreatives } from "./driveCreatives.js";
+import { affiliateIdsFor } from "./autoProductImages.js";
 
 function hostOf(url) {
   try {
@@ -95,6 +90,9 @@ function productSummary(p) {
     // and where the saved picture came from. See vendorCreativeCheck.
     creative_rule: isEbayProduct(p) ? "ebay" : p.creative_rule || "not_checked",
     image_source: p.image_source || null,
+    // Why the automatic picture finder couldn't find one, so the assistant
+    // can say what's needed instead of searching again blind.
+    ...(!p.image_url && p.image_lookup_note ? { picture_lookup: p.image_lookup_note } : {}),
   };
 }
 
@@ -238,7 +236,7 @@ export const TOOL_DEFINITIONS = [
   {
     name: "find_product_images",
     description:
-      "Find pictures for the user's products by reading each vendor's own sales page for the picture the vendor set for sharing it. With no product_ids it checks every product that has no picture yet. Call it first WITHOUT save: show each picture found in your reply as markdown, ![Product name](image_url), say it is the vendor's own picture from their page, list the ones not found and why, and ask the user which to keep. With the pictures, always remind the user in one line that some vendors only allow their official creatives in ads (HepatoBurn, for one, allows only the images in its Google Drive folder, nothing from the sales page or its video), so they should keep a picture only if that vendor's affiliate page allows it. Only after they say yes, call it again with save: true and product_ids set to just the ones they approved. Never pass save: true on the first call. ClickBank and Digistore24 links are handled safely: they are opened rebuilt with no affiliate id, so no click is ever made on the user's account -- there is no permission to ask for and nothing to override. A result may still need help: an encrypted ClickBank HopLink needs the vendor's sales page address or ClickBank vendor nickname (from the product's Marketplace listing) -- ask for it and pass it as page_url with that one product_id; a result that says a link is broken means the saved link itself is wrong, so tell the user plainly it needs replacing. Never tell the user to search Google for pages, and never guess a page_url.",
+      "Find pictures for the user's products by reading each vendor's own sales page for the picture the vendor set for sharing it. The app already does this on its own within minutes of a product being added, and retries nightly; a product still without a picture shows why in picture_lookup (list_my_products), so read that first and use this tool when the user wants to look again, swap a picture, or give a page_url the automatic finder couldn't work out. With no product_ids it checks every product that has no picture yet. Call it first WITHOUT save: show each picture found in your reply as markdown, ![Product name](image_url), say it is the vendor's own picture from their page, list the ones not found and why, and ask the user which to keep. With the pictures, always remind the user in one line that some vendors only allow their official creatives in ads (HepatoBurn, for one, allows only the images in its Google Drive folder, nothing from the sales page or its video), so they should keep a picture only if that vendor's affiliate page allows it. Only after they say yes, call it again with save: true and product_ids set to just the ones they approved. Never pass save: true on the first call. ClickBank and Digistore24 links are handled safely: they are opened rebuilt with no affiliate id, so no click is ever made on the user's account -- there is no permission to ask for and nothing to override. A result may still need help: an encrypted ClickBank HopLink needs the vendor's sales page address or ClickBank vendor nickname (from the product's Marketplace listing) -- ask for it and pass it as page_url with that one product_id; a result that says a link is broken means the saved link itself is wrong, so tell the user plainly it needs replacing. Never tell the user to search Google for pages, and never guess a page_url.",
     input_schema: {
       type: "object",
       properties: {
@@ -636,16 +634,7 @@ export async function executeTool(name, input = {}, ctx = {}) {
         }
 
         const ownHost = hostOf(origin);
-        // Every id this user earns under. findVendorImage refuses any address
-        // with one of these in it, wherever it sits.
-        const affiliateIds = [
-          getClickBankAffiliateId(user),
-          getDigistoreAffiliateId(user),
-          CLICKBANK_AFFILIATE_ID,
-          DIGISTORE_AFFILIATE_ID,
-          ...Object.values(user.affiliate_network_ids || {}),
-        ].filter(Boolean);
-        const opts = { fetch: ctx.fetch, ownHost, affiliateIds };
+        const opts = { fetch: ctx.fetch, ownHost, affiliateIds: affiliateIdsFor(user) };
         const results = [];
         // A few at a time: fast enough for a whole catalogue in one call,
         // without firing thirty requests at once.

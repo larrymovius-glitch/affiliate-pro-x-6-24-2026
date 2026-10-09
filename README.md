@@ -57,10 +57,11 @@ project's environment variables (full list in `CLAUDE.md`), and a changed value
 only takes effect on the next deploy.
 
 `vercel.json` rewrites the legacy `/functions/<name>` paths to `/api/<name>` and
-schedules seven jobs — one hourly, six daily (times in UTC):
+schedules eight jobs — one every 5 minutes, one hourly, six daily (times in UTC):
 
 | Job                       | Time   | Does                                                    |
 | ------------------------- | ------ | ------------------------------------------------------- |
+| `autoFindProductImages`   | 5 min  | Finds a picture for each new product; retries misses nightly |
 | `reconcilePaypalPayments` | hourly | Finishes PayPal checkouts left pending over 15 minutes  |
 | `refreshInstagramToken`   | 04:00  | Keeps every connected Instagram account's token alive   |
 | `syncTrendingLinks`       | 06:00  | Adds links for currently trending ClickBank products    |
@@ -69,8 +70,17 @@ schedules seven jobs — one hourly, six daily (times in UTC):
 | `dailyPerformanceSummary` | 12:00  | Emails admins a summary of links, clicks and earnings   |
 | `processAutoPayouts`      | 13:00  | Creates payouts that are due under users' schedules     |
 
-The hourly job needs Vercel Pro (Hobby allows daily crons only) and the PayPal
-variables under "PayPal setup". Three others depend on integrations beyond the
+The 5-minute and hourly jobs need Vercel Pro (Hobby allows daily crons only);
+the hourly one also needs the PayPal variables under "PayPal setup".
+
+`autoFindProductImages` reads each vendor's sales page for its sharing picture
+(the same finder as Maya's `find_product_images`, which never makes an
+affiliate click) for every product added since the last run, whatever created
+it. Between 06:00 and 10:00 UTC it also retries products still without a
+picture, each at most once a night. It only fills an empty picture and saves
+it as `image_source = 'sales_page'`, so vendors that allow only official
+creatives still refuse it in an ad. Each attempt is noted on the product in
+`image_lookup_at` / `image_lookup_note`. Three others depend on integrations beyond the
 basics: the eBay sync needs
 `EBAY_APP_ID`, `EBAY_CERT_ID` and an eBay Partner Network campaign ID saved on
 the Networks page; the Instagram refresh needs `INSTAGRAM_APP_SECRET`; and the
