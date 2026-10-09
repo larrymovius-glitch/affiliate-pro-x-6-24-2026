@@ -3,72 +3,12 @@ import { getAuthedUser, isCronRequest } from "./_lib/supabase.js";
 import { invokeLLM } from "./_lib/llm.js";
 import { largestEbayImage } from "./_lib/images.js";
 import { trendingKeepCheck } from "./_lib/trendingKeep.js";
+import { affiliateUrlFor, getEbayAppToken, listingFacts, searchEbayItems } from "./_lib/ebay.js";
 
-const EBAY_API_BASE = "https://api.ebay.com";
+export { listingFacts };
 
-// App-level OAuth (client_credentials) -- separate from a user's own eBay
-// login. This is all the Browse API needs; it doesn't require anyone to
-// "connect an eBay account".
-async function getEbayAppToken() {
-  const appId = process.env.EBAY_APP_ID;
-  const certId = process.env.EBAY_CERT_ID;
-  if (!appId || !certId) throw new Error("eBay is not configured (missing EBAY_APP_ID or EBAY_CERT_ID)");
-
-  const res = await fetch(`${EBAY_API_BASE}/identity/v1/oauth2/token`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: `Basic ${Buffer.from(`${appId}:${certId}`).toString("base64")}`,
-    },
-    body: "grant_type=client_credentials&scope=https://api.ebay.com/oauth/api_scope",
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error_description || "Failed to authenticate with eBay");
-  return data.access_token;
-}
-
-// Passing the campaign id via X-EBAY-C-ENDUSERCTX makes eBay return
-// itemAffiliateWebUrl pre-tracked; campid is appended manually as a fallback
-// for the rare item that doesn't carry that field.
 async function searchTopEbayItem(token, campaignId, query) {
-  const url = `${EBAY_API_BASE}/buy/browse/v1/item_summary/search?q=${encodeURIComponent(query)}&limit=1`;
-  const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "X-EBAY-C-MARKETPLACE-ID": "EBAY_US",
-      "X-EBAY-C-ENDUSERCTX": `affiliateCampaignId=${campaignId}`,
-    },
-  });
-  if (!res.ok) return null;
-  const data = await res.json().catch(() => ({}));
-  return data.itemSummaries?.[0] || null;
-}
-
-// What a buyer actually decides on, in the listing's own words: condition,
-// where it ships from, whether shipping is free. Recorded on the product so
-// the ad script can say them -- and, just as much, so it cannot say them when
-// eBay hasn't. "New in sealed box, ships free from the US" is a great line in
-// an ad and a serious problem when it isn't true of the listing.
-//
-// Deliberately no price: a video outlives the price it quotes.
-export function listingFacts(item) {
-  const facts = [];
-  if (item?.condition) facts.push(`Condition: ${item.condition}`);
-  const country = item?.itemLocation?.country;
-  if (country) facts.push(`Ships from: ${country}`);
-  const shipping = (item?.shippingOptions || [])[0];
-  if (shipping?.shippingCostType === "FIXED" && Number(shipping?.shippingCost?.value) === 0) {
-    facts.push("Shipping: free");
-  }
-  if (item?.seller?.feedbackPercentage) facts.push(`Seller feedback: ${item.seller.feedbackPercentage}%`);
-  return facts.join(". ");
-}
-
-function affiliateUrlFor(item, campaignId) {
-  if (item.itemAffiliateWebUrl) return item.itemAffiliateWebUrl;
-  if (!item.itemWebUrl) return null;
-  const sep = item.itemWebUrl.includes("?") ? "&" : "?";
-  return `${item.itemWebUrl}${sep}campid=${encodeURIComponent(campaignId)}`;
+  return (await searchEbayItems(token, campaignId, query, { limit: 1 }))[0] || null;
 }
 
 export default async function handler(req, res) {

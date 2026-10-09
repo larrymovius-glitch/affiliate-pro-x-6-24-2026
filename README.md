@@ -188,6 +188,16 @@ tracking link (`ad_link`, stored with `affiliate_links.ad_opening_line`), and
 own link count: a "link in bio" click can't be traced to the video that sent
 it, so an ad's own link is never the one put on the share page.
 
+## Matching items
+
+Asked for things that go with a product ("a top, socks, shoes and jewellery
+for the 501s"), Maya picks the item types and eBay search words herself and
+calls `find_matching_items`: it returns the owner's own products that match,
+then live buy-it-now eBay listings, and saves nothing. The owner chooses, and
+`add_ebay_items` reads each chosen listing from eBay again and adds it as a
+product with a tracked link (needs the owner's eBay campaign id). The eBay
+helpers are in `api/_lib/ebay.js`, shared with the nightly trending sync.
+
 ## Email setup
 
 `api/_lib/email.js` sends through [Resend](https://resend.com). Email is the

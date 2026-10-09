@@ -29,6 +29,8 @@ import { invokeLLM } from "./llm.js";
 import { AFFILIATE_NETWORKS, connectedNetworkIds } from "./affiliateNetworks.js";
 import { adminClient } from "./supabase.js";
 import * as videoAdsLib from "./videoAds.js";
+import * as ebayLib from "./ebay.js";
+import { ebayListingNumber, matchOwnProducts } from "./matchingItems.js";
 import { FDA_DISCLAIMER, TIKTOK_POLICY_URL, tiktokPostingChecklist, tiktokRule, vendorCreativeCheck } from "./platformRules.js";
 
 // Tools Maya and Atlas can actually call.
@@ -195,6 +197,44 @@ export const TOOL_DEFINITIONS = [
         network: { type: "string", description: `Optional: scope results to one network id -- ${AFFILIATE_NETWORKS.map((n) => n.id).join(", ")}.` },
       },
       required: [],
+    },
+  },
+  {
+    name: "find_matching_items",
+    description:
+      "Find items that go with one of the user's products -- e.g. for 'blue Levi 501 vintage jeans': a top or blouse, socks, shoes, jewellery. You choose the searches from the product's style (era, colour, fit, who it's for): one per item type, in short eBay search words like 'vintage white crew neck tee women', not sentences. For each search this returns the user's own products that already match (already_yours), then live buy-it-now eBay listings. Nothing is saved. Show the user the picks grouped by item type: each eBay one as markdown ![title](image_url) with its price and condition, and say which are already theirs. Ask which eBay ones to add, then call add_ebay_items with only the item_ids they chose. Never describe a listing beyond its title, price and condition, and never suggest an item that isn't in the results.",
+    input_schema: {
+      type: "object",
+      properties: {
+        product_id: { type: "string", description: "The product to match, from list_my_products." },
+        searches: {
+          type: "array",
+          description: "Up to 6 item types to find, each with its eBay search words.",
+          items: {
+            type: "object",
+            properties: {
+              item_type: { type: "string", description: "e.g. 'top', 'socks', 'shoes', 'jewellery'." },
+              query: { type: "string", description: "Short eBay search words for it." },
+            },
+            required: ["item_type", "query"],
+          },
+        },
+        per_search: { type: "integer", description: "eBay listings per search, 1-5. Defaults to 3." },
+      },
+      required: ["product_id", "searches"],
+    },
+  },
+  {
+    name: "add_ebay_items",
+    description:
+      "Add eBay listings the user chose from find_matching_items as their products, each with an affiliate link (their eBay Partner Network campaign id). Only pass item_ids the user picked from those results. Each listing is read again from eBay, so one that has sold or ended is skipped and reported, and one already among their products is not added twice. Pass goes_with_product_id so each new product records what it goes with.",
+    input_schema: {
+      type: "object",
+      properties: {
+        item_ids: { type: "array", items: { type: "string" }, description: "item_id values from find_matching_items, up to 10." },
+        goes_with_product_id: { type: "string", description: "Optional: the product they were found to go with." },
+      },
+      required: ["item_ids"],
     },
   },
   {
@@ -459,6 +499,7 @@ export async function executeTool(name, input = {}, ctx = {}) {
   const D = ctx.D || db();
   const callLLM = ctx.invokeLLM || invokeLLM;
   const videoAds = ctx.videoAds || videoAdsLib;
+  const ebay = ctx.ebay || ebayLib;
   // Lazy: constructing a real client requires SUPABASE_* env vars, which
   // most tools -- and most tests -- have no reason to need.
   const storageClient = () => ctx.storageClient || adminClient();
@@ -770,6 +811,116 @@ export async function executeTool(name, input = {}, ctx = {}) {
 
         const updated = await D.Product.update(product.id, patch);
         return { product: productSummary(updated || { ...product, ...patch }), changed: Object.keys(patch) };
+      }
+
+      case "find_matching_items": {
+        const mine = await D.Product.filter({ created_by_id: user.id }, "-created_at", MAX_LIST_ROWS);
+        const anchor = mine.find((p) => String(p.id) === String(input.product_id || ""));
+        if (!anchor) return { error: "No product of yours with that id. Call list_my_products first." };
+        const searches = (Array.isArray(input.searches) ? input.searches : [])
+          .map((s) => ({ item_type: String(s?.item_type || "").trim().slice(0, 40), query: String(s?.query || "").replace(/\s+/g, " ").trim().slice(0, 100) }))
+          .filter((s) => s.query)
+          .slice(0, 6);
+        if (!searches.length) return { error: "Pass at least one search: an item_type and its eBay search words." };
+        const perSearch = Math.max(1, Math.min(Math.trunc(Number(input.per_search) || 3), 5));
+
+        const campaignId = user.affiliate_network_ids?.ebay?.trim() || "";
+        let token = null;
+        let ebayNote = null;
+        if (!ebay.ebayConfigured()) ebayNote = "eBay search isn't set up on the server (EBAY_APP_ID / EBAY_CERT_ID), so only your own products were checked.";
+        else {
+          try {
+            token = await ebay.getEbayAppToken({ fetch: ctx.fetch });
+          } catch (e) {
+            ebayNote = `eBay search failed (${e.message}), so only your own products were checked.`;
+          }
+        }
+
+        const results = [];
+        for (const s of searches) {
+          const already = matchOwnProducts(mine, s.query, { exclude: anchor.id }).map(productSummary);
+          let listings = [];
+          if (token) {
+            const found = await ebay.searchEbayItems(token, campaignId, s.query, { limit: perSearch, buyNowOnly: true, fetch: ctx.fetch });
+            listings = found.filter((i) => i?.itemId && i?.title).map(ebay.itemSummary);
+          }
+          results.push({ item_type: s.item_type, query: s.query, already_yours: already, ebay: listings });
+        }
+        return {
+          goes_with: { product_id: anchor.id, name: anchor.name },
+          results,
+          ...(ebayNote ? { ebay_note: ebayNote } : {}),
+          ...(token && !campaignId
+            ? { campaign_note: "No eBay Partner Network campaign id is saved, so these can be shown but not added with a tracked link until the user connects eBay (connect_affiliate_network)." }
+            : {}),
+          message:
+            "Nothing saved. Show the picks by item type -- eBay ones as ![title](image_url) with price and condition -- say which are already the user's, and ask which eBay ones to add with add_ebay_items.",
+        };
+      }
+
+      case "add_ebay_items": {
+        const ids = [...new Set((Array.isArray(input.item_ids) ? input.item_ids : []).map((x) => String(x || "").trim()).filter(Boolean))].slice(0, 10);
+        if (!ids.length) return { error: "Pass the item_ids the user chose from find_matching_items." };
+        const campaignId = user.affiliate_network_ids?.ebay?.trim() || "";
+        if (!campaignId) {
+          return { error: "No eBay Partner Network campaign id is saved, so these couldn't earn you anything. Ask for it and save it with connect_affiliate_network (network 'ebay') first.", needs_owner: true };
+        }
+        if (!ebay.ebayConfigured()) return { error: "eBay isn't set up on the server (EBAY_APP_ID / EBAY_CERT_ID). Nothing you can fix from chat." };
+
+        const mine = await D.Product.filter({ created_by_id: user.id }, "-created_at", 500);
+        let goesWith = null;
+        if (input.goes_with_product_id) goesWith = mine.find((p) => String(p.id) === String(input.goes_with_product_id)) || null;
+        const have = new Set(mine.map((p) => ebayListingNumber(p.url)).filter(Boolean));
+
+        const token = await ebay.getEbayAppToken({ fetch: ctx.fetch });
+        const added = [];
+        const skipped = [];
+        for (const id of ids) {
+          const number = ebayListingNumber(id);
+          if (number && have.has(number)) {
+            skipped.push({ item_id: id, reason: "Already one of your products." });
+            continue;
+          }
+          // Read from eBay again rather than trusting anything passed in: the
+          // listing, its link and its picture all come from eBay itself.
+          const item = await ebay.getEbayItem(token, campaignId, id, { fetch: ctx.fetch });
+          const url = item ? ebay.affiliateUrlFor(item, campaignId) : null;
+          if (!item || !url) {
+            skipped.push({ item_id: id, reason: "Not found on eBay -- it may have sold or ended." });
+            continue;
+          }
+          const name = String(item.title || "eBay item").slice(0, 200);
+          const product = await D.Product.create({
+            created_by_id: user.id,
+            name,
+            url,
+            description: [goesWith ? `Goes with: ${goesWith.name}` : "eBay item", ebay.listingFacts(item)].filter(Boolean).join(". ").slice(0, 500),
+            category: "ebay_match",
+            network: "ebay",
+            image_url: ebay.itemSummary(item).image_url || null,
+            commission_rate: 0,
+          });
+          const link = await D.AffiliateLink.create({
+            created_by_id: user.id,
+            product_id: product.id,
+            product_name: name,
+            destination_url: url,
+            network: "ebay",
+            short_code: await newShortCode(D, user.id),
+            clicks: 0,
+            conversions: 0,
+            earnings: 0,
+          });
+          if (number) have.add(number);
+          added.push({ product_id: product.id, name, share_url: origin ? `${origin}/r/${link.short_code}` : `/r/${link.short_code}` });
+        }
+        return {
+          added,
+          skipped,
+          message: added.length
+            ? `Added ${added.length} as products with tracked eBay links${skipped.length ? `; ${skipped.length} skipped (see skipped)` : ""}. They're on the Links page and ready for create_video_ad.`
+            : "Nothing added (see skipped).",
+        };
       }
 
       case "find_product_images": {

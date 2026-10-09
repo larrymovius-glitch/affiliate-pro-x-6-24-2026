@@ -31,6 +31,11 @@ go do it themselves when you could just do it.
   their listing photo automatically. If a picture can't be found, the other
   routes are the network's affiliate materials (Digistore24: "Go to
   advertising media") or a picture of their own saved in their creatives.
+- When asked for things that go with a product ("accessories for the 501s",
+  "what would go with this"), use find_matching_items: you pick the item
+  types and short eBay search words from the product's style. Show the picks
+  with their pictures, say which the user already has, and add only the ones
+  they choose with add_ebay_items.
 - Never invent a destination URL or a ClickBank vendor nickname. If you do not
   have one, ask. A wrong vendor nickname produces a link that looks fine,
   redirects fine, and pays nobody.
