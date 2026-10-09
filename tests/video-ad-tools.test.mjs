@@ -39,8 +39,16 @@ const configured = {
   getRenderStatus: async () => ({ status: "done", url: "https://cdn.test/video.mp4" }),
 };
 
+// Vendor ads are built only from the vendor's approved copy, after the
+// owner's own opening line (see adScripts.js).
+const OPENING = "Here's one I actually use.";
+const APPROVED = {
+  approved_copy: "Made in small batches in the USA. Every order ships in plain packaging. Tap the link to see it for yourself.",
+  approved_copy_source: "https://vendor.test/affiliates",
+};
+
 const ctxFor = (D, overrides = {}) => ({
-  user: { id: "me" },
+  user: { id: "me", ad_opening_line: OPENING },
   D,
   storageClient: fakeStorage(),
   videoAds: notConfigured,
@@ -61,30 +69,64 @@ test("create_video_ad refuses a product with no image", async () => {
 });
 
 test("create_video_ad reports plainly when not configured, without attempting a render", async () => {
-  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any" }] });
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any", ...APPROVED }] });
   const r = await executeTool("create_video_ad", { product_id: "p1" }, ctxFor(D));
   assert.equal(r.configured, false);
   assert.match(r.error, /isn't set up/);
 });
 
 test("create_video_ad writes its own script when none is given, and submits a render", async () => {
-  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any" }] });
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any", ...APPROVED }] });
   const r = await executeTool("create_video_ad", { product_id: "p1" }, ctxFor(D, { videoAds: configured }));
   assert.equal(r.render_id, "render-123");
-  assert.equal(r.script, "generated script");
+  assert.ok(r.script.startsWith(OPENING), "the owner's opening line comes first");
+  assert.match(r.script, /Made in small batches in the USA./);
+  assert.equal(r.script_from.approved_copy_source, APPROVED.approved_copy_source);
   assert.equal(r.product_id, "p1");
 });
 
 test("create_video_ad uses a caller-supplied script instead of writing one", async () => {
-  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any" }] });
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any", ...APPROVED }] });
   let llmCalled = false;
   const r = await executeTool(
     "create_video_ad",
-    { product_id: "p1", script: "Buy this now, it's great." },
+    { product_id: "p1", script: `${OPENING} Tap the link to see it for yourself.` },
     ctxFor(D, { videoAds: configured, invokeLLM: async () => { llmCalled = true; return { text: "unused" }; } })
   );
-  assert.equal(r.script, "Buy this now, it's great.");
+  assert.equal(r.script, `${OPENING} Tap the link to see it for yourself.`);
   assert.equal(llmCalled, false);
+});
+
+test("a supplied script with a sentence that isn't in the approved copy is refused", async () => {
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any", ...APPROVED }] });
+  const renders = [];
+  const videoAds = { ...configured, submitAdVideoRender: async () => { renders.push(1); return "r"; } };
+  const r = await executeTool("create_video_ad", { product_id: "p1", script: `${OPENING} Buy this now, it's great.` }, ctxFor(D, { videoAds }));
+  assert.match(r.error, /isn't in the vendor's approved copy/);
+  assert.equal(renders.length, 0);
+  const noOpening = await executeTool("create_video_ad", { product_id: "p1", script: "Tap the link to see it for yourself." }, ctxFor(D, { videoAds }));
+  assert.match(noOpening.error, /opening line/);
+});
+
+test("a vendor product with no approved copy, or no opening line, comes back to the owner", async () => {
+  const bare = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any" }] });
+  const noCopy = await executeTool("create_video_ad", { product_id: "p1" }, ctxFor(bare, { videoAds: configured }));
+  assert.equal(noCopy.needs_owner, true);
+  assert.match(noCopy.error, /approved ad copy/);
+
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any", ...APPROVED }] });
+  const noLine = await executeTool("create_video_ad", { product_id: "p1" }, ctxFor(D, { videoAds: configured, user: { id: "me" } }));
+  assert.equal(noLine.needs_owner, true);
+  assert.match(noLine.error, /opening line/);
+});
+
+test("the model only picks sentences; whatever it returns, the words are the vendor's", async () => {
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any", ...APPROVED }] });
+  const r = await executeTool("create_video_ad", { product_id: "p1" }, ctxFor(D, {
+    videoAds: configured,
+    invokeLLM: async () => ({ indices: [2, 0, 99], text: "An invented miracle claim." }),
+  }));
+  assert.equal(r.script, `${OPENING} Tap the link to see it for yourself. Made in small batches in the USA.`);
 });
 
 test("check_video_ad reports still-rendering without creating an asset", async () => {
@@ -111,7 +153,7 @@ test("check_video_ad surfaces a failed render as an error, not a saved asset", a
 });
 
 test("check_video_ad saves a completed render as an AdAsset owned by the caller", async () => {
-  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any" }] });
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any", ...APPROVED }] });
   const r = await executeTool("check_video_ad", { render_id: "render-123", product_id: "p1" }, ctxFor(D, { videoAds: configured }));
   assert.equal(r.status, "done");
   assert.equal(r.url, "https://cdn.test/video.mp4");
@@ -136,21 +178,21 @@ test("the saved platform is always one the database accepts", async () => {
   // that had already been paid for and had finished.
   const ALLOWED = ["facebook", "instagram", "tiktok", "twitter", "email", "general"];
   for (const format of ["vertical", "square", "landscape", "nonsense", undefined]) {
-    const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any" }] });
+    const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any", ...APPROVED }] });
     await executeTool("check_video_ad", { render_id: "r1", product_id: "p1", format }, ctxFor(D, { videoAds: configured }));
     assert.ok(ALLOWED.includes(D.seen[0].platform), `format ${String(format)} gave platform ${D.seen[0].platform}`);
   }
 });
 
 test("a finished landscape ad records its shape in its notes", async () => {
-  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any" }] });
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any", ...APPROVED }] });
   await executeTool("check_video_ad", { render_id: "r1", product_id: "p1", format: "landscape" }, ctxFor(D, { videoAds: configured }));
   assert.match(D.seen[0].notes, /1920x1080/);
   assert.match(D.seen[0].notes, /YouTube/);
 });
 
 test("create_video_ad renders vertical unless told otherwise, and says which shape it used", async () => {
-  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any" }] });
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any", ...APPROVED }] });
   const submitted = [];
   const videoAds = { ...configured, submitAdVideoRender: async (args) => { submitted.push(args); return "render-123"; } };
 
@@ -165,6 +207,7 @@ test("create_video_ad renders vertical unless told otherwise, and says which sha
 test("the script is told to use the listing's facts and invent nothing", async () => {
   const D = fakeDb({ products: [{
     id: "p1", created_by_id: "me", name: "Sony PlayStation 5",
+    url: "https://www.ebay.com/itm/123", category: "ebay_trending",
     image_url: "https://x.com/i.png", creative_rule: "any",
     description: "eBay trending product — electronics. Condition: New. Ships from: US. Shipping: free",
   }] });
@@ -183,7 +226,7 @@ test("the script is told to use the listing's facts and invent nothing", async (
 });
 
 test("the voiceover takes a voice and a delivery direction", async () => {
-  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any" }] });
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any", ...APPROVED }] });
   const spoken = [];
   const videoAds = {
     ...configured,
@@ -191,10 +234,10 @@ test("the voiceover takes a voice and a delivery direction", async () => {
     synthesizeSpeechBuffer: async (text, voice, instructions) => { spoken.push({ text, voice, instructions }); return Buffer.from(""); },
   };
 
-  await executeTool("create_video_ad", { product_id: "p1", script: "Hello." }, ctxFor(D, { videoAds }));
+  await executeTool("create_video_ad", { product_id: "p1", script: `${OPENING} Tap the link to see it for yourself.` }, ctxFor(D, { videoAds }));
   assert.deepEqual([spoken[0].voice, spoken[0].instructions], [undefined, undefined], "left to the renderer's own default");
 
-  await executeTool("create_video_ad", { product_id: "p1", script: "Hello.", voice: "onyx", tone: "calm and serious" }, ctxFor(D, { videoAds }));
+  await executeTool("create_video_ad", { product_id: "p1", script: `${OPENING} Tap the link to see it for yourself.`, voice: "onyx", tone: "calm and serious" }, ctxFor(D, { videoAds }));
   assert.equal(spoken[1].voice, "onyx");
   assert.equal(spoken[1].instructions, "calm and serious");
 });
@@ -212,7 +255,7 @@ function withLinks(D, links) {
 }
 
 test("a finished ad puts its product's link on the share page", async () => {
-  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any" }] });
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any", ...APPROVED }] });
   const updates = withLinks(D, [
     { id: "L1", created_by_id: "me", product_id: "p1", is_active: true, bio_featured_at: null },
     { id: "L2", created_by_id: "other", product_id: "p1", is_active: true, bio_featured_at: null },
@@ -225,7 +268,7 @@ test("a finished ad puts its product's link on the share page", async () => {
 });
 
 test("a product already on the share page is left as it is", async () => {
-  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any" }] });
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any", ...APPROVED }] });
   const updates = withLinks(D, [{ id: "L1", created_by_id: "me", product_id: "p1", is_active: true, bio_featured_at: "2026-09-26T07:00:00Z" }]);
   const r = await executeTool("check_video_ad", { render_id: "r1", product_id: "p1" }, ctxFor(D, { videoAds: configured }));
   assert.equal(r.share_page, "already");
@@ -233,7 +276,7 @@ test("a product already on the share page is left as it is", async () => {
 });
 
 test("a product with no link is reported, not invented", async () => {
-  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any" }] });
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any", ...APPROVED }] });
   withLinks(D, []);
   const r = await executeTool("check_video_ad", { render_id: "r1", product_id: "p1" }, ctxFor(D, { videoAds: configured }));
   assert.equal(r.status, "done", "the ad itself is still saved");

@@ -41,6 +41,15 @@ const MEDIA_TYPES = {
   "video/x-m4v": ["video", "m4v"],
 };
 
+// Text a vendor's kit carries as ad copy. Only documents named as copy are
+// read: a folder also holds terms and compliance documents, and their
+// sentences ("You may not...") must never end up spoken in an ad.
+const DOC_MIME = "application/vnd.google-apps.document";
+const COPY_NAME = /swipe|ad ?copy|\bcopy\b|\bads?\b|script|caption|headline|\bhooks?\b|\bposts?\b/i;
+const NOT_COPY_NAME = /terms|compliance|guideline|rules|policy|polic(y|ies)|disclaimer|faq|legal|agreement|contract/i;
+const MAX_COPY_DOCS = 5;
+const MAX_COPY_TOTAL = 20_000;
+
 const KEY_REASONS = new Set(["keyInvalid", "accessNotConfigured", "ipRefererBlocked", "keyExpired", "SERVICE_DISABLED", "API_KEY_INVALID"]);
 const RATE_REASONS = new Set(["rateLimitExceeded", "userRateLimitExceeded", "dailyLimitExceeded", "quotaExceeded", "downloadQuotaExceeded"]);
 
@@ -135,7 +144,7 @@ function driveHeaders(resourceKeys) {
 /**
  * Walks a shared folder and everything under it, without copying anything.
  *
- * @returns {Promise<{ ok: true, name: string, files: any[], skipped: { name: string, reason: string }[] }
+ * @returns {Promise<{ ok: true, name: string, files: any[], copyDocs: any[], skipped: { name: string, reason: string }[] }
  *         | { ok: false, kind: "private"|"not_folder"|"key"|"rate_limited"|"error", message: string }>}
  */
 export async function walkDriveFolder(link, { apiKey, fetch = globalThis.fetch }) {
@@ -151,6 +160,7 @@ export async function walkDriveFolder(link, { apiKey, fetch = globalThis.fetch }
   }
 
   const files = [];
+  const copyDocs = [];
   const skipped = [];
   const queue = [{ id: meta.id, resourceKey: link.resourceKey, path: "" }];
   let folders = 0;
@@ -186,6 +196,8 @@ export async function walkDriveFolder(link, { apiKey, fetch = globalThis.fetch }
           queue.push({ id: f.id, resourceKey: f.resourceKey || null, path });
         } else if (MEDIA_TYPES[f.mimeType]) {
           files.push({ ...f, path, size: Number(f.size) || 0 });
+        } else if ((f.mimeType === DOC_MIME || f.mimeType === "text/plain") && COPY_NAME.test(f.name) && !NOT_COPY_NAME.test(f.name)) {
+          copyDocs.push({ ...f, path });
         } else {
           skipped.push({ name: path, reason: f.mimeType?.startsWith("application/vnd.google-apps") ? "A Google Docs/Sheets/Slides file, not a picture or video." : `Not a picture or video (${f.mimeType || "unknown type"}).` });
         }
@@ -198,7 +210,7 @@ export async function walkDriveFolder(link, { apiKey, fetch = globalThis.fetch }
     }
   }
 
-  return { ok: true, name: meta.name, files, skipped };
+  return { ok: true, name: meta.name, files, copyDocs, skipped };
 }
 
 function safeName(name) {
@@ -330,6 +342,35 @@ export async function importDriveCreatives({ user, product, folderUrl, folderSou
 
   /** @type {Record<string, any>} */
   const productPatch = { creatives_folder_url: String(folderUrl).trim(), creatives_folder_source: check.source };
+
+  // The kit's swipe copy becomes the product's approved ad copy -- only when
+  // none is saved yet; copy the owner saved by hand is never replaced.
+  let copyFrom = [];
+  if (walked.copyDocs.length && !String(product.approved_copy || "").trim()) {
+    const texts = [];
+    for (const d of walked.copyDocs.slice(0, MAX_COPY_DOCS)) {
+      const url = d.mimeType === DOC_MIME
+        ? `${DRIVE_API}/files/${d.id}/export?mimeType=text%2Fplain&key=${key}`
+        : `${DRIVE_API}/files/${d.id}?alt=media&supportsAllDrives=true&key=${key}`;
+      const res = await fetch(url, { headers: driveHeaders([d]) });
+      if (!res.ok) {
+        skipped.push({ name: d.path, reason: "Couldn't read this copy document." });
+        continue;
+      }
+      texts.push(String(await res.text()).trim());
+      copyFrom.push(d.path);
+    }
+    const copy = texts.filter(Boolean).join("\n\n").slice(0, MAX_COPY_TOTAL);
+    if (copy) {
+      productPatch.approved_copy = copy;
+      productPatch.approved_copy_source = `${copyFrom.join(", ")} in the vendor's Google Drive folder "${walked.name}" (folder link from: ${check.source})`.slice(0, 500);
+      productPatch.approved_copy_at = new Date(now()).toISOString();
+    } else {
+      copyFrom = [];
+    }
+  } else if (walked.copyDocs.length) {
+    skipped.push(...walked.copyDocs.map((d) => ({ name: d.path, reason: "Approved copy is already saved for this product, so this was left alone." })));
+  }
   // An official picture replaces one from the sales page or of unknown origin,
   // which restrictive vendors won't allow in an ad anyway. The owner's own
   // picture, or an official one already chosen, is left alone.
@@ -346,6 +387,7 @@ export async function importDriveCreatives({ user, product, folderUrl, folderSou
   const message =
     `Copied ${imported.length} official creative${imported.length === 1 ? "" : "s"} from "${walked.name}".` +
     (pictureSet ? ` "${pictureSet.title}" is now the product's picture.` : "") +
+    (copyFrom.length ? ` Saved the ad copy from ${copyFrom.join(", ")} as the product's approved copy.` : "") +
     (remaining.length ? ` ${remaining.length} more didn't fit in this run -- import the same folder again to continue.` : "") +
     (!walked.files.length ? " The folder has no pictures or videos the app can see." : "");
   await record(status, { imported: imported.length, skipped, message });
@@ -357,6 +399,7 @@ export async function importDriveCreatives({ user, product, folderUrl, folderSou
     skipped,
     remaining,
     product_picture: pictureSet ? pictureSet.url : null,
+    approved_copy_from: copyFrom,
     message,
   };
 }

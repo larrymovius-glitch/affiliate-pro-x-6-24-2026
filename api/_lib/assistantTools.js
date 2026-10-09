@@ -5,6 +5,7 @@ import { largestEbayImage } from "./images.js";
 import { findVendorImage } from "./productImages.js";
 import { importDriveCreatives } from "./driveCreatives.js";
 import { affiliateIdsFor } from "./autoProductImages.js";
+import { checkOpeningLine, checkSuppliedScript, composeAdScript, openingLineFor, usableSentences, MAX_COPY_CHARS, MAX_OPENING_WORDS } from "./adScripts.js";
 
 function hostOf(url) {
   try {
@@ -93,6 +94,10 @@ function productSummary(p) {
     // Why the automatic picture finder couldn't find one, so the assistant
     // can say what's needed instead of searching again blind.
     ...(!p.image_url && p.image_lookup_note ? { picture_lookup: p.image_lookup_note } : {}),
+    // Ad scripts come only from this (see adScripts.js); eBay needs none.
+    approved_copy: isEbayProduct(p) ? "not_needed" : p.approved_copy ? "saved" : "missing",
+    ...(p.approved_copy_source ? { approved_copy_source: p.approved_copy_source } : {}),
+    ...(p.ad_opening_line ? { opening_line: p.ad_opening_line } : {}),
   };
 }
 
@@ -197,7 +202,7 @@ export const TOOL_DEFINITIONS = [
   {
     name: "import_official_creatives",
     description:
-      "Copy a vendor's official creatives -- the Google Drive folder many ClickBank and Digistore24 vendors give affiliates -- into the app, marked official and attached to one of the user's products. Its pictures and clips then qualify for vendors that allow only official creatives, and if the product's current picture is from the sales page or unconfirmed, the largest official picture replaces it. Needs the folder link AND where the user got it (folder_source): the vendor's affiliate page address, or e.g. 'email from the vendor'. Never guess folder_source and never fill it with the folder link -- if the user hasn't said, ask. If the result status is 'private', tell the user plainly the folder is private and nothing was copied, and do not retry. If it is 'partial', say how many are left and offer to run it again with the same folder to continue. List what was skipped and why in a short line or two.",
+      "Copy a vendor's official creatives -- the Google Drive folder many ClickBank and Digistore24 vendors give affiliates -- into the app, marked official and attached to one of the user's products. Its pictures and clips then qualify for vendors that allow only official creatives, and if the product's current picture is from the sales page or unconfirmed, the largest official picture replaces it. Swipe-copy documents in the folder (Google Docs named as swipe, ad copy, scripts, captions) become the product's approved ad copy if none is saved yet -- terms and compliance documents never do. Needs the folder link AND where the user got it (folder_source): the vendor's affiliate page address, or e.g. 'email from the vendor'. Never guess folder_source and never fill it with the folder link -- if the user hasn't said, ask. If the result status is 'private', tell the user plainly the folder is private and nothing was copied, and do not retry. If it is 'partial', say how many are left and offer to run it again with the same folder to continue. List what was skipped and why in a short line or two.",
     input_schema: {
       type: "object",
       properties: {
@@ -209,6 +214,33 @@ export const TOOL_DEFINITIONS = [
         },
       },
       required: ["product_id", "folder_url", "folder_source"],
+    },
+  },
+  {
+    name: "save_approved_copy",
+    description:
+      "Save the vendor's approved ad copy for one of the user's products -- the ad text or swipe copy the vendor gives affiliates. Video ad scripts for vendor products are built ONLY from this, word for word, after the user's own opening line. Pass the copy exactly as the user pasted it; never write, tidy or summarise it yourself. Needs source: where the user got it (the vendor's affiliate page address, a swipe file, an email from the vendor) -- if they haven't said, ask. Never copy text from the vendor's sales page and call it approved copy. Replaces any copy saved before.",
+    input_schema: {
+      type: "object",
+      properties: {
+        product_id: { type: "string", description: "id from list_my_products." },
+        copy: { type: "string", description: "The approved copy exactly as the user gave it." },
+        source: { type: "string", description: "Where the user says the copy came from. Only what they told you." },
+      },
+      required: ["product_id", "copy", "source"],
+    },
+  },
+  {
+    name: "set_opening_line",
+    description:
+      "Save the user's own opening line -- the first thing said in every video ad, in their words exactly as they give them. Without product_id it is their default for every ad; with product_id it is for that one product only. Never write or suggest the line yourself unless they ask you to, and save it only once they have confirmed the exact words. Pass an empty text with a product_id to go back to the default for that product.",
+    input_schema: {
+      type: "object",
+      properties: {
+        text: { type: "string", description: `The opening line, up to ${MAX_OPENING_WORDS} words, exactly as the user wants it said.` },
+        product_id: { type: "string", description: "Optional: only for this product." },
+      },
+      required: ["text"],
     },
   },
   {
@@ -260,12 +292,16 @@ export const TOOL_DEFINITIONS = [
   {
     name: "create_video_ad",
     description:
-      "Start generating a short AI voiceover video ad (image + TTS voiceover + caption) for one of the user's products. Rendering happens on an external service and takes roughly a minute -- this only submits the job and returns a render_id. Call check_video_ad with that id a little later to see if it's done; do not call it back to back, space it out across the conversation. Uses the product's image_url (shown by list_my_products) or a clip passed as video_url; if the product already has an image_url, don't ask the user for a picture -- just use it. Users can't send you images in this chat; pictures are added on the Products page or found with list_ad_creatives. If this returns a 'not set up' error, tell the user this feature needs an API key configured and do not try again this turn. It refuses a vertical (TikTok) ad for a product TikTok bans; when it does, tell the user why in one line and suggest a product whose tiktok is 'allowed' -- never remake it in another shape to get around the rule. It also refuses an ad that breaks the vendor's creative rules (see creative_rule in list_my_products): say why plainly, and never work around it -- no other picture or clip the user hasn't confirmed, and never a clip cut from a vendor's sales video. Always pass on the posting_checklist and any vendor_rules it returns.",
+      "Start generating a short AI voiceover video ad (image + TTS voiceover + caption) for one of the user's products. Rendering happens on an external service and takes roughly a minute -- this only submits the job and returns a render_id. Call check_video_ad with that id a little later to see if it's done; do not call it back to back, space it out across the conversation. Uses the product's image_url (shown by list_my_products) or a clip passed as video_url; if the product already has an image_url, don't ask the user for a picture -- just use it. Users can't send you images in this chat; pictures are added on the Products page or found with list_ad_creatives. If this returns a 'not set up' error, tell the user this feature needs an API key configured and do not try again this turn. It refuses a vertical (TikTok) ad for a product TikTok bans; when it does, tell the user why in one line and suggest a product whose tiktok is 'allowed' -- never remake it in another shape to get around the rule. It also refuses an ad that breaks the vendor's creative rules (see creative_rule in list_my_products): say why plainly, and never work around it -- no other picture or clip the user hasn't confirmed, and never a clip cut from a vendor's sales video. Always pass on the posting_checklist and any vendor_rules it returns. For vendor products the voiceover is the user's own opening line followed only by sentences from the vendor's approved copy, word for word -- never a script of your own. If it says needs_owner (no approved copy, no opening line, or nothing usable left), ask the user for exactly what it names: approved copy goes in with save_approved_copy, the opening line with set_opening_line. Tell the user the script it used (script) so they hear nothing unexpected.",
     input_schema: {
       type: "object",
       properties: {
         product_id: { type: "string", description: "id from list_my_products." },
-        script: { type: "string", description: "Optional ad script/voiceover text, roughly 2-4 short sentences. Omit to have one written automatically." },
+        script: {
+          type: "string",
+          description:
+            "Optional. Leave it out: the script is built automatically from the user's opening line and the vendor's approved copy, word for word. Only pass one the user dictated -- and for a vendor product it must be their opening line followed only by sentences from the approved copy, or it is refused.",
+        },
         format: {
           type: "string",
           description:
@@ -574,6 +610,59 @@ export async function executeTool(name, input = {}, ctx = {}) {
         };
       }
 
+      case "save_approved_copy": {
+        const owned = await D.Product.filter({ created_by_id: user.id, id: String(input.product_id || "") });
+        const product = owned[0];
+        if (!product) return { error: "No product of yours with that id. Call list_my_products first." };
+        if (isEbayProduct(product)) return { error: `"${product.name}" is an eBay listing; its ads are written from the listing itself, so it needs no approved copy.` };
+        const copy = String(input.copy || "").trim();
+        const source = String(input.source || "").trim();
+        if (!copy) return { error: "There's no copy to save." };
+        if (copy.length > MAX_COPY_CHARS) return { error: `That's longer than ${MAX_COPY_CHARS} characters. Save the ad copy section, not the whole swipe file.` };
+        if (source.length < 4) {
+          return { error: "Where did this copy come from? It can only be saved as approved once you say -- e.g. the vendor's affiliate page address, or an email from the vendor.", needs_owner: true };
+        }
+        await D.Product.update(product.id, { approved_copy: copy, approved_copy_source: source.slice(0, 500), approved_copy_at: new Date().toISOString() });
+        const supplement = tiktokRule(product, { isEbay: false }).status === "restricted";
+        const { usable, excluded } = usableSentences(copy, { supplement });
+        return {
+          saved: true,
+          product_name: product.name,
+          usable_sentences: usable.length,
+          ...(excluded.length ? { set_aside: excluded.slice(0, 10) } : {}),
+          message: usable.length
+            ? `Saved. ${usable.length} sentence${usable.length === 1 ? "" : "s"} can go into ads${excluded.length ? `; ${excluded.length} set aside (see set_aside)` : ""}.`
+            : "Saved, but none of it can go into a short video ad (see set_aside). Ask the user for other approved copy.",
+        };
+      }
+
+      case "set_opening_line": {
+        const text = String(input.text || "").replace(/\s+/g, " ").trim();
+        const productId = String(input.product_id || "").trim();
+        if (productId) {
+          const owned = await D.Product.filter({ created_by_id: user.id, id: productId });
+          const product = owned[0];
+          if (!product) return { error: "No product of yours with that id. Call list_my_products first." };
+          if (!text) {
+            await D.Product.update(product.id, { ad_opening_line: null });
+            return { saved: true, message: `"${product.name}" now uses your default opening line.` };
+          }
+          const supplement = tiktokRule(product, { isEbay: isEbayProduct(product) }).status === "restricted";
+          const ok = checkOpeningLine(text, { supplement });
+          if (!ok.ok) return { error: ok.reason };
+          await D.Product.update(product.id, { ad_opening_line: ok.line });
+          return { saved: true, opening_line: ok.line, product_name: product.name };
+        }
+        const ok = checkOpeningLine(text);
+        if (!ok.ok) return { error: ok.reason };
+        await D.User.update(user.id, { ad_opening_line: ok.line });
+        return {
+          saved: true,
+          opening_line: ok.line,
+          message: "Saved as the opening line for every ad. A supplement ad still can't open on a health, weight or results claim; if this one does, that product will need its own line.",
+        };
+      }
+
       case "import_official_creatives": {
         const owned = await D.Product.filter({ created_by_id: user.id, id: String(input.product_id || "") });
         const product = owned[0];
@@ -729,8 +818,39 @@ export async function executeTool(name, input = {}, ctx = {}) {
           return { error: "Video ad generation isn't set up yet -- it needs an OpenAI and a JSON2Video API key configured on the server. Nothing you can fix from chat.", configured: false };
         }
 
+        // Vendor products: only the vendor's approved copy, led by the owner's
+        // own opening line, word for word (see adScripts.js). eBay listings
+        // have no vendor copy; their script comes from the listing's own facts.
+        const ebay = isEbayProduct(product);
         let script = String(input.script || "").trim();
-        if (!script) {
+        let scriptFrom = null;
+        if (!ebay) {
+          const built = script
+            ? checkSuppliedScript(script, { product, user, supplement })
+            : await composeAdScript({
+                product,
+                user,
+                supplement,
+                pick: async (sentences) => {
+                  const picked = await callLLM({
+                    prompt: `Pick the sentences for a 15-20 second video ad voiceover for "${product.name}", from the vendor's approved ad copy below. Pick 2 to 4 that read well spoken aloud one after another, in the order they should be said, ending on a call to action if one is there. Don't rewrite anything -- answer only with the numbers.
+
+${sentences.map((t, i) => `${i}. ${t}`).join("\n")}`,
+                    response_json_schema: { type: "object", properties: { indices: { type: "array", items: { type: "integer" } } }, required: ["indices"] },
+                  });
+                  return picked?.indices;
+                },
+              });
+          if (built.outcome !== "ok") {
+            return {
+              error: `Not made: ${built.reason}`,
+              ...(built.outcome === "escalate" ? { needs_owner: true } : {}),
+              ...("excluded" in built && Array.isArray(built.excluded) && built.excluded.length ? { excluded_from_copy: built.excluded.slice(0, 10) } : {}),
+            };
+          }
+          script = built.script;
+          scriptFrom = { opening_line: openingLineFor(product, user), approved_copy_source: product.approved_copy_source };
+        } else if (!script) {
           const written = await callLLM({
             prompt: `Write a short 15-20 second video ad voiceover script for this affiliate product. 2-4 short sentences, spoken out loud, no stage directions, no emoji, no hashtags. End with a clear call to action.
 
@@ -746,6 +866,8 @@ Category: ${product.category || "N/A"}`,
           });
           script = String(written.text || "").trim();
           if (!script) return { error: "Couldn't write a script for this product. Try passing your own." };
+          const opening = checkOpeningLine(openingLineFor(product, user));
+          if (opening.ok) script = `${opening.line} ${script}`;
         }
 
         const audioBuffer = await videoAds.synthesizeSpeechBuffer(
@@ -775,6 +897,7 @@ Category: ${product.category || "N/A"}`,
           product_id: product.id,
           product_name: product.name,
           script,
+          ...(scriptFrom ? { script_from: scriptFrom } : {}),
           format: `${format.width}x${format.height} (${format.where})`,
           // Handed over with the video rather than left to the user to write:
           // the on-screen line covers the muted scroller, this covers the

@@ -162,7 +162,24 @@ import stops, copies nothing and says the folder is private. Nothing is
 marked official unless you say where the folder link came from (the vendor's
 affiliate page, an email from the vendor); that answer is saved with every
 file. Every attempt, including refused and private ones, is logged in the
-`creative_imports` table.
+`creative_imports` table. Swipe-copy Google Docs in the folder become the
+product's approved ad copy (below) when none is saved yet.
+
+## Video ad scripts
+
+For a vendor product, a video ad's voiceover is the owner's own opening line
+followed only by sentences from the vendor's approved copy, word for word
+(`api/_lib/adScripts.js`). The model only picks which sentences, by number;
+code assembles them, and a script handed in from outside is checked sentence
+by sentence and refused if any sentence isn't in the copy. Links,
+placeholders, email lines and prices are set aside, and so are health, weight
+and results claims in a supplement's copy.
+
+The owner gives Maya the copy (`save_approved_copy`, with where it came from)
+and an opening line (`set_opening_line` — a default for every ad, or one
+product's own). With either missing, no ad is made; Maya asks for it. eBay
+listings have no vendor copy: their script is still written from the
+listing's own facts, after the opening line.
 
 ## Email setup
 

@@ -63,12 +63,16 @@ function fakeDrive({ privateFolder = false } = {}) {
           { id: "img-small", name: "banner small.png", mimeType: "image/png", size: "1000" },
           { id: "img-big", name: "banner big.jpg", mimeType: "image/jpeg", size: "5000" },
           { id: "doc", name: "Swipe emails", mimeType: "application/vnd.google-apps.document" },
+          { id: "terms", name: "Affiliate Terms", mimeType: "application/vnd.google-apps.document" },
           { id: "sub", name: "Videos", mimeType: "application/vnd.google-apps.folder" },
         ],
       });
     }
     if (u.includes(encodeURIComponent("'sub' in parents"))) {
       return json({ files: [{ id: "vid", name: "ad 1.mp4", mimeType: "video/mp4", size: "3000" }] });
+    }
+    if (u.includes("/files/doc/export?mimeType=text%2Fplain")) {
+      return new Response("Made in small batches in the USA. Tap the link to see it for yourself.", { status: 200 });
     }
     const media = u.match(/\/files\/([^?]+)\?alt=media/);
     if (media) {
@@ -151,7 +155,9 @@ test("a public kit is copied with subfolders, marked official, with where the li
   );
   assert.equal(out.status, "imported");
   assert.equal(out.imported.length, 3);
-  assert.deepEqual(out.skipped.map((s) => s.name), ["Swipe emails"]);
+  // Terms are never read as ad copy; the swipe file is.
+  assert.deepEqual(out.skipped.map((s) => s.name), ["Affiliate Terms"]);
+  assert.deepEqual(out.approved_copy_from, ["Swipe emails"]);
   assert.ok(store.uploaded.every((u) => u.path.startsWith("official-creatives/user-1/prod-1/")));
   for (const a of D.rows.AdAsset) {
     assert.equal(a.is_official, true);
@@ -166,8 +172,20 @@ test("a public kit is copied with subfolders, marked official, with where the li
   assert.equal(patch.image_source, "official");
   assert.match(patch.image_url, /img-big/);
   assert.equal(patch.creatives_folder_source, SOURCE);
+  assert.match(patch.approved_copy, /Made in small batches/);
+  assert.match(patch.approved_copy_source, /Swipe emails.*HepatoBurn Creatives.*vendor\.test\/affiliates/);
   assert.equal(D.rows.CreativeImport[0].status, "imported");
   assert.equal(D.rows.CreativeImport[0].imported, 3);
+});
+
+test("approved copy the owner already saved is never replaced by the folder's", async () => {
+  const D = fakeD();
+  const out = await importDriveCreatives(
+    { user: USER, product: { ...PRODUCT, approved_copy: "Owner's copy.", approved_copy_source: "email" }, folderUrl: FOLDER, folderSource: SOURCE },
+    { D, storage: fakeStorage(), apiKey: "k", fetch: fakeDrive().fetch }
+  );
+  assert.equal(D.rows.ProductUpdates[0].approved_copy, undefined);
+  assert.deepEqual(out.approved_copy_from, []);
 });
 
 test("the owner's own picture is never replaced", async () => {

@@ -71,6 +71,13 @@ matters is the second kind.
 Practical form: the check runs before the side effect, refuses by throwing or
 returning an error, and has a test that fails if the refusal stops working.
 
+Example: video ad scripts for vendor products (`api/_lib/adScripts.js`). The
+model is not told "use only the approved copy" and trusted to: it picks
+sentences by number and code assembles them verbatim after the owner's opening
+line; a supplied script with any sentence not in the copy is refused
+(`checkSuppliedScript`); missing copy, source or opening line escalates to the
+owner (`composeAdScript`). Tests: `tests/ad-scripts.test.mjs`.
+
 ## 5. Least privilege for credentials
 
 Each automated component gets the narrowest credential that lets it do its job

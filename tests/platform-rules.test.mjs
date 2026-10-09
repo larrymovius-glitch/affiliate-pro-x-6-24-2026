@@ -108,18 +108,21 @@ test("Maya refuses a TikTok ad for a banned product without spending a render", 
   assert.equal(wrote, false, "no script is written either");
 });
 
-test("a supplement ad gets mild-wording instructions, the FDA line and the adults-only step", async () => {
+test("a supplement ad leaves the vendor copy's claims out, and gets the FDA line and the adults-only step", async () => {
   const spy = videoAdsSpy();
-  const prompts = [];
   const out = await executeTool("create_video_ad", { product_id: "p1" }, {
-    user: { id: "me" },
-    D: fakeDb([product("Advanced Amino Formula")]),
+    user: { id: "me", ad_opening_line: "Here's what I take." },
+    D: fakeDb([product("Advanced Amino Formula", {
+      approved_copy: "Clinically proven to boost your energy. Take two capsules with water each morning. Tap the link to see it for yourself.",
+      approved_copy_source: "https://vendor.test/affiliates",
+    })]),
     videoAds: spy.lib,
     storageClient: {},
-    invokeLLM: async ({ prompt }) => { prompts.push(prompt); return { text: "script" }; },
+    invokeLLM: async () => ({ indices: [0, 1] }),
   });
   assert.equal(spy.renders.length, 1);
-  assert.match(prompts[0], /dietary supplement/);
+  assert.doesNotMatch(out.script, /energy|proven/i, "the vendor's own claim still can't go in a supplement ad");
+  assert.match(out.script, /Take two capsules with water each morning./);
   assert.ok(out.suggested_caption.endsWith(FDA_DISCLAIMER));
   assert.equal(out.tiktok, "restricted");
   assert.match(out.posting_checklist.join(" "), /18\+/);
