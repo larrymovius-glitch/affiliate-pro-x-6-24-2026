@@ -119,9 +119,90 @@ test("save_approved_copy is refused for eBay listings and other people's product
 test("set_opening_line saves the default on the owner, or one product's own", async () => {
   const D = fakeDb([{ id: "p1", created_by_id: "me", name: "Mine", url: "https://vendor.test/" }]);
   await executeTool("set_opening_line", { text: "  Here's   one I use.  " }, { user, D });
-  assert.deepEqual(D.updates[0], { table: "profiles", id: "me", ad_opening_line: "Here's one I use." });
+  assert.deepEqual(D.updates[0], { table: "profiles", id: "me", ad_opening_lines: ["Here's one I use."], ad_opening_line: "Here's one I use." });
   await executeTool("set_opening_line", { text: "Dog people, look.", product_id: "p1" }, { user, D });
   assert.deepEqual(D.updates[1], { table: "products", id: "p1", ad_opening_line: "Dog people, look." });
   const bad = await executeTool("set_opening_line", { text: "Go to https://x.test" }, { user, D });
   assert.match(bad.error, /link/);
+});
+
+// Opening lines take turns across ads, and each ad gets its own link so its
+// clicks score the line it opened with.
+
+test("rotation picks the least-used line, ties to the earlier one", async () => {
+  const { pickOpeningLine } = await import("../api/_lib/adScripts.js");
+  const lines = ["Okay, I need to show you this.", "Found this and had to share it."];
+  assert.equal(pickOpeningLine(lines, {}), lines[0]);
+  assert.equal(pickOpeningLine(lines, { [lines[0]]: 1 }), lines[1]);
+  assert.equal(pickOpeningLine(lines, { [lines[0]]: 2, [lines[1]]: 2 }), lines[0]);
+});
+
+test("a product's own line beats the rotation, and the rotation beats the old single default", async () => {
+  const { openingLinesFor } = await import("../api/_lib/adScripts.js");
+  const u = { ad_opening_line: "Old one here.", ad_opening_lines: ["First line here.", "Second line here."] };
+  assert.deepEqual(openingLinesFor({ ad_opening_line: "Dog people, look." }, u), ["Dog people, look."]);
+  assert.deepEqual(openingLinesFor({}, u), ["First line here.", "Second line here."]);
+  assert.deepEqual(openingLinesFor({}, { ad_opening_line: "Old one here." }), ["Old one here."]);
+});
+
+test("a supplied script may open with any of the owner's lines", () => {
+  const u = { id: "me", ad_opening_lines: ["Okay, I need to show you this.", "Found this and had to share it."] };
+  const out = checkSuppliedScript("Found this and had to share it. Tap the link to see it for yourself.", { product: product(), user: u });
+  assert.equal(out.outcome, "ok");
+  assert.equal(out.opening_line, "Found this and had to share it.");
+});
+
+test("stats count only each ad's own link, best clicks per ad first", async () => {
+  const { openingLineStats } = await import("../api/_lib/adScripts.js");
+  const stats = openingLineStats([
+    { ad_opening_line: "A line here.", clicks: 2, earnings: "1.50" },
+    { ad_opening_line: "A line here.", clicks: 0 },
+    { ad_opening_line: "B line here.", clicks: 5, conversions: 1, earnings: 10 },
+    { ad_opening_line: null, clicks: 100 },
+  ]);
+  assert.deepEqual(stats.map((s) => [s.opening_line, s.ads, s.clicks, s.clicks_per_ad]), [["B line here.", 1, 5, 5], ["A line here.", 2, 2, 1]]);
+  assert.equal(stats[1].earnings, 1.5);
+});
+
+function linkDb(products, user) {
+  const D = fakeDb(products);
+  D.links = [];
+  D.AffiliateLink = {
+    filter: async (f) => D.links.filter((l) => Object.entries(f).every(([k, v]) => l[k] === v)),
+    create: async (row) => { const l = { id: `L${D.links.length + 1}`, ...row }; D.links.push(l); return l; },
+  };
+  return D;
+}
+
+test("set_opening_line adds to and removes from the rotation", async () => {
+  const D = linkDb([], {});
+  const u = { id: "me", ad_opening_line: "Okay, I need to show you this." };
+  const added = await executeTool("set_opening_line", { text: "Found this and had to share it.", mode: "add" }, { user: u, D });
+  assert.deepEqual(added.opening_lines, ["Okay, I need to show you this.", "Found this and had to share it."]);
+  assert.deepEqual(D.updates[0].ad_opening_lines, added.opening_lines);
+  const removed = await executeTool("set_opening_line", { text: "okay, i need to show you this.", mode: "remove" }, { user: { ...u, ad_opening_lines: added.opening_lines }, D });
+  assert.deepEqual(removed.opening_lines, ["Found this and had to share it."]);
+  assert.equal(D.updates[1].ad_opening_line, "Found this and had to share it.");
+});
+
+test("each ad takes the next line in turn and gets its own link carrying that line", async () => {
+  const u = { id: "me", ad_opening_lines: ["Okay, I need to show you this.", "Found this and had to share it."] };
+  const D = linkDb([{ id: "p1", created_by_id: "me", name: "Mine", url: "https://vendor.test/", image_url: "https://x.test/i.png", creative_rule: "any", approved_copy: COPY, approved_copy_source: SOURCE }], u);
+  const videoAds = {
+    videoAdsConfigured: () => true,
+    adFormat: () => ({ platform: "tiktok", width: 1080, height: 1920, where: "TikTok" }),
+    synthesizeSpeechBuffer: async () => Buffer.from(""),
+    uploadPublicAsset: async () => "https://cdn.test/a.mp3",
+    estimateDurationSeconds: () => 15,
+    submitAdVideoRender: async () => "render-1",
+    suggestedAdCaption: (n) => n,
+  };
+  const ctx = { user: u, D, videoAds, storageClient: {}, invokeLLM: async () => ({ indices: [0] }), origin: "https://app.test" };
+  const first = await executeTool("create_video_ad", { product_id: "p1" }, ctx);
+  const second = await executeTool("create_video_ad", { product_id: "p1" }, ctx);
+  assert.ok(first.script.startsWith("Okay, I need to show you this."));
+  assert.ok(second.script.startsWith("Found this and had to share it."));
+  assert.deepEqual(D.links.map((l) => l.ad_opening_line), ["Okay, I need to show you this.", "Found this and had to share it."]);
+  assert.match(first.ad_link, /^https:\/\/app\.test\/r\/[A-Z0-9]+$/);
+  assert.notEqual(first.ad_link, second.ad_link);
 });

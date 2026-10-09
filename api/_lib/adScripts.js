@@ -108,9 +108,71 @@ export function checkOpeningLine(line, { supplement = false } = {}) {
   return { ok: true, line: text };
 }
 
-/** The product's own opening line, else the owner's default. */
+export const MAX_OPENING_LINES = 5;
+
+/**
+ * The lines an ad for this product may open with: the product's own line if
+ * it has one, else the owner's rotation, else the older single default.
+ */
+export function openingLinesFor(product, user) {
+  const own = String(product?.ad_opening_line || "").trim();
+  if (own) return [own];
+  const rotation = (Array.isArray(user?.ad_opening_lines) ? user.ad_opening_lines : [])
+    .map((l) => String(l || "").trim())
+    .filter(Boolean);
+  if (rotation.length) return rotation;
+  const single = String(user?.ad_opening_line || "").trim();
+  return single ? [single] : [];
+}
+
+/** The first line an ad for this product would open with. */
 export function openingLineFor(product, user) {
-  return String(product?.ad_opening_line || user?.ad_opening_line || "").trim();
+  return openingLinesFor(product, user)[0] || "";
+}
+
+/**
+ * Rotation: the line used in the fewest ads so far, so every line gets a fair
+ * number of ads before their clicks are compared. Ties go to the earlier line.
+ *
+ * @param {string[]} lines
+ * @param {Record<string, number>} usage  ads made so far, by opening line
+ */
+export function pickOpeningLine(lines, usage = {}) {
+  let best = "";
+  let bestCount = Infinity;
+  for (const line of lines) {
+    const count = usage[line] || 0;
+    if (count < bestCount) {
+      best = line;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
+/**
+ * Clicks, sales and earnings per opening line, from the links made one per
+ * ad. Only clicks on an ad's own link count -- a "link in bio" click can't be
+ * traced to the video that sent it, so it scores no line.
+ *
+ * @param {any[]} links  the owner's affiliate links
+ */
+export function openingLineStats(links = []) {
+  /** @type {Map<string, { opening_line: string, ads: number, clicks: number, conversions: number, earnings: number }>} */
+  const byLine = new Map();
+  for (const l of links) {
+    const line = String(l?.ad_opening_line || "").trim();
+    if (!line) continue;
+    if (!byLine.has(line)) byLine.set(line, { opening_line: line, ads: 0, clicks: 0, conversions: 0, earnings: 0 });
+    const s = byLine.get(line);
+    s.ads += 1;
+    s.clicks += Number(l.clicks) || 0;
+    s.conversions += Number(l.conversions) || 0;
+    s.earnings += Number(l.earnings) || 0;
+  }
+  return [...byLine.values()]
+    .map((s) => ({ ...s, earnings: Math.round(s.earnings * 100) / 100, clicks_per_ad: s.ads ? Math.round((s.clicks / s.ads) * 10) / 10 : 0 }))
+    .sort((a, b) => b.clicks_per_ad - a.clicks_per_ad || b.ads - a.ads);
 }
 
 function fitsBudget(opening, sentences) {
@@ -121,7 +183,9 @@ function fitsBudget(opening, sentences) {
  * Builds the script: the opening line, then sentences picked from the
  * approved copy, verbatim.
  *
- * @param {{ product: any, user: any, supplement?: boolean, pick?: (sentences: string[]) => Promise<number[]> }} args
+ * @param {{ product: any, user: any, supplement?: boolean, openingLine?: string, pick?: (sentences: string[]) => Promise<number[]> }} args
+ *        `openingLine` is the line rotation chose; without it, the first of
+ *        the owner's lines.
  *        `pick` chooses which sentences, by index, in speaking order -- the
  *        model's only say in the script. Whatever it returns is checked
  *        here; without it, or if it returns nothing usable, the first
@@ -129,7 +193,7 @@ function fitsBudget(opening, sentences) {
  * @returns {Promise<{ outcome: "ok", script: string, opening_line: string, sentences: string[], excluded: number }
  *         | { outcome: "escalate", reason: string, excluded?: { sentence: string, reason: string }[] }>}
  */
-export async function composeAdScript({ product, user, supplement = false, pick }) {
+export async function composeAdScript({ product, user, supplement = false, openingLine, pick }) {
   const copy = String(product?.approved_copy || "").trim();
   if (!copy) {
     return {
@@ -141,7 +205,7 @@ export async function composeAdScript({ product, user, supplement = false, pick 
     return { outcome: "escalate", reason: `The approved copy for "${product?.name}" has no recorded source. Say where it came from before it's used.` };
   }
 
-  const opening = checkOpeningLine(openingLineFor(product, user), { supplement });
+  const opening = checkOpeningLine(openingLine || openingLineFor(product, user), { supplement });
   if (!opening.ok) {
     return { outcome: "escalate", reason: `${opening.reason} Every ad starts with your own opening line -- tell me what it should say.` };
   }
@@ -189,18 +253,29 @@ export async function composeAdScript({ product, user, supplement = false, pick 
  * owner) against the same rule: the opening line first, then only sentences
  * from the approved copy.
  *
- * @returns {{ outcome: "ok", script: string } | { outcome: "prohibited" | "escalate", reason: string }}
+ * Any of the owner's opening lines may lead it; `opening_line` says which.
+ *
+ * @returns {{ outcome: "ok", script: string, opening_line: string } | { outcome: "prohibited" | "escalate", reason: string }}
  */
 export function checkSuppliedScript(script, { product, user, supplement = false }) {
-  const opening = checkOpeningLine(openingLineFor(product, user), { supplement });
-  if (!opening.ok) return { outcome: "escalate", reason: `${opening.reason} Every ad starts with your own opening line.` };
+  const lines = openingLinesFor(product, user);
+  const checked = lines.map((l) => checkOpeningLine(l, { supplement }));
+  const valid = /** @type {{ ok: true, line: string }[]} */ (checked.filter((c) => c.ok));
+  if (!valid.length) {
+    const first = checked.find((c) => !c.ok);
+    const reason = first && !first.ok ? first.reason : "There's no opening line saved yet.";
+    return { outcome: "escalate", reason: `${reason} Every ad starts with your own opening line.` };
+  }
   if (!String(product?.approved_copy || "").trim() || !String(product?.approved_copy_source || "").trim()) {
     return { outcome: "escalate", reason: `There's no approved ad copy (with its source) saved for "${product?.name}" to check this script against.` };
   }
 
   const text = String(script || "").replace(/\s+/g, " ").trim();
-  if (!normalizeSentence(text).startsWith(normalizeSentence(opening.line))) {
-    return { outcome: "prohibited", reason: `The script has to start with your opening line exactly: "${opening.line}"` };
+  const opening = valid
+    .filter((o) => normalizeSentence(text).startsWith(normalizeSentence(o.line)))
+    .sort((a, b) => b.line.length - a.line.length)[0];
+  if (!opening) {
+    return { outcome: "prohibited", reason: `The script has to start with one of your opening lines exactly: ${valid.map((o) => `"${o.line}"`).join(" or ")}` };
   }
   const rest = text.slice(opening.line.length).trim();
   const allowed = new Set(usableSentences(product.approved_copy, { supplement }).usable.map(normalizeSentence));
@@ -215,5 +290,5 @@ export function checkSuppliedScript(script, { product, user, supplement = false 
     }
   }
   if (words(text).length > MAX_SCRIPT_WORDS) return { outcome: "prohibited", reason: `The script is over ${MAX_SCRIPT_WORDS} words -- too long for a 30-second ad.` };
-  return { outcome: "ok", script: text };
+  return { outcome: "ok", script: text, opening_line: opening.line };
 }

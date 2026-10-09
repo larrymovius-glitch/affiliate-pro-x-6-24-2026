@@ -5,7 +5,18 @@ import { largestEbayImage } from "./images.js";
 import { findVendorImage } from "./productImages.js";
 import { importDriveCreatives } from "./driveCreatives.js";
 import { affiliateIdsFor } from "./autoProductImages.js";
-import { checkOpeningLine, checkSuppliedScript, composeAdScript, openingLineFor, usableSentences, MAX_COPY_CHARS, MAX_OPENING_WORDS } from "./adScripts.js";
+import {
+  checkOpeningLine,
+  checkSuppliedScript,
+  composeAdScript,
+  openingLinesFor,
+  openingLineStats,
+  pickOpeningLine,
+  usableSentences,
+  MAX_COPY_CHARS,
+  MAX_OPENING_LINES,
+  MAX_OPENING_WORDS,
+} from "./adScripts.js";
 
 function hostOf(url) {
   try {
@@ -233,15 +244,22 @@ export const TOOL_DEFINITIONS = [
   {
     name: "set_opening_line",
     description:
-      "Save the user's own opening line -- the first thing said in every video ad, in their words exactly as they give them. Without product_id it is their default for every ad; with product_id it is for that one product only. Never write or suggest the line yourself unless they ask you to, and save it only once they have confirmed the exact words. Pass an empty text with a product_id to go back to the default for that product.",
+      `Save the user's own opening line -- the first thing said in every video ad, in their words exactly as they give them. Without product_id it goes in their default lines, which take turns across ads (up to ${MAX_OPENING_LINES}) so opening_line_stats can show which gets more clicks: mode 'replace' (default) makes it their only line, 'add' adds it to the rotation, 'remove' takes it out. With product_id it is that one product's only line, and an empty text sends the product back to the defaults. Never write or suggest a line yourself unless they ask you to, and save it only once they have confirmed the exact words.`,
     input_schema: {
       type: "object",
       properties: {
         text: { type: "string", description: `The opening line, up to ${MAX_OPENING_WORDS} words, exactly as the user wants it said.` },
         product_id: { type: "string", description: "Optional: only for this product." },
+        mode: { type: "string", description: "For the default lines only: 'replace' (default), 'add' or 'remove'." },
       },
       required: ["text"],
     },
+  },
+  {
+    name: "opening_line_stats",
+    description:
+      "How each of the user's opening lines is doing: ads made with it, clicks, sales and earnings, best first by clicks per ad, plus the lines currently in rotation. Counts only clicks on each ad's own link (ad_link from create_video_ad) -- 'link in bio' clicks can't be traced to one video, so say so if the numbers are thin. With fewer than about 3 ads per line or a handful of clicks, tell the user it's too early to call a winner rather than naming one.",
+    input_schema: { type: "object", properties: {}, required: [] },
   },
   {
     name: "update_product",
@@ -371,6 +389,30 @@ export const TOOL_DEFINITIONS = [
   },
 ];
 
+async function newShortCode(D, userId) {
+  const existing = await D.AffiliateLink.filter({ created_by_id: userId }, "-created_at", 500);
+  const taken = new Set(existing.map((l) => l.short_code).filter(Boolean));
+  let code;
+  do {
+    code = Math.random().toString(36).slice(2, 8).toUpperCase();
+  } while (taken.has(code));
+  return code;
+}
+
+// How many ads each opening line has led so far, from the one-per-ad links.
+// Unreadable counts only cost the rotation its fairness, never the ad.
+async function openingLineUsage(D, userId) {
+  /** @type {Record<string, number>} */
+  const usage = {};
+  try {
+    const links = await D.AffiliateLink.filter({ created_by_id: userId }, "-created_at", 500);
+    for (const l of links) if (l.ad_opening_line) usage[l.ad_opening_line] = (usage[l.ad_opening_line] || 0) + 1;
+  } catch (e) {
+    console.error("create_video_ad: opening line usage unreadable:", e.message);
+  }
+  return usage;
+}
+
 function clampLimit(v) {
   const n = Number(v) || 10;
   return Math.max(1, Math.min(Math.trunc(n), MAX_ROWS));
@@ -492,13 +534,7 @@ export async function executeTool(name, input = {}, ctx = {}) {
         const product = owned[0];
         if (!product) return { error: "No product of yours with that id. Call list_my_products first." };
 
-        const existing = await D.AffiliateLink.filter({ created_by_id: user.id }, "-created_at", 500);
-        const taken = new Set(existing.map((l) => l.short_code).filter(Boolean));
-        let code;
-        do {
-          code = Math.random().toString(36).slice(2, 8).toUpperCase();
-        } while (taken.has(code));
-
+        const code = await newShortCode(D, user.id);
         const destination = applyClickBankAffiliateId(product.url, getClickBankAffiliateId(user));
         const link = await D.AffiliateLink.create({
           created_by_id: user.id,
@@ -653,13 +689,47 @@ export async function executeTool(name, input = {}, ctx = {}) {
           await D.Product.update(product.id, { ad_opening_line: ok.line });
           return { saved: true, opening_line: ok.line, product_name: product.name };
         }
-        const ok = checkOpeningLine(text);
-        if (!ok.ok) return { error: ok.reason };
-        await D.User.update(user.id, { ad_opening_line: ok.line });
+        const mode = ["add", "remove"].includes(String(input.mode || "").trim()) ? String(input.mode).trim() : "replace";
+        const current = openingLinesFor(null, user);
+        let lines;
+        if (mode === "remove") {
+          lines = current.filter((l) => l.toLowerCase() !== text.toLowerCase());
+          if (lines.length === current.length) return { error: `"${text}" isn't one of your opening lines.`, opening_lines: current };
+        } else {
+          const ok = checkOpeningLine(text);
+          if (!ok.ok) return { error: ok.reason };
+          if (mode === "add") {
+            if (current.some((l) => l.toLowerCase() === ok.line.toLowerCase())) return { saved: true, opening_lines: current, message: "That line is already in your rotation." };
+            if (current.length >= MAX_OPENING_LINES) {
+              return { error: `You already have ${MAX_OPENING_LINES} opening lines. Remove one first.`, opening_lines: current };
+            }
+            lines = [...current, ok.line];
+          } else lines = [ok.line];
+        }
+        // ad_opening_line stays the first line, for anything that reads only one.
+        await D.User.update(user.id, { ad_opening_lines: lines, ad_opening_line: lines[0] || null });
         return {
           saved: true,
-          opening_line: ok.line,
-          message: "Saved as the opening line for every ad. A supplement ad still can't open on a health, weight or results claim; if this one does, that product will need its own line.",
+          opening_lines: lines,
+          message:
+            lines.length > 1
+              ? `Your ${lines.length} opening lines now take turns across ads, so opening_line_stats can show which gets more clicks. A supplement ad still can't open on a health, weight or results claim.`
+              : lines.length
+                ? "Saved as the opening line for every ad. A supplement ad still can't open on a health, weight or results claim; if this one does, that product will need its own line."
+                : "No opening lines left -- vendor ads can't be made until one is set.",
+        };
+      }
+
+      case "opening_line_stats": {
+        const links = await D.AffiliateLink.filter({ created_by_id: user.id }, "-created_at", 500);
+        const stats = openingLineStats(links);
+        const lines = openingLinesFor(null, user);
+        return {
+          opening_lines: lines,
+          stats,
+          note: stats.length
+            ? "Counts only clicks on each ad's own link; 'link in bio' clicks can't be traced to one video."
+            : "No ads with their own link yet. Each new video ad gets one (ad_link) -- put it in the post wherever the platform allows links.",
         };
       }
 
@@ -824,6 +894,10 @@ export async function executeTool(name, input = {}, ctx = {}) {
         const ebay = isEbayProduct(product);
         let script = String(input.script || "").trim();
         let scriptFrom = null;
+        // The owner's lines take turns, least-used first, so each gets a fair
+        // share of ads before their clicks are compared.
+        const usableLines = openingLinesFor(product, user).filter((l) => checkOpeningLine(l, { supplement }).ok);
+        let openingLine = usableLines.length ? pickOpeningLine(usableLines, await openingLineUsage(D, user.id)) : "";
         if (!ebay) {
           const built = script
             ? checkSuppliedScript(script, { product, user, supplement })
@@ -831,6 +905,7 @@ export async function executeTool(name, input = {}, ctx = {}) {
                 product,
                 user,
                 supplement,
+                openingLine: openingLine || undefined,
                 pick: async (sentences) => {
                   const picked = await callLLM({
                     prompt: `Pick the sentences for a 15-20 second video ad voiceover for "${product.name}", from the vendor's approved ad copy below. Pick 2 to 4 that read well spoken aloud one after another, in the order they should be said, ending on a call to action if one is there. Don't rewrite anything -- answer only with the numbers.
@@ -849,7 +924,8 @@ ${sentences.map((t, i) => `${i}. ${t}`).join("\n")}`,
             };
           }
           script = built.script;
-          scriptFrom = { opening_line: openingLineFor(product, user), approved_copy_source: product.approved_copy_source };
+          openingLine = built.opening_line;
+          scriptFrom = { opening_line: openingLine, approved_copy_source: product.approved_copy_source };
         } else if (!script) {
           const written = await callLLM({
             prompt: `Write a short 15-20 second video ad voiceover script for this affiliate product. 2-4 short sentences, spoken out loud, no stage directions, no emoji, no hashtags. End with a clear call to action.
@@ -866,8 +942,11 @@ Category: ${product.category || "N/A"}`,
           });
           script = String(written.text || "").trim();
           if (!script) return { error: "Couldn't write a script for this product. Try passing your own." };
-          const opening = checkOpeningLine(openingLineFor(product, user));
-          if (opening.ok) script = `${opening.line} ${script}`;
+          if (openingLine) script = `${openingLine} ${script}`;
+        } else {
+          // A script the owner dictated for an eBay ad: credit whichever of
+          // their lines it opens with, if any.
+          openingLine = openingLinesFor(product, user).find((l) => script.toLowerCase().startsWith(l.toLowerCase())) || "";
         }
 
         const audioBuffer = await videoAds.synthesizeSpeechBuffer(
@@ -892,11 +971,36 @@ Category: ${product.category || "N/A"}`,
           badgeUrl: goesToEbay && origin ? `${origin}/brand/ebay-logo.png` : undefined,
         });
 
+        // The ad's own link, made only once the render is submitted: clicks on
+        // it are what score this ad's opening line (opening_line_stats). The
+        // ad is already paid for, so a failure here mustn't report it lost.
+        let adLink = null;
+        try {
+          const destination = applyClickBankAffiliateId(product.url, getClickBankAffiliateId(user));
+          const link = await D.AffiliateLink.create({
+            created_by_id: user.id,
+            product_id: product.id,
+            product_name: product.name,
+            destination_url: destination,
+            network: networkForDestination(destination, product.category),
+            short_code: await newShortCode(D, user.id),
+            ad_opening_line: openingLine || null,
+            clicks: 0,
+            conversions: 0,
+            earnings: 0,
+          });
+          adLink = origin ? `${origin}/r/${link.short_code}` : `/r/${link.short_code}`;
+        } catch (e) {
+          console.error("create_video_ad: ad link failed:", e.message);
+        }
+
         return {
           render_id: renderId,
           product_id: product.id,
           product_name: product.name,
           script,
+          ...(openingLine ? { opening_line: openingLine } : {}),
+          ...(adLink ? { ad_link: adLink } : {}),
           ...(scriptFrom ? { script_from: scriptFrom } : {}),
           format: `${format.width}x${format.height} (${format.where})`,
           // Handed over with the video rather than left to the user to write:
@@ -910,7 +1014,10 @@ Category: ${product.category || "N/A"}`,
           ...(creative.note ? { vendor_rules: creative.note } : {}),
           estimated_wait_seconds: 60,
           message:
-            "Rendering started -- call check_video_ad with this render_id in about a minute. Give the user the suggested_caption to post with it and the posting_checklist steps; the video already carries the disclosure on screen.",
+            "Rendering started -- call check_video_ad with this render_id in about a minute. Give the user the suggested_caption to post with it and the posting_checklist steps; the video already carries the disclosure on screen." +
+            (adLink
+              ? " Give them ad_link too: this ad's own link, to put in the post wherever the platform allows a link (Facebook post, YouTube description, Pinterest, email). Clicks on it are what score the opening line. On TikTok and Instagram it's 'link in bio', and those clicks can't be credited to one ad."
+              : ""),
         };
       }
 
@@ -953,8 +1060,13 @@ Category: ${product.category || "N/A"}`,
           // The ad is already saved; a failure here must not report it lost.
           try {
             const links = await D.AffiliateLink.filter({ created_by_id: user.id, product_id: String(input.product_id) }, "-created_at", 20);
-            const live = links.filter((l) => l.is_active !== false);
-            if (live.some((l) => l.bio_featured_at)) onSharePage = "already";
+            // An ad's own link is left off the share page when the product
+            // has another: bio clicks credited to it would score its opening
+            // line for clicks that line didn't earn.
+            const active = links.filter((l) => l.is_active !== false);
+            const general = active.filter((l) => !l.ad_opening_line);
+            const live = general.length ? general : active;
+            if (active.some((l) => l.bio_featured_at)) onSharePage = "already";
             else if (live[0]) {
               await D.AffiliateLink.update(live[0].id, { bio_featured_at: new Date().toISOString() });
               onSharePage = "added";

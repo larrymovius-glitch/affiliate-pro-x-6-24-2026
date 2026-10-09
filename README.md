@@ -181,6 +181,13 @@ product's own). With either missing, no ad is made; Maya asks for it. eBay
 listings have no vendor copy: their script is still written from the
 listing's own facts, after the opening line.
 
+The owner can keep up to five opening lines (`set_opening_line` with mode
+`add`); they take turns across ads, least-used first. Each ad gets its own
+tracking link (`ad_link`, stored with `affiliate_links.ad_opening_line`), and
+`opening_line_stats` compares lines by clicks per ad. Only clicks on an ad's
+own link count: a "link in bio" click can't be traced to the video that sent
+it, so an ad's own link is never the one put on the share page.
+
 ## Email setup
 
 `api/_lib/email.js` sends through [Resend](https://resend.com). Email is the
