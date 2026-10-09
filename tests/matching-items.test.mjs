@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { ebayListingNumber, matchOwnProducts } from "../api/_lib/matchingItems.js";
 import { executeTool } from "../api/_lib/assistantTools.js";
+import { isPoorCondition } from "../api/_lib/ebay.js";
 
 // Items that go with a product: the owner's own products first, then eBay.
 // The assistant picks the searches; the listings, links and pictures come
@@ -49,14 +50,15 @@ const LISTING = {
   itemAffiliateWebUrl: "https://www.ebay.com/itm/333333333?campid=CAMP",
 };
 
-function fakeEbay({ configured = true, items = { "v1|333333333|0": LISTING } } = {}) {
+function fakeEbay({ configured = true, items = { "v1|333333333|0": LISTING }, found = [LISTING] } = {}) {
   const searches = [];
   return {
     searches,
     lib: {
       ebayConfigured: () => configured,
+      isPoorCondition,
       getEbayAppToken: async () => "tok",
-      searchEbayItems: async (_t, _c, q, opts) => { searches.push({ q, ...opts }); return [LISTING]; },
+      searchEbayItems: async (_t, _c, q, opts) => { searches.push({ q, ...opts }); return found; },
       getEbayItem: async (_t, _c, id) => items[id] || null,
       affiliateUrlFor: (i) => i.itemAffiliateWebUrl,
       listingFacts: (i) => `Condition: ${i.condition}`,
@@ -114,4 +116,18 @@ test("add_ebay_items won't add a listing twice, or anything without the owner's 
 
   const none = await executeTool("add_ebay_items", { item_ids: ["v1|333333333|0"] }, { user: { id: "me" }, D: fakeDb([]), ebay: fakeEbay().lib });
   assert.equal(none.needs_owner, true);
+});
+
+test("worn (Fair) and for-parts listings are left out of results and never added", async () => {
+  const fair = { ...LISTING, itemId: "v1|444444444|0", title: "Mickey Tee", condition: "Pre-owned - Fair", conditionId: "3010" };
+  const parts = { ...LISTING, itemId: "v1|555555555|0", title: "Watch", condition: "For parts or not working" };
+  const e = fakeEbay({ found: [fair, parts, LISTING], items: { "v1|444444444|0": fair } });
+  const out = await executeTool("find_matching_items", { product_id: "p1", searches: [{ item_type: "top", query: "vintage tee" }] }, { user, D: fakeDb([JEANS]), ebay: e.lib });
+  assert.deepEqual(out.results[0].ebay.map((i) => i.item_id), ["v1|333333333|0"]);
+
+  const D = fakeDb([JEANS]);
+  const add = await executeTool("add_ebay_items", { item_ids: ["v1|444444444|0"] }, { user, D, ebay: e.lib });
+  assert.equal(add.added.length, 0);
+  assert.match(add.skipped[0].reason, /Fair/);
+  assert.equal(isPoorCondition({ condition: "Pre-owned - Good" }), false);
 });

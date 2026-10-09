@@ -89,6 +89,17 @@ export function affiliateUrlFor(item, campaignId) {
   return `${item.itemWebUrl}${sep}campid=${encodeURIComponent(campaignId)}`;
 }
 
+// Conditions the owner won't promote: worn ("Fair", "Acceptable") or broken
+// ("For parts or not working"). By eBay's condition id where it gives one
+// (6000 Acceptable, 7000 For parts, 3010 Pre-owned - Fair), and by the
+// condition's own words as a fallback.
+const POOR_CONDITION_IDS = new Set(["3010", "6000", "7000"]);
+const POOR_CONDITION_TEXT = /\bfair\b|acceptable|for parts|not working/i;
+
+export function isPoorCondition(item) {
+  return POOR_CONDITION_IDS.has(String(item?.conditionId || "")) || POOR_CONDITION_TEXT.test(String(item?.condition || ""));
+}
+
 /** A listing trimmed to what the owner needs to choose it. */
 export function itemSummary(item) {
   const price = item?.price?.value ? `${item.price.currency === "USD" ? "$" : `${item.price.currency || ""} `}${item.price.value}` : null;

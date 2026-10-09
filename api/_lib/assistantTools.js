@@ -841,8 +841,13 @@ export async function executeTool(name, input = {}, ctx = {}) {
           const already = matchOwnProducts(mine, s.query, { exclude: anchor.id }).map(productSummary);
           let listings = [];
           if (token) {
-            const found = await ebay.searchEbayItems(token, campaignId, s.query, { limit: perSearch, buyNowOnly: true, fetch: ctx.fetch });
-            listings = found.filter((i) => i?.itemId && i?.title).map(ebay.itemSummary);
+            // Fetched three times over: "Fair" and "For parts" listings are
+            // dropped, and there should still be enough left to choose from.
+            const found = await ebay.searchEbayItems(token, campaignId, s.query, { limit: perSearch * 3, buyNowOnly: true, fetch: ctx.fetch });
+            listings = found
+              .filter((i) => i?.itemId && i?.title && !ebay.isPoorCondition(i))
+              .slice(0, perSearch)
+              .map(ebay.itemSummary);
           }
           results.push({ item_type: s.item_type, query: s.query, already_yours: already, ebay: listings });
         }
@@ -856,7 +861,7 @@ export async function executeTool(name, input = {}, ctx = {}) {
           // The owner was confused by "none of these are already in your
           // products, so everything below is fresh" -- app words, not his.
           message:
-            "Nothing saved. Talk like a friend helping them shop, in plain everyday words -- never app terms like 'products', 'fresh', 'already_yours', 'item_id' or 'add_ebay_items'. Open with something like: \"I found these on eBay. Tell me which ones you like and I'll save them to your app with your affiliate link, so you earn if someone buys.\" If some match things they already have in the app, say so simply (\"You already have a white tee that would work: ...\"); if none do, don't mention it. Then show the picks by type (tops, socks, ...), each eBay one as ![title](image_url) with its price and condition. If a condition is 'Pre-owned' or 'Fair', say it's used. Nothing is bought or saved until they choose.",
+            "Nothing saved. Talk like a friend helping them shop, in plain everyday words -- never app terms like 'products', 'fresh', 'already_yours', 'item_id' or 'add_ebay_items'. Open with something like: \"I found these on eBay. Tell me which ones you like and I'll save them to your app with your affiliate link, so you earn if someone buys.\" If some match things they already have in the app, say so simply (\"You already have a white tee that would work: ...\"); if none do, don't mention it. Then show the picks by type (tops, socks, ...), each eBay one as ![title](image_url) with its price and condition. If a condition is 'Pre-owned', say it's used. Worn ('Fair') and for-parts listings are already left out. Nothing is bought or saved until they choose.",
         };
       }
 
@@ -889,6 +894,10 @@ export async function executeTool(name, input = {}, ctx = {}) {
           const url = item ? ebay.affiliateUrlFor(item, campaignId) : null;
           if (!item || !url) {
             skipped.push({ item_id: id, reason: "Not found on eBay -- it may have sold or ended." });
+            continue;
+          }
+          if (ebay.isPoorCondition(item)) {
+            skipped.push({ item_id: id, reason: `Its condition is "${item.condition}" -- worn or for-parts items aren't added.` });
             continue;
           }
           const name = String(item.title || "eBay item").slice(0, 200);
