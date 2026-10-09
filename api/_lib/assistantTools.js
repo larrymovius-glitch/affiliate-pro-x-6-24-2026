@@ -9,6 +9,7 @@ import {
 import { detectNetwork, networkForDestination } from "./tracking.js";
 import { largestEbayImage } from "./images.js";
 import { findVendorImage } from "./productImages.js";
+import { importDriveCreatives } from "./driveCreatives.js";
 
 function hostOf(url) {
   try {
@@ -185,13 +186,31 @@ export const TOOL_DEFINITIONS = [
   {
     name: "list_ad_creatives",
     description:
-      "The user's saved ad creatives -- videos and images they uploaded (from Firefly, Premiere, their phone) plus the AI video ads already made. Call this when they refer to a clip of theirs, e.g. 'use my Firefly video', so you can pass its url to create_video_ad as footage.",
+      "The user's saved ad creatives -- videos and images they uploaded (from Firefly, Premiere, their phone), the AI video ads already made, and vendors' official creatives copied in by import_official_creatives (is_official: true, with the product_id they belong to). Call this when they refer to a clip of theirs, e.g. 'use my Firefly video', or want an official clip for a product, so you can pass its url to create_video_ad as footage.",
     input_schema: {
       type: "object",
       properties: {
         file_type: { type: "string", description: "Optional filter: 'video' or 'image'." },
+        product_id: { type: "string", description: "Optional: only the official creatives imported for this product." },
       },
       required: [],
+    },
+  },
+  {
+    name: "import_official_creatives",
+    description:
+      "Copy a vendor's official creatives -- the Google Drive folder many ClickBank and Digistore24 vendors give affiliates -- into the app, marked official and attached to one of the user's products. Its pictures and clips then qualify for vendors that allow only official creatives, and if the product's current picture is from the sales page or unconfirmed, the largest official picture replaces it. Needs the folder link AND where the user got it (folder_source): the vendor's affiliate page address, or e.g. 'email from the vendor'. Never guess folder_source and never fill it with the folder link -- if the user hasn't said, ask. If the result status is 'private', tell the user plainly the folder is private and nothing was copied, and do not retry. If it is 'partial', say how many are left and offer to run it again with the same folder to continue. List what was skipped and why in a short line or two.",
+    input_schema: {
+      type: "object",
+      properties: {
+        product_id: { type: "string", description: "id from list_my_products." },
+        folder_url: { type: "string", description: "The drive.google.com folder link exactly as the user gave it." },
+        folder_source: {
+          type: "string",
+          description: "Where the user says the vendor published this link: the affiliate/JV page address, or a short description like 'email from the vendor'. Only what the user told you.",
+        },
+      },
+      required: ["product_id", "folder_url", "folder_source"],
     },
   },
   {
@@ -536,13 +555,35 @@ export async function executeTool(name, input = {}, ctx = {}) {
       }
 
       case "list_ad_creatives": {
-        const rows = await D.AdAsset.filter({ created_by_id: user.id }, "-created_at", 50);
+        const productId = String(input.product_id || "").trim();
+        const rows = await D.AdAsset.filter(
+          productId ? { created_by_id: user.id, product_id: productId } : { created_by_id: user.id },
+          "-created_at",
+          productId ? MAX_LIST_ROWS : 50
+        );
         const wanted = String(input.file_type || "").trim().toLowerCase();
         return {
           creatives: rows
             .filter((a) => !wanted || a.file_type === wanted)
-            .map((a) => ({ id: a.id, title: a.title, file_type: a.file_type, url: a.file_url, notes: a.notes || null })),
+            .map((a) => ({
+              id: a.id,
+              title: a.title,
+              file_type: a.file_type,
+              url: a.file_url,
+              notes: a.notes || null,
+              ...(a.is_official ? { is_official: true, product_id: a.product_id, folder_source: a.folder_source || null } : {}),
+            })),
         };
+      }
+
+      case "import_official_creatives": {
+        const owned = await D.Product.filter({ created_by_id: user.id, id: String(input.product_id || "") });
+        const product = owned[0];
+        if (!product) return { error: "No product of yours with that id. Call list_my_products first." };
+        return await importDriveCreatives(
+          { user, product, folderUrl: input.folder_url, folderSource: input.folder_source, isEbay: isEbayProduct(product) },
+          { D, storage: storageClient(), fetch: ctx.fetch, ...(ctx.googleApiKey !== undefined ? { apiKey: ctx.googleApiKey } : {}) }
+        );
       }
 
       case "update_product": {
@@ -675,10 +716,17 @@ export async function executeTool(name, input = {}, ctx = {}) {
 
         // The vendor's own rules, on every platform: many allow only their own
         // creatives and forbid anything from the sales page or sales video.
+        // A clip copied in by import_official_creatives for this same product
+        // carries its own proof of where it came from.
+        const importedOfficial =
+          !!footage &&
+          (await D.AdAsset.filter({ created_by_id: user.id, file_url: footage, is_official: true })).some(
+            (a) => String(a.product_id) === String(product.id)
+          );
         const creative = vendorCreativeCheck(product, {
           isEbay: isEbayProduct(product),
           footage: !!footage,
-          footageIsOfficial: input.footage_is_official === true,
+          footageIsOfficial: input.footage_is_official === true || importedOfficial,
         });
         if (!creative.ok) {
           return {

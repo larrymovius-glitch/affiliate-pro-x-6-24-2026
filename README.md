@@ -129,6 +129,31 @@ A buyer who pays and then closes the tab before returning to
 the hourly `reconcilePaypalPayments` job captures or abandons anything still
 pending after 15 minutes.
 
+## Google Drive creatives setup
+
+Many ClickBank and Digistore24 vendors hand affiliates a Google Drive folder of
+official creatives, and some allow nothing else in an ad. Maya's
+`import_official_creatives` tool copies such a folder into the `uploads`
+bucket, marks every file official, and attaches it to the product (see
+`api/_lib/driveCreatives.js`). It needs one variable, `GOOGLE_API_KEY`, which
+you create yourself:
+
+1. In the Google Cloud console, pick or create a project, then APIs & Services
+   → Library → **Google Drive API** → Enable.
+2. APIs & Services → Credentials → Create credentials → **API key**.
+3. Edit the key → API restrictions → **Restrict key** → tick only Google Drive
+   API. Leave application restrictions at None: the calls come from Vercel's
+   servers, not a browser or a fixed IP.
+4. Add it to Vercel as `GOOGLE_API_KEY` and redeploy.
+
+An API key can only read what is shared as "Anyone with the link can view". A
+private folder looks the same to Google as a missing one, so either way the
+import stops, copies nothing and says the folder is private. Nothing is
+marked official unless you say where the folder link came from (the vendor's
+affiliate page, an email from the vendor); that answer is saved with every
+file. Every attempt, including refused and private ones, is logged in the
+`creative_imports` table.
+
 ## Email setup
 
 `api/_lib/email.js` sends through [Resend](https://resend.com). Email is the

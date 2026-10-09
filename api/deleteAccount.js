@@ -38,7 +38,7 @@ export default async function handler(req, res) {
     }
 
     const D = db();
-    const [links, products, campaigns, payouts, posts, adReviews, adAssets, schedules] = await Promise.all([
+    const [links, products, campaigns, payouts, posts, adReviews, adAssets, schedules, creativeImports] = await Promise.all([
       D.AffiliateLink.filter({ created_by_id: user.id }),
       D.Product.filter({ created_by_id: user.id }),
       D.Campaign.filter({ created_by_id: user.id }),
@@ -47,6 +47,7 @@ export default async function handler(req, res) {
       D.AdReview.filter({ created_by_id: user.id }),
       D.AdAsset.filter({ created_by_id: user.id }),
       D.PayoutSchedule.filter({ created_by_id: user.id }),
+      D.CreativeImport.filter({ created_by_id: user.id }),
     ]);
 
     await Promise.all([
@@ -58,6 +59,7 @@ export default async function handler(req, res) {
       ...adReviews.map((r) => D.AdReview.delete(r.id)),
       ...adAssets.map((r) => D.AdAsset.delete(r.id)),
       ...schedules.map((r) => D.PayoutSchedule.delete(r.id)),
+      ...creativeImports.map((r) => D.CreativeImport.delete(r.id)),
     ]);
 
     // Re-verify the target matches the caller, then delete the real auth

@@ -28,6 +28,12 @@ never pre-filled and never auto-submitted) and in
 `src/pages/VendorApplications.jsx` (a `needsReview` field joins the submission
 only after the user types a value and confirms it).
 
+Also enforced in `api/_lib/driveCreatives.js` (`checkDriveImport`): a vendor's
+Drive folder is imported and marked official only when the owner has said
+where the link was published; with no source it escalates instead of
+guessing, and a private folder stops the import with nothing copied. Tests:
+`tests/drive-creatives.test.mjs`.
+
 ## 2. Vendor terms are the source of truth
 
 The app does not invent policy. Every restriction traces to a specific rule
@@ -93,7 +99,10 @@ failure alike. A failed attempt is as important to record as a successful one.
 
 Enforced in `api/submitVendorApplication.js` (writes a `VendorApplication` row
 for every attempt) and surfaced in `src/pages/VendorApplications.jsx`
-(submission history, visible permanently, successes and failures together).
+(submission history, visible permanently, successes and failures together),
+and in `api/_lib/driveCreatives.js` (writes a `CreativeImport` row for every
+Drive import attempt: imported, partial, private, refused, escalated or
+failed).
 
 ## 8. Disclosure is not optional
 

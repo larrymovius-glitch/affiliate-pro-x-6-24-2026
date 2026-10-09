@@ -15,6 +15,7 @@ export const TABLES = {
   Campaign: "campaigns",
   ClickEvent: "click_events",
   ConversionEvent: "conversion_events",
+  CreativeImport: "creative_imports",
   EbayToken: "ebay_tokens",
   GeneratedPost: "generated_posts",
   GoogleReviewer: "google_reviewers",
