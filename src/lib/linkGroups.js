@@ -75,3 +75,24 @@ export function groupLinks(links = []) {
     })
     .sort((a, b) => b.linkCount - a.linkCount);
 }
+
+export const PRODUCT_LIMIT_OPTIONS = [25, 50, 75, 100];
+
+export function countProducts(groups = []) {
+  return groups.reduce((sum, g) => sum + g.products.length, 0);
+}
+
+// The first `limit` product rows across the grouped list, in display order.
+// A network's header keeps its full link count, so a cut-off group still says
+// how many links it really has.
+export function limitProducts(groups = [], limit) {
+  let remaining = limit;
+  const result = [];
+  for (const group of groups) {
+    if (remaining <= 0) break;
+    const products = group.products.slice(0, remaining);
+    remaining -= products.length;
+    result.push({ ...group, products });
+  }
+  return result;
+}

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Link2, Copy, Trash2, ExternalLink, Search, MousePointerClick, RefreshCw, ShoppingBag, Star } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -19,7 +20,7 @@ import { applyClickBankAffiliateId, getClickBankAffiliateId } from "@/lib/affili
 import { getTrackableUrl as buildTrackingUrl } from "@/lib/links";
 import { getDigistoreAffiliateId, parseDigistoreInput } from "../../api/_lib/affiliates.js";
 import { networkForDestination } from "../../api/_lib/tracking.js";
-import { groupLinks } from "@/lib/linkGroups";
+import { countProducts, groupLinks, limitProducts, PRODUCT_LIMIT_OPTIONS } from "@/lib/linkGroups";
 
 const NETWORK_BADGE = {
   ebay: "bg-yellow-500/15 text-yellow-800 dark:text-yellow-300 border-yellow-500/30",
@@ -51,6 +52,17 @@ function makeUniqueShortCode(base, links = []) {
   return code;
 }
 
+const PRODUCT_LIMIT_KEY = "links:productLimit";
+
+function readProductLimit() {
+  try {
+    const saved = Number(localStorage.getItem(PRODUCT_LIMIT_KEY));
+    return PRODUCT_LIMIT_OPTIONS.includes(saved) ? saved : PRODUCT_LIMIT_OPTIONS[0];
+  } catch {
+    return PRODUCT_LIMIT_OPTIONS[0];
+  }
+}
+
 function generateShortCode(links = []) {
   const existing = new Set(links.map(l => l.short_code));
   let code = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -78,11 +90,19 @@ export default function Links() {
   const [jvProductUrl, setJvProductUrl] = useState("");
   const [search, setSearch] = useState("");
   const [selectedProductId, setSelectedProductId] = useState("");
+  const [productLimit, setProductLimit] = useState(readProductLimit);
+  const changeProductLimit = (value) => {
+    const limit = Number(value);
+    setProductLimit(limit);
+    try { localStorage.setItem(PRODUCT_LIMIT_KEY, String(limit)); } catch { /* storage blocked */ }
+  };
   const queryClient = useQueryClient();
 
   const { data: links = [], isLoading, refetch } = useQuery({
     queryKey: ["links"],
-    queryFn: () => base44.entities.AffiliateLink.list("-created_at", 100),
+    // Fetched well past the largest page size: AutoPilot makes several links
+    // per product, and the page limits by product, not by link.
+    queryFn: () => base44.entities.AffiliateLink.list("-created_at", 1000),
   });
 
   const { onTouchStart, onTouchMove, onTouchEnd, pullDistance, pulling } = usePullToRefresh(() => refetch());
@@ -321,7 +341,9 @@ export default function Links() {
     !search || l.short_code?.toLowerCase().includes(search.toLowerCase()) ||
     l.product_name?.toLowerCase().includes(search.toLowerCase())
   );
-  const grouped = groupLinks(filtered);
+  const allGroups = groupLinks(filtered);
+  const totalProducts = countProducts(allGroups);
+  const grouped = limitProducts(allGroups, productLimit);
 
   return (
     <div className="space-y-6" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
@@ -477,9 +499,30 @@ export default function Links() {
         </div>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input placeholder="Search links..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="relative w-full max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input placeholder="Search links..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+        </div>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span>Show</span>
+          <Select value={String(productLimit)} onValueChange={changeProductLimit}>
+            <SelectTrigger className="h-9 w-20" aria-label="Products shown">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PRODUCT_LIMIT_OPTIONS.map((n) => (
+                <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span>products</span>
+          {!isLoading && totalProducts > 0 && (
+            <span className="whitespace-nowrap">
+              · {Math.min(productLimit, totalProducts)} of {totalProducts}
+            </span>
+          )}
+        </div>
       </div>
 
       {isLoading ? (

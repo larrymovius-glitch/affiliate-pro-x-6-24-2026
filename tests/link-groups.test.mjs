@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { groupLinks, productNumberFor } from "../src/lib/linkGroups.js";
+import { countProducts, groupLinks, limitProducts, productNumberFor } from "../src/lib/linkGroups.js";
 
 // URLs below are the real shapes stored in affiliate_links for this account.
 
@@ -48,4 +48,23 @@ test("copies of one product group under one row, per network, without being merg
   assert.equal(ds.products[0].copies.length, 2);
   assert.equal(ds.products[0].clicks, 3);
   assert.equal(ds.products[0].productNumber, "419540");
+});
+
+test("limitProducts caps product rows across networks and drops groups past the cap", () => {
+  const links = [];
+  for (let i = 0; i < 30; i++) links.push({ id: `e${i}`, network: "ebay", product_name: `E${i}`, destination_url: `https://www.ebay.com/itm/1000000${i}` });
+  for (let i = 0; i < 10; i++) links.push({ id: `c${i}`, network: "clickbank", product_name: `C${i}`, destination_url: `https://a.v${i}.hop.clickbank.net` });
+  const groups = groupLinks(links);
+  assert.equal(countProducts(groups), 40);
+
+  const first25 = limitProducts(groups, 25);
+  assert.equal(countProducts(first25), 25);
+  assert.deepEqual(first25.map((g) => g.networkId), ["ebay"]);
+  assert.equal(first25[0].linkCount, 30);
+
+  const first35 = limitProducts(groups, 35);
+  assert.equal(countProducts(first35), 35);
+  assert.equal(first35[1].products.length, 5);
+
+  assert.equal(countProducts(limitProducts(groups, 100)), 40);
 });
