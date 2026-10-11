@@ -94,7 +94,9 @@ export const AuthProvider = ({ children }) => {
     try {
       await fetch('/api/recordLocation', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${session.access_token}` },
+        headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        // The device clock's time zone: compared with the connection's to spot a VPN.
+        body: JSON.stringify({ timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '' }),
       });
     } catch (err) {
       console.warn('Location could not be recorded (non-blocking):', err.message);

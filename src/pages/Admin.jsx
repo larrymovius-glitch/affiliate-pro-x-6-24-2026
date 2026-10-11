@@ -44,6 +44,21 @@ const ATTEMPT_STYLE = {
   error: "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30",
 };
 
+// Their device's clock and their connection are in time zones hours apart:
+// the connection is very likely going through a VPN or proxy, so the
+// location shown may not be where they really are.
+function VpnFlag({ deviceTz, ipTz }) {
+  return (
+    <p
+      className="text-xs font-medium text-red-700 dark:text-red-300 flex items-center gap-1"
+      title={`Their device's clock is set to ${deviceTz || "?"}, but their connection is in ${ipTz || "?"}.`}
+    >
+      <AlertCircle className="w-3 h-3 shrink-0" />
+      Possible VPN: device clock {deviceTz || "?"}, connection {ipTz || "?"}
+    </p>
+  );
+}
+
 const ROLE_COLORS = {
   admin: "bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 border-yellow-500/30",
   user: "bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/30",
@@ -371,6 +386,9 @@ export default function Admin() {
                             {u.last_seen_at ? ` · ${new Date(u.last_seen_at).toLocaleDateString()}` : ""}
                           </p>
                         )}
+                        {u.last_seen_vpn_suspected && (
+                          <VpnFlag deviceTz={u.last_seen_device_timezone} ipTz={u.last_seen_ip_timezone} />
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -452,8 +470,16 @@ export default function Admin() {
                       <p className="text-sm font-medium truncate">{a.email}</p>
                       <p className="text-xs text-muted-foreground">
                         {[a.city, a.region, a.country].filter(Boolean).join(", ") || "Location unknown"}
-                        {a.ip ? ` · ${a.ip}` : ""}
+                        {a.ip ? (
+                          <>
+                            {" · "}
+                            <a className="underline" href={`https://search.arin.net/rdap/?query=${encodeURIComponent(a.ip)}`} target="_blank" rel="noopener noreferrer" title="Who owns this internet address (the official registry record)">
+                              {a.ip}
+                            </a>
+                          </>
+                        ) : ""}
                       </p>
+                      {a.vpn_suspected && <VpnFlag deviceTz={a.device_timezone} ipTz={a.ip_timezone} />}
                     </div>
                     <div className="text-right">
                       <Badge className={`text-xs border ${ATTEMPT_STYLE[a.outcome] || ATTEMPT_STYLE.error}`}>

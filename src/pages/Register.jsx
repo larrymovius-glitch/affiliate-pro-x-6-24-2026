@@ -28,7 +28,8 @@ export default function Register() {
     fetch("/api/logSignupAttempt", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, outcome }),
+      // The device clock's time zone, compared with the connection's to spot a VPN.
+      body: JSON.stringify({ email, outcome, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "" }),
     }).catch(() => {});
   };
 

@@ -10,7 +10,9 @@ export default async function handler(req, res) {
     const { user } = await getAuthedUser(req);
     if (!user) return res.status(401).json({ error: "Unauthorized" });
 
-    const patch = locationPatch(user, locationFromHeaders(req.headers));
+    // The device's own time zone, sent by the app, for the VPN check.
+    const deviceTz = String(req.body?.timezone || "");
+    const patch = locationPatch(user, locationFromHeaders(req.headers), new Date().toISOString(), deviceTz);
     if (!patch) return res.status(200).json({ recorded: false });
 
     await db().User.update(user.id, patch);

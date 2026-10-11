@@ -5,7 +5,7 @@ import { deleteAccountCompletely } from "../api/_lib/accountDeletion.js";
 
 test("location comes from Vercel's headers, with the city decoded", () => {
   const loc = locationFromHeaders({ "x-vercel-ip-country": "us", "x-vercel-ip-country-region": "NY", "x-vercel-ip-city": "New%20York" });
-  assert.deepEqual(loc, { country: "US", region: "NY", city: "New York" });
+  assert.deepEqual(loc, { country: "US", region: "NY", city: "New York", timezone: "" });
   assert.equal(locationFromHeaders({}), null, "off Vercel there is nothing to record");
   assert.equal(locationFromHeaders({ "x-vercel-ip-country": "xx1" }), null);
 });
@@ -16,6 +16,7 @@ test("the first location is kept forever; every visit updates last seen", () => 
   assert.deepEqual(locationPatch({}, loc, T), {
     signup_country: "US", signup_region: "OH", signup_city: "Akron",
     last_seen_country: "US", last_seen_region: "OH", last_seen_city: "Akron", last_seen_at: T,
+    last_seen_device_timezone: null, last_seen_ip_timezone: null, last_seen_vpn_suspected: null,
   });
   const later = locationPatch({ signup_country: "CA" }, { country: "NG", region: "LA", city: "Lagos" }, T);
   assert.equal("signup_country" in later, false, "the first location never changes");
@@ -67,7 +68,21 @@ test("a signup attempt keeps the email, a known outcome, and where it came from"
     { email: " Katie@Example.com ", outcome: "already_registered" },
     { "x-vercel-ip-country": "NG", "x-vercel-ip-country-region": "LA", "x-vercel-ip-city": "Lagos", "x-forwarded-for": "102.90.100.124, 10.0.0.1", "user-agent": "Phone" }
   );
-  assert.deepEqual(row, { email: "katie@example.com", outcome: "already_registered", ip: "102.90.100.124", country: "NG", region: "LA", city: "Lagos", user_agent: "Phone" });
+  assert.deepEqual(row, { email: "katie@example.com", outcome: "already_registered", ip: "102.90.100.124", country: "NG", region: "LA", city: "Lagos", user_agent: "Phone", device_timezone: null, ip_timezone: null, vpn_suspected: null });
   assert.equal(signupAttemptRow({ email: "a@b.com", outcome: "<script>" }, {}).outcome, "error", "only known outcomes reach the admin page");
   assert.equal(signupAttemptRow({}, {}), null);
+});
+
+test("a device clock hours away from the connection's time zone flags a likely VPN", async () => {
+  const { vpnCheck, locationPatch } = await import("../api/_lib/location.js");
+  const at = new Date("2026-10-11T23:00:00Z");
+  assert.equal(vpnCheck("Africa/Lagos", "America/New_York", at).vpn_suspected, true);
+  assert.equal(vpnCheck("America/New_York", "America/New_York", at).vpn_suspected, false);
+  assert.equal(vpnCheck("America/Chicago", "America/New_York", at).vpn_suspected, false, "one hour apart is a zone line or a traveller, not a VPN");
+  assert.equal(vpnCheck("", "America/New_York", at).vpn_suspected, null, "no data is not 'no VPN'");
+  assert.equal(vpnCheck("Not/AZone", "America/New_York", at).vpn_suspected, null);
+
+  const patch = locationPatch({}, { country: "US", region: "NJ", city: "Piscataway", timezone: "America/New_York" }, at.toISOString(), "Africa/Lagos");
+  assert.equal(patch.last_seen_vpn_suspected, true);
+  assert.equal(patch.last_seen_device_timezone, "Africa/Lagos");
 });
