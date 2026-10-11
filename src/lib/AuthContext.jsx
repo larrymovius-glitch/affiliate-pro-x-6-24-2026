@@ -4,6 +4,9 @@ import { supabase } from '@/lib/supabaseClient';
 
 const AuthContext = createContext(undefined);
 
+// Users whose location was already sent this page load.
+const locationSentFor = new Set();
+
 // Safe defaults so downstream components never crash on a missing settings row.
 const DEFAULT_PUBLIC_SETTINGS = {
   id: 'apx',
@@ -78,6 +81,25 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  /**
+   * Records the user's approximate location (from their connection, on the
+   * server) the first time it's missing. Fire-and-forget: never blocks auth.
+   */
+  const recordLocation = useCallback(async (currentUser, session) => {
+    if (!currentUser || currentUser.signup_country || !session?.access_token) return;
+    // Sign-in and the initial session check both land here on one visit.
+    if (locationSentFor.has(currentUser.id)) return;
+    locationSentFor.add(currentUser.id);
+    try {
+      await fetch('/api/recordLocation', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+    } catch (err) {
+      console.warn('Location could not be recorded (non-blocking):', err.message);
+    }
+  }, []);
+
   const checkUserAuth = useCallback(async () => {
     try {
       setIsLoadingAuth(true);
@@ -94,6 +116,7 @@ export const AuthProvider = ({ children }) => {
 
       let hydrated = await hydrateUser(session.user);
       hydrated = await applyPendingReferral(hydrated);
+      recordLocation(hydrated, session);
 
       setUser(hydrated);
       setIsAuthenticated(true);
@@ -106,7 +129,7 @@ export const AuthProvider = ({ children }) => {
       setIsLoadingAuth(false);
       setAuthChecked(true);
     }
-  }, [hydrateUser, applyPendingReferral]);
+  }, [hydrateUser, applyPendingReferral, recordLocation]);
 
   const checkAppState = useCallback(async () => {
     try {
@@ -149,6 +172,7 @@ export const AuthProvider = ({ children }) => {
 
       let hydrated = await hydrateUser(session.user);
       hydrated = await applyPendingReferral(hydrated);
+      recordLocation(hydrated, session);
       setUser(hydrated);
       setIsAuthenticated(true);
       setAuthChecked(true);

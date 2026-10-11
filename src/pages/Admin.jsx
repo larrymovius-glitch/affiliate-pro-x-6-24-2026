@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Users, UserPlus, Trash2, Shield, ShieldOff, Mail,
   Star, RefreshCw, Crown, AlertCircle, CheckCircle, Search, Edit2, ShoppingBag, ExternalLink, Medal, Image, Sparkles,
-  Wallet, XCircle, Send, Radio
+  Wallet, XCircle, Send, Radio, MapPin
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
@@ -168,11 +168,14 @@ export default function Admin() {
   });
 
   const deleteUserMutation = useMutation({
-    mutationFn: (/** @type {any} */ id) => base44.entities.User.delete(id),
+    // The server removes the login too, not just the profile, so the person
+    // can sign up again with the same email.
+    mutationFn: (/** @type {any} */ u) => base44.functions.invoke("adminDeleteUser", { userId: u.id, email: u.email }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       setConfirmDelete(null);
     },
+    onError: (err) => alert(err?.message || "Couldn't remove that user."),
   });
 
   const saveReviewerMutation = useMutation({
@@ -327,6 +330,12 @@ export default function Admin() {
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-foreground truncate">{u.full_name || "—"}</p>
                         <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                        <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                          <MapPin className="w-3 h-3 shrink-0" />
+                          {u.signup_country
+                            ? [u.signup_city, u.signup_region, u.signup_country].filter(Boolean).join(", ")
+                            : "Location: not yet (fills in on their next visit)"}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -717,13 +726,16 @@ export default function Admin() {
             <p className="text-foreground/80 text-sm">
               Are you sure you want to remove <strong className="text-foreground">{confirmDelete?.email}</strong>?
             </p>
-            <p className="text-xs text-muted-foreground mt-1">This action cannot be undone.</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Their login, links, products and ads are deleted and any subscription is cancelled. They can sign up
+              again with the same email. This can't be undone.
+            </p>
           </div>
           <DialogFooter className="gap-2">
             <Button variant="ghost" className="text-muted-foreground" onClick={() => setConfirmDelete(null)}>Cancel</Button>
             <Button variant="destructive"
               disabled={deleteUserMutation.isPending}
-              onClick={() => deleteUserMutation.mutate(confirmDelete.id)}>
+              onClick={() => deleteUserMutation.mutate(confirmDelete)}>
               {deleteUserMutation.isPending ? "Removing…" : "Remove User"}
             </Button>
           </DialogFooter>

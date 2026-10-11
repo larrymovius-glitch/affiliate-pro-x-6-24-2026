@@ -9,7 +9,7 @@ export default function PrivacyPolicy() {
       </Link>
 
       <h1 className="text-3xl font-bold font-heading mb-2">Privacy Policy</h1>
-      <p className="text-muted-foreground text-sm mb-8">Last updated: August 13, 2026</p>
+      <p className="text-muted-foreground text-sm mb-8">Last updated: October 11, 2026</p>
 
       <div className="space-y-8 text-sm leading-relaxed">
 
@@ -30,6 +30,7 @@ export default function PrivacyPolicy() {
             <li><strong className="text-foreground">Usage Data:</strong> Information about how you use the app, including clicks, conversions, and campaign activity.</li>
             <li><strong className="text-foreground">Payment Information:</strong> Payout preferences such as bank transfer or check destination details (we do not store full payment credentials).</li>
             <li><strong className="text-foreground">Device Information:</strong> Device type, operating system, and app version for analytics and performance purposes.</li>
+            <li><strong className="text-foreground">Approximate Location:</strong> Your country, region (such as a state) and city, estimated from your internet connection's IP address when you first use the app. We do not collect your precise location or GPS data.</li>
           </ul>
         </section>
 
@@ -41,6 +42,7 @@ export default function PrivacyPolicy() {
             <li>To send important account notifications and updates.</li>
             <li>To improve, personalize, and expand our app functionality.</li>
             <li>To detect and prevent fraudulent activity.</li>
+            <li>To understand where our members are, so we can offer programs and products available in their area.</li>
           </ul>
         </section>
 
