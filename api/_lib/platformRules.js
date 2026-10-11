@@ -17,7 +17,13 @@
 // account. eBay listings are ordinary merchandise and skip the keyword checks
 // -- "slim fit" jeans are not a diet pill.
 
+import { isShopifyUrl } from "./tracking.js";
+
 export const TIKTOK_POLICY_URL = "https://www.tiktok.com/legal/page/global/bc-policy/en";
+
+// The Shopify Affiliate Marketing Program Terms, as accepted on Impact (read
+// 2026-10-09 from the owner's copy).
+export const SHOPIFY_TERMS = "Shopify Affiliate Marketing Program Terms (Impact), Part A §6.3.1";
 
 // Some vendors require this on supplement ads (Advanced Bionutritionals does),
 // and it is the standard line for any dietary supplement claim in the US.
@@ -83,14 +89,28 @@ const IMAGE_OK = {
  * Whether an ad may be built for this product with this picture or footage,
  * under the vendor's own creative rules.
  *
- * @param {{ name?: string, creative_rule?: string|null, creative_rule_note?: string|null, creative_rule_source?: string|null, image_source?: string|null }} product
+ * @param {{ name?: string, url?: string, creative_rule?: string|null, creative_rule_note?: string|null, creative_rule_source?: string|null, image_source?: string|null, brand_ad_permission?: string|null }} product
  * @param {{ isEbay?: boolean, footage?: boolean, footageIsOfficial?: boolean }} [opts]
- * @returns {{ ok: true, note: string|null } | { ok: false, reason: string, note: string|null, source: string|null }}
+ * @returns {{ ok: true, note: string|null } | { ok: false, reason: string, note: string|null, source: string|null, escalate?: boolean }}
  */
 export function vendorCreativeCheck(product, { isEbay = false, footage = false, footageIsOfficial = false } = {}) {
   // eBay listings carry their own photos through eBay's API, and eBay
   // publishes no vendor-style creative rules for them.
   if (isEbay) return { ok: true, note: null };
+
+  // Shopify's terms (Part A §6.3.1): its name may not be used in "advertising,
+  // social media" without "express written permission by Shopify in advance".
+  // Only the owner can get that; until they record where it came from, the
+  // ad goes back to them rather than being made.
+  if (isShopifyUrl(product?.url) && !String(product?.brand_ad_permission || "").trim()) {
+    return {
+      ok: false,
+      escalate: true,
+      reason: `Shopify's affiliate terms don't allow its name in ads or social media without Shopify's written permission first. Ask Shopify's affiliate team (through Impact) whether short social video ads are allowed; once they say yes in writing, record where that came from and the ad can be made.`,
+      note: null,
+      source: SHOPIFY_TERMS,
+    };
+  }
 
   const name = product?.name || "This product";
   const rule = product?.creative_rule || null;

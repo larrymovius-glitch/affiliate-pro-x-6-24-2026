@@ -1,3 +1,5 @@
+import { shareUrlFor } from "../../api/_lib/tracking.js";
+
 /**
  * Generates a short, random code to identify a link for click tracking.
  */
@@ -17,6 +19,6 @@ export function generateShortCode() {
  * redirect and social platforms treat it accordingly.
  */
 export function getTrackableUrl(link) {
-  if (!link?.short_code) return link?.destination_url || "#";
-  return `${window.location.origin}/r/${encodeURIComponent(link.short_code)}`;
+  // A program whose terms forbid the short link (Shopify) gets its own link.
+  return shareUrlFor(link, window.location.origin) || "#";
 }

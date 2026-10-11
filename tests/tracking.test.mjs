@@ -125,13 +125,13 @@ test("codes are normalised the same way the conversion lookup normalises them", 
   assert.equal(normalizeTrackingCode("CB-Vendor"), "cbvendor");
 });
 
-test("Impact links are recognised by their tracking or goto. vanity host, and carry the code as subId1", async () => {
+test("Impact links are recognised by their tracking or goto. vanity host, and go out unchanged", async () => {
   const { detectNetwork, networkForDestination } = await import("../api/_lib/tracking.js");
   assert.equal(networkForDestination("https://goto.samsclub.com/k42qad"), "impact");
   assert.equal(networkForDestination("https://shopify.pxf.io/abc123"), "impact");
   assert.equal(networkForDestination("https://brand.sjv.io/c/1/2/3"), "impact");
   assert.equal(detectNetwork("notpxf.io", ""), "", "a bare suffix is someone else's domain");
-  const out = new URL(applyTrackingCode("https://goto.samsclub.com/k42qad", "ABC123", "impact"));
-  assert.equal(out.searchParams.get("subId1"), "ABC123");
-  assert.equal(out.searchParams.get("subid"), null);
+  // Shopify's terms forbid modifying its links, and other Impact brands'
+  // contracts haven't been read, so nothing is added.
+  assert.equal(applyTrackingCode("https://goto.samsclub.com/k42qad", "ABC123", "impact"), "https://goto.samsclub.com/k42qad");
 });

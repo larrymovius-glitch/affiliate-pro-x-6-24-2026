@@ -1,11 +1,13 @@
 import { adminClient } from "./_lib/supabase.js";
 import { normalizeHandle, renderBioPage, renderMissingPage } from "./_lib/bio.js";
+import { mustShareAsGiven } from "./_lib/tracking.js";
 
 // Serves the public share page at /go/<handle> (see the rewrite in
 // vercel.json). Anyone can open it -- that is the point -- so it reads through
 // the service-role client and hands back only what a visitor is meant to see:
 // the owner's name, avatar, and the links they chose to feature. Never the
-// destination URLs, the click counts or the earnings.
+// destination URLs, the click counts or the earnings -- except a program
+// whose terms forbid the /r/ short link (Shopify): its own link is the button.
 //
 // Which links appear is the owner's choice: affiliate_links.bio_featured_at is
 // set when they star one on the Links page. Ordering by it, newest first, is
@@ -38,7 +40,7 @@ export default async function handler(req, res) {
 
     const { data: links, error: linksError } = await db
       .from("affiliate_links")
-      .select("short_code, product_name, product_id, bio_featured_at")
+      .select("short_code, product_name, product_id, bio_featured_at, destination_url")
       .eq("created_by_id", profile.id)
       .eq("is_active", true)
       .not("bio_featured_at", "is", null)
@@ -64,6 +66,7 @@ export default async function handler(req, res) {
         origin,
         links: (links || []).map((link) => ({
           short_code: link.short_code,
+          ...(mustShareAsGiven(link.destination_url) ? { direct_url: link.destination_url } : {}),
           product_name: link.product_name,
           image_url: imageById.get(link.product_id) || "",
         })),

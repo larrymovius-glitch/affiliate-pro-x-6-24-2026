@@ -20,8 +20,11 @@
 //   eBay (EPN)   ?customid=<code>                  EPN's own per-link field. The
 //                                                  Browse API hands back links
 //                                                  with it present but empty.
-//   Impact       ?subId1=<code>                    Impact's own sub-id field,
-//                                                  reported back per action.
+//   Impact       (nothing -- sent exactly as given) Shopify's terms (Part B
+//                                                  §4.2) forbid modifying an
+//                                                  Impact link in any way,
+//                                                  and other Impact brands'
+//                                                  contracts haven't been read.
 //   anything else ?subid=<code>                    common convention -- CONFIRM
 //                                                  against your network's docs
 //                                                  before trusting it.
@@ -61,6 +64,37 @@ const IMPACT_DOMAINS = ["sjv.io", "pxf.io", "evyy.net", "7eer.net", "ojrq.net", 
 
 function isImpactHost(h) {
   return IMPACT_DOMAINS.some((d) => hostMatches(h, d)) || /^goto\.[a-z0-9-]+\.[a-z.]+$/.test(h) || /(^|\.)i\d{5,}\.net$/.test(h);
+}
+
+function hostOf(url) {
+  try {
+    return new URL(String(url || "")).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+/** A Shopify affiliate link (Impact's shopify.pxf.io) or a Shopify page. */
+export function isShopifyUrl(url) {
+  const h = hostOf(url);
+  return hostMatches(h, "shopify.com") || (h.startsWith("shopify.") && isImpactHost(h));
+}
+
+/**
+ * Links whose program forbids sending them through the app's /r/ short link.
+ * Shopify's terms: "not manipulate, alter or otherwise modify any Links"
+ * (Part B §4.2) and not "mask its referral sites or use deceptive redirecting
+ * links" (§7.1.7). Shared exactly as Impact gave them -- which means the app
+ * can't count their clicks; Impact's own reports do.
+ */
+export function mustShareAsGiven(destinationUrl) {
+  return isShopifyUrl(destinationUrl);
+}
+
+/** The address to give people for a link: the app's /r/ short link, or the program's own link where its terms require that. */
+export function shareUrlFor(link, origin = "") {
+  if (!link?.short_code || mustShareAsGiven(link.destination_url)) return link?.destination_url || null;
+  return `${origin}/r/${encodeURIComponent(link.short_code)}`;
 }
 
 /**
@@ -166,7 +200,7 @@ export function applyTrackingCode(destinationUrl, shortCode, network) {
   } else if (net === "ebay") {
     url.searchParams.set("customid", normalizeTrackingCode(shortCode).slice(0, 256));
   } else if (net === "impact") {
-    url.searchParams.set("subId1", shortCode);
+    return destinationUrl;
   } else {
     url.searchParams.set("subid", shortCode);
   }

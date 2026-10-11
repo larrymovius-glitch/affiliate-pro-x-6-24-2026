@@ -1,6 +1,6 @@
 import { db } from "./db.js";
 import { getClickBankAffiliateId, applyClickBankAffiliateId } from "./affiliates.js";
-import { detectNetwork, networkForDestination } from "./tracking.js";
+import { detectNetwork, isShopifyUrl, networkForDestination, shareUrlFor } from "./tracking.js";
 import { largestEbayImage } from "./images.js";
 import { findVendorImage } from "./productImages.js";
 import { importDriveCreatives } from "./driveCreatives.js";
@@ -69,7 +69,7 @@ function linkSummary(l, origin) {
     product_name: l.product_name,
     network: l.network || null,
     is_active: l.is_active !== false,
-    share_url: l.short_code ? (origin ? `${origin}/r/${l.short_code}` : `/r/${l.short_code}`) : null,
+    share_url: shareUrlFor(l, origin || ""),
     destination_url: l.destination_url || null,
     clicks: l.clicks || 0,
     conversions: l.conversions || 0,
@@ -111,6 +111,8 @@ function productSummary(p) {
     approved_copy: isEbayProduct(p) ? "not_needed" : p.approved_copy ? "saved" : "missing",
     ...(p.approved_copy_source ? { approved_copy_source: p.approved_copy_source } : {}),
     ...(p.ad_opening_line ? { opening_line: p.ad_opening_line } : {}),
+    // Shopify needs its written permission before its name goes in an ad.
+    ...(isShopifyUrl(p.url) ? { brand_ad_permission: p.brand_ad_permission || "needed_from_shopify" } : {}),
   };
 }
 
@@ -318,6 +320,11 @@ export const TOOL_DEFINITIONS = [
           enum: ["official", "own"],
           description:
             "Where the new image_url came from, only when the user has told you: 'official' if it is from the vendor's own affiliate creatives kit, 'own' if they made it themselves (e.g. in Firefly). Never 'official' for a picture from the vendor's sales page. Leave it out if they haven't said -- the picture is then unconfirmed, and vendors that restrict creatives won't allow it in an ad.",
+        },
+        brand_ad_permission: {
+          type: "string",
+          description:
+            "Only for a brand whose terms need written permission to use its name in ads (Shopify): where the user says that permission came from, e.g. 'email from Shopify affiliate team, Oct 12 2026'. Only once they tell you they have it in writing -- never assume or fill it in yourself. An empty string removes it.",
         },
       },
       required: ["product_id"],
@@ -590,7 +597,7 @@ export async function executeTool(name, input = {}, ctx = {}) {
         });
         return {
           link: linkSummary(link, origin),
-          share_url: origin ? `${origin}/r/${link.short_code}` : `/r/${link.short_code}`,
+          share_url: shareUrlFor(link, origin || ""),
         };
       }
 
@@ -805,6 +812,11 @@ export async function executeTool(name, input = {}, ctx = {}) {
           // Set with every new picture, never carried over from the old one.
           patch.image_source = ["official", "own"].includes(input.image_source) ? input.image_source : null;
         }
+        if (typeof input.brand_ad_permission === "string") {
+          const said = input.brand_ad_permission.trim();
+          if (said && said.length < 6) return { error: "Say where the written permission came from, e.g. 'email from Shopify affiliate team, Oct 12 2026'." };
+          patch.brand_ad_permission = said ? said.slice(0, 300) : null;
+        }
         if (!Object.keys(patch).length) {
           return { error: "Nothing to change. Pass a name, description, category or image_url." };
         }
@@ -923,7 +935,7 @@ export async function executeTool(name, input = {}, ctx = {}) {
             earnings: 0,
           });
           if (number) have.add(number);
-          added.push({ product_id: product.id, name, share_url: origin ? `${origin}/r/${link.short_code}` : `/r/${link.short_code}` });
+          added.push({ product_id: product.id, name, share_url: shareUrlFor(link, origin || "") });
         }
         return {
           added,
@@ -1043,6 +1055,7 @@ export async function executeTool(name, input = {}, ctx = {}) {
             error: `Not made: ${creative.reason}`,
             ...(creative.note ? { vendor_rules: creative.note } : {}),
             ...(creative.source ? { vendor_rules_source: creative.source } : {}),
+            ...("escalate" in creative && creative.escalate ? { needs_owner: true } : {}),
           };
         }
 
@@ -1151,7 +1164,7 @@ Category: ${product.category || "N/A"}`,
             conversions: 0,
             earnings: 0,
           });
-          adLink = origin ? `${origin}/r/${link.short_code}` : `/r/${link.short_code}`;
+          adLink = shareUrlFor(link, origin || "");
         } catch (e) {
           console.error("create_video_ad: ad link failed:", e.message);
         }

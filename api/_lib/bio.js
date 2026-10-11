@@ -124,7 +124,9 @@ ${canonical ? `<meta property="og:url" content="${escapeHtml(canonical)}">\n<lin
  * @param {string} [input.displayName] profiles.full_name
  * @param {string} [input.avatarUrl] profiles.avatar_url
  * @param {string} [input.origin] e.g. https://apx.amhere4utoday.com
- * @param {Array<{short_code: string, product_name?: string, image_url?: string}>} input.links
+ * @param {Array<{short_code: string, direct_url?: string, product_name?: string, image_url?: string}>} input.links
+ *        direct_url: the program's own link, for one whose terms forbid the
+ *        /r/ short link (see mustShareAsGiven in tracking.js).
  */
 export function renderBioPage({ handle, displayName, avatarUrl, origin = "", links = [] }) {
   const name = String(displayName || "").trim() || `@${handle}`;
@@ -140,7 +142,9 @@ export function renderBioPage({ handle, displayName, avatarUrl, origin = "", lin
     .map((link) => {
       const image = safeImageUrl(link.image_url);
       const label = String(link.product_name || "").trim() || link.short_code;
-      return `<li><a class="link" href="/r/${encodeURIComponent(link.short_code)}" rel="sponsored nofollow noopener">${
+      const direct = /^https:\/\//i.test(String(link.direct_url || "")) ? link.direct_url : "";
+      const href = direct ? escapeHtml(direct) : `/r/${encodeURIComponent(link.short_code)}`;
+      return `<li><a class="link" href="${href}" rel="sponsored nofollow noopener">${
         image ? `<img class="thumb" src="${escapeHtml(image)}" alt="" width="44" height="44" loading="lazy">` : ""
       }<span class="name">${escapeHtml(label)}</span><span class="chev" aria-hidden="true">›</span></a></li>`;
     })
