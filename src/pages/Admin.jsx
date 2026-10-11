@@ -333,9 +333,23 @@ export default function Admin() {
                         <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
                           <MapPin className="w-3 h-3 shrink-0" />
                           {u.signup_country
-                            ? [u.signup_city, u.signup_region, u.signup_country].filter(Boolean).join(", ")
+                            ? `First seen: ${[u.signup_city, u.signup_region, u.signup_country].filter(Boolean).join(", ")}`
                             : "Location: not yet (fills in on their next visit)"}
                         </p>
+                        {u.last_seen_country && (
+                          <p
+                            className={`text-xs truncate flex items-center gap-1 ${
+                              u.signup_country && u.last_seen_country !== u.signup_country
+                                ? "text-amber-700 dark:text-amber-300 font-medium"
+                                : "text-muted-foreground"
+                            }`}
+                            title={u.signup_country && u.last_seen_country !== u.signup_country ? "Different country from where they first showed up" : undefined}
+                          >
+                            <MapPin className="w-3 h-3 shrink-0" />
+                            Last seen: {[u.last_seen_city, u.last_seen_region, u.last_seen_country].filter(Boolean).join(", ")}
+                            {u.last_seen_at ? ` · ${new Date(u.last_seen_at).toLocaleDateString()}` : ""}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap justify-end">

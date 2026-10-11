@@ -10,10 +10,16 @@ test("location comes from Vercel's headers, with the city decoded", () => {
   assert.equal(locationFromHeaders({ "x-vercel-ip-country": "xx1" }), null);
 });
 
-test("the first location is kept; a later visit never overwrites it", () => {
+test("the first location is kept forever; every visit updates last seen", () => {
   const loc = { country: "US", region: "OH", city: "Akron" };
-  assert.deepEqual(locationPatch({}, loc), { signup_country: "US", signup_region: "OH", signup_city: "Akron" });
-  assert.equal(locationPatch({ signup_country: "CA" }, loc), null);
+  const T = "2026-10-11T23:00:00.000Z";
+  assert.deepEqual(locationPatch({}, loc, T), {
+    signup_country: "US", signup_region: "OH", signup_city: "Akron",
+    last_seen_country: "US", last_seen_region: "OH", last_seen_city: "Akron", last_seen_at: T,
+  });
+  const later = locationPatch({ signup_country: "CA" }, { country: "NG", region: "LA", city: "Lagos" }, T);
+  assert.equal("signup_country" in later, false, "the first location never changes");
+  assert.equal(later.last_seen_country, "NG");
   assert.equal(locationPatch({}, null), null);
 });
 

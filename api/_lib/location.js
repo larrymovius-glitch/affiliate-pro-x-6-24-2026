@@ -27,16 +27,25 @@ export function locationFromHeaders(headers) {
 }
 
 /**
- * The profile fields to save, or null when there is nothing to do. The
- * first location recorded is kept: it is where the person was when they
- * joined (or first came back after this was added), not wherever they
- * happen to be today.
+ * The profile fields to save, or null when there is nothing to do. Two
+ * places are kept: signup_* is the first location recorded -- where the
+ * person was when they joined (or first came back after this was added) --
+ * and never changes; last_seen_* is their latest visit, so the owner can see
+ * when someone connects from somewhere other than where they started.
+ *
+ * @param {any} profile
+ * @param {{ country: string, region: string, city: string } | null} location
+ * @param {string} [now] ISO time of this visit
  */
-export function locationPatch(profile, location) {
-  if (!location || profile?.signup_country) return null;
+export function locationPatch(profile, location, now = new Date().toISOString()) {
+  if (!location) return null;
   return {
-    signup_country: location.country,
-    signup_region: location.region || null,
-    signup_city: location.city || null,
+    ...(profile?.signup_country
+      ? {}
+      : { signup_country: location.country, signup_region: location.region || null, signup_city: location.city || null }),
+    last_seen_country: location.country,
+    last_seen_region: location.region || null,
+    last_seen_city: location.city || null,
+    last_seen_at: now,
   };
 }

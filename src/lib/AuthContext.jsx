@@ -83,10 +83,11 @@ export const AuthProvider = ({ children }) => {
 
   /**
    * Records the user's approximate location (from their connection, on the
-   * server) the first time it's missing. Fire-and-forget: never blocks auth.
+   * server) once per visit: the first is kept, the latest updated.
+   * Fire-and-forget: never blocks auth.
    */
   const recordLocation = useCallback(async (currentUser, session) => {
-    if (!currentUser || currentUser.signup_country || !session?.access_token) return;
+    if (!currentUser || !session?.access_token) return;
     // Sign-in and the initial session check both land here on one visit.
     if (locationSentFor.has(currentUser.id)) return;
     locationSentFor.add(currentUser.id);
