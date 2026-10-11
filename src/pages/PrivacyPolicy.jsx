@@ -30,7 +30,7 @@ export default function PrivacyPolicy() {
             <li><strong className="text-foreground">Usage Data:</strong> Information about how you use the app, including clicks, conversions, and campaign activity.</li>
             <li><strong className="text-foreground">Payment Information:</strong> Payout preferences such as bank transfer or check destination details (we do not store full payment credentials).</li>
             <li><strong className="text-foreground">Device Information:</strong> Device type, operating system, and app version for analytics and performance purposes.</li>
-            <li><strong className="text-foreground">Approximate Location:</strong> Your country, region (such as a state) and city, estimated from your internet connection's IP address when you first use the app. We do not collect your precise location or GPS data.</li>
+            <li><strong className="text-foreground">Approximate Location:</strong> Your IP address, and the country, region (such as a state) and city estimated from it, when you sign up or use the app. We do not collect your precise location or GPS data.</li>
           </ul>
         </section>
 

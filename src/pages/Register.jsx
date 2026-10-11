@@ -22,6 +22,16 @@ export default function Register() {
     if (ref) sessionStorage.setItem("pending_referral_code", ref);
   }, [searchParams]);
 
+  // Every try is recorded with where it came from, for the owner's Admin page
+  // -- including the ones that never become an account. Never blocks signup.
+  const logAttempt = (outcome) => {
+    fetch("/api/logSignupAttempt", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, outcome }),
+    }).catch(() => {});
+  };
+
   const handleRegister = async (event) => {
     event.preventDefault();
     setError("");
@@ -37,7 +47,21 @@ export default function Register() {
           emailRedirectTo: `${window.location.origin}/`,
         },
       });
-      if (signUpError) throw signUpError;
+      if (signUpError) {
+        const code = /** @type {any} */ (signUpError).code || "";
+        logAttempt(code === "email_address_invalid" ? "invalid_email" : code === "weak_password" ? "weak_password" : "error");
+        throw signUpError;
+      }
+
+      // An email that already has an account comes back looking like a
+      // success, with no identities and no email sent -- so the person waits
+      // for a confirmation that never arrives. Say so instead.
+      if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        logAttempt("already_registered");
+        setError("That email already has an account. Sign in instead, or use Forgot password if you don't remember it.");
+        return;
+      }
+      logAttempt("created");
 
       if (data?.session) {
         window.location.href = "/";

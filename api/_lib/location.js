@@ -26,6 +26,34 @@ export function locationFromHeaders(headers) {
   return { country, region, city: city.slice(0, 100) };
 }
 
+/** The visitor's IP address as Vercel received it (the first hop of x-forwarded-for). */
+export function ipFromHeaders(headers) {
+  return header(headers, "x-real-ip") || header(headers, "x-forwarded-for").split(",")[0].trim() || "";
+}
+
+const OUTCOMES = new Set(["created", "already_registered", "invalid_email", "weak_password", "error"]);
+
+/**
+ * One row for signup_attempts, or null when the request isn't worth keeping.
+ * The outcome is what the Register page saw, mapped onto a fixed list so a
+ * visitor can't write arbitrary text into the owner's admin page.
+ */
+export function signupAttemptRow(body, headers) {
+  const email = String(body?.email || "").trim().toLowerCase().slice(0, 200);
+  if (!email) return null;
+  const outcome = OUTCOMES.has(body?.outcome) ? body.outcome : "error";
+  const loc = locationFromHeaders(headers);
+  return {
+    email,
+    outcome,
+    ip: ipFromHeaders(headers).slice(0, 64) || null,
+    country: loc?.country || null,
+    region: loc?.region || null,
+    city: loc?.city || null,
+    user_agent: header(headers, "user-agent").slice(0, 300) || null,
+  };
+}
+
 /**
  * The profile fields to save, or null when there is nothing to do. Two
  * places are kept: signup_* is the first location recorded -- where the

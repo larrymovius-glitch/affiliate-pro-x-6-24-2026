@@ -60,3 +60,14 @@ test("a mismatched email deletes nothing", async () => {
   await assert.rejects(deleteAccountCompletely({ D, admin, userId: "u1", email: "someone-else@test.com" }), /verification failed/);
   assert.equal(D.deleted.length, 0);
 });
+
+test("a signup attempt keeps the email, a known outcome, and where it came from", async () => {
+  const { signupAttemptRow } = await import("../api/_lib/location.js");
+  const row = signupAttemptRow(
+    { email: " Katie@Example.com ", outcome: "already_registered" },
+    { "x-vercel-ip-country": "NG", "x-vercel-ip-country-region": "LA", "x-vercel-ip-city": "Lagos", "x-forwarded-for": "102.90.100.124, 10.0.0.1", "user-agent": "Phone" }
+  );
+  assert.deepEqual(row, { email: "katie@example.com", outcome: "already_registered", ip: "102.90.100.124", country: "NG", region: "LA", city: "Lagos", user_agent: "Phone" });
+  assert.equal(signupAttemptRow({ email: "a@b.com", outcome: "<script>" }, {}).outcome, "error", "only known outcomes reach the admin page");
+  assert.equal(signupAttemptRow({}, {}), null);
+});

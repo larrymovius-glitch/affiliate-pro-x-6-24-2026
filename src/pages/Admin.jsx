@@ -29,6 +29,21 @@ const VETERAN_STATUS_OPTIONS = [
   { value: "pending_verification", label: "Pending Verification" },
 ];
 
+const ATTEMPT_LABEL = {
+  created: "Signed up",
+  already_registered: "Email already has an account",
+  invalid_email: "Invalid email",
+  weak_password: "Password too weak",
+  error: "Failed",
+};
+const ATTEMPT_STYLE = {
+  created: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+  already_registered: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
+  invalid_email: "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30",
+  weak_password: "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30",
+  error: "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30",
+};
+
 const ROLE_COLORS = {
   admin: "bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 border-yellow-500/30",
   user: "bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/30",
@@ -82,6 +97,12 @@ export default function Admin() {
   const { data: users = [], isLoading: loadingUsers, refetch: refetchUsers } = useQuery({
     queryKey: ["admin-users"],
     queryFn: () => base44.entities.User.list(),
+  });
+
+  const { data: signupAttempts = [] } = useQuery({
+    queryKey: ["admin-signup-attempts"],
+    queryFn: async () => (await base44.functions.invoke("adminSignupAttempts", {})).data.attempts || [],
+    refetchInterval: 60_000,
   });
 
   const { data: reviewers = [], isLoading: loadingReviewers } = useQuery({
@@ -410,6 +431,41 @@ export default function Admin() {
               ))}
             </div>
           )}
+
+          {/* Every signup try, including ones that never became an account. */}
+          <Card className="border-border bg-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <MapPin className="w-4 h-4" /> Signup attempts
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Every try on the sign-up page, newest first, with where it came from (approximate, from the internet connection).
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {signupAttempts.length === 0 ? (
+                <p className="text-sm text-muted-foreground">None yet. New tries show up here as they happen.</p>
+              ) : (
+                signupAttempts.map((a) => (
+                  <div key={a.id} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 border-b border-border pb-2 last:border-0">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{a.email}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {[a.city, a.region, a.country].filter(Boolean).join(", ") || "Location unknown"}
+                        {a.ip ? ` · ${a.ip}` : ""}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <Badge className={`text-xs border ${ATTEMPT_STYLE[a.outcome] || ATTEMPT_STYLE.error}`}>
+                        {ATTEMPT_LABEL[a.outcome] || a.outcome}
+                      </Badge>
+                      <p className="text-xs text-muted-foreground mt-0.5">{new Date(a.created_at).toLocaleString()}</p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* ── INVITE TAB ── */}

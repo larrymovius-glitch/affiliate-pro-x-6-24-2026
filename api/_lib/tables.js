@@ -25,6 +25,7 @@ export const TABLES = {
   PayoutSchedule: "payout_schedules",
   ProAutomationRule: "pro_automation_rules",
   Product: "products",
+  SignupAttempt: "signup_attempts",
   Subscription: "subscriptions",
   User: "profiles",
   VendorApplication: "vendor_applications",
