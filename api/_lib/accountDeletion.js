@@ -8,7 +8,9 @@
 // the same email.
 //
 // Payment rows are deliberately kept: they are the record of money taken, and
-// the subscription webhooks count them (see CLAUDE.md).
+// the subscription webhooks count them (see CLAUDE.md). payments.user_id is
+// ON DELETE SET NULL, so the row survives the login going; payer_email is
+// stamped on it first so it still says who paid.
 
 import Stripe from "stripe";
 
@@ -49,6 +51,9 @@ export async function deleteAccountCompletely({ D, admin, userId, email }) {
 
   const rows = await Promise.all(OWNED.map((name) => D[name].filter({ created_by_id: userId })));
   await Promise.all(OWNED.flatMap((name, i) => rows[i].map((r) => D[name].delete(r.id))));
+
+  const payments = await D.Payment.filter({ user_id: userId });
+  await Promise.all(payments.map((p) => D.Payment.update(p.id, { payer_email: email })));
 
   const { error } = await admin.auth.admin.deleteUser(userId);
   if (error) throw error;

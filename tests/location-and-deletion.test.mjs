@@ -23,7 +23,17 @@ function fakeDb(profile) {
     filter: async () => [{ id: `${name}-1` }],
     delete: async (id) => { deleted.push(id); },
   });
-  const D = { deleted, User: { get: async (id) => (profile && profile.id === id ? profile : null) } };
+  const stamped = [];
+  const D = {
+    deleted,
+    stamped,
+    User: { get: async (id) => (profile && profile.id === id ? profile : null) },
+    Payment: {
+      filter: async () => [{ id: "pay-1" }],
+      update: async (id, patch) => { stamped.push({ id, ...patch }); },
+      delete: async () => { throw new Error("payments are never deleted"); },
+    },
+  };
   for (const n of ["AffiliateLink", "Product", "Campaign", "Payout", "GeneratedPost", "AdReview", "AdAsset", "PayoutSchedule", "CreativeImport"]) D[n] = table(n);
   return D;
 }
@@ -35,6 +45,7 @@ test("deleting an account removes its data and its login, so the email can sign 
   await deleteAccountCompletely({ D, admin, userId: "u1", email: "a@test.com" });
   assert.deepEqual(removedLogins, ["u1"]);
   assert.ok(D.deleted.includes("AffiliateLink-1") && D.deleted.includes("Product-1"));
+  assert.deepEqual(D.stamped, [{ id: "pay-1", payer_email: "a@test.com" }], "payments are kept, marked with who paid");
 });
 
 test("a mismatched email deletes nothing", async () => {
