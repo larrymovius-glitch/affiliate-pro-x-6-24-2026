@@ -20,21 +20,21 @@
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 217 91% 60%;
+    --primary: 239 84% 67%;
     --primary-foreground: 0 0% 100%;
     --secondary: 220 14% 96%;
     --secondary-foreground: 222 47% 11%;
     --muted: 220 14% 96%;
     --muted-foreground: 220 9% 46%;
-    --accent: 262 83% 58%;
+    --accent: 275 89% 64%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 217 91% 60%;
-    --chart-1: 217 91% 60%;
-    --chart-2: 262 83% 58%;
+    --ring: 239 84% 67%;
+    --chart-1: 239 84% 67%;
+    --chart-2: 275 89% 64%;
     --chart-3: 160 84% 39%;
     --chart-4: 38 92% 50%;
     --chart-5: 0 84% 60%;
@@ -43,14 +43,14 @@
     --font-body: 'Inter', sans-serif;
     --font-display: 'Space Grotesk', sans-serif;
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    --sidebar-background: 222 47% 11%;
+    --sidebar-background: 245 57% 12%;
     --sidebar-foreground: 220 14% 96%;
-    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary: 239 84% 67%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 40% 16%;
+    --sidebar-accent: 245 50% 22%;
     --sidebar-accent-foreground: 220 14% 96%;
-    --sidebar-border: 222 40% 18%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-border: 245 45% 26%;
+    --sidebar-ring: 239 84% 67%;
     --success: 160 84% 39%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
@@ -59,38 +59,41 @@
 
   .dark {
     color-scheme: dark;
-    --background: 243 35% 26%;
-    --foreground: 220 14% 98%;
-    --card: 245 32% 34%;
-    --card-foreground: 220 14% 98%;
-    --popover: 245 34% 30%;
-    --popover-foreground: 220 14% 98%;
-    --primary: 258 86% 72%;
+    /* Deep navy-indigo with blue-violet and purple accents (2026-10-14). */
+    --background: 244 55% 15%;
+    --foreground: 0 0% 100%;
+    --card: 247 48% 22%;
+    --card-foreground: 0 0% 100%;
+    --popover: 246 52% 19%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 239 84% 67%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 245 30% 32%;
-    --secondary-foreground: 220 14% 98%;
-    --muted: 245 28% 32%;
-    --muted-foreground: 245 22% 82%;
-    --accent: 270 76% 70%;
+    --secondary: 245 50% 28%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 245 46% 26%;
+    --muted-foreground: 246 40% 84%;
+    --accent: 275 89% 64%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 70% 48%;
+    --destructive: 0 72% 52%;
     --destructive-foreground: 0 0% 98%;
-    --border: 245 26% 42%;
-    --input: 245 26% 42%;
-    --ring: 258 86% 72%;
-    --chart-1: 258 86% 72%;
-    --chart-2: 210 92% 70%;
-    --chart-3: 160 84% 54%;
-    --chart-4: 38 94% 60%;
-    --chart-5: 0 84% 66%;
-    --sidebar-background: 244 34% 22%;
-    --sidebar-foreground: 220 14% 98%;
-    --sidebar-primary: 258 86% 72%;
+    --border: 246 40% 34%;
+    --input: 246 40% 34%;
+    --ring: 239 84% 67%;
+    --chart-1: 239 84% 67%;
+    --chart-2: 275 89% 64%;
+    --chart-3: 128 49% 57%;
+    --chart-4: 44 93% 63%;
+    --chart-5: 13 88% 63%;
+    --sidebar-background: 245 57% 12%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 239 84% 67%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 245 30% 32%;
-    --sidebar-accent-foreground: 220 14% 98%;
-    --sidebar-border: 245 26% 38%;
-    --sidebar-ring: 258 86% 72%;
+    --sidebar-accent: 245 50% 22%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 245 45% 26%;
+    --sidebar-ring: 239 84% 67%;
+    --page-glow: radial-gradient(1200px 600px at 15% -10%, hsl(239 84% 67% / 0.18), transparent 60%),
+      radial-gradient(900px 500px at 100% 10%, hsl(275 89% 64% / 0.16), transparent 60%);
   }
 }
 
@@ -101,6 +104,8 @@
   }
   body {
     background-color: hsl(var(--background));
+    background-image: var(--page-glow, none);
+    background-attachment: fixed;
     color: hsl(var(--foreground));
     font-family: var(--font-body);
     overscroll-behavior: none;
