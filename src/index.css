@@ -59,38 +59,38 @@
 
   .dark {
     color-scheme: dark;
-    /* Deep navy-indigo with blue-violet and purple accents (2026-10-14). */
-    --background: 244 55% 15%;
+    /* Navy-indigo with blue-violet and purple accents (2026-10-14), lightened so it isn't too dark. */
+    --background: 244 45% 24%;
     --foreground: 0 0% 100%;
-    --card: 247 48% 22%;
+    --card: 247 40% 32%;
     --card-foreground: 0 0% 100%;
-    --popover: 246 52% 19%;
+    --popover: 246 42% 28%;
     --popover-foreground: 0 0% 100%;
     --primary: 239 84% 67%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 245 50% 28%;
+    --secondary: 245 40% 36%;
     --secondary-foreground: 0 0% 100%;
-    --muted: 245 46% 26%;
-    --muted-foreground: 246 40% 84%;
+    --muted: 245 38% 34%;
+    --muted-foreground: 246 40% 88%;
     --accent: 275 89% 64%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 72% 52%;
     --destructive-foreground: 0 0% 98%;
-    --border: 246 40% 34%;
-    --input: 246 40% 34%;
+    --border: 246 34% 46%;
+    --input: 246 34% 46%;
     --ring: 239 84% 67%;
     --chart-1: 239 84% 67%;
     --chart-2: 275 89% 64%;
     --chart-3: 128 49% 57%;
     --chart-4: 44 93% 63%;
     --chart-5: 13 88% 63%;
-    --sidebar-background: 245 57% 12%;
+    --sidebar-background: 245 45% 20%;
     --sidebar-foreground: 0 0% 100%;
     --sidebar-primary: 239 84% 67%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 245 50% 22%;
+    --sidebar-accent: 245 40% 32%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 245 45% 26%;
+    --sidebar-border: 245 34% 38%;
     --sidebar-ring: 239 84% 67%;
     --page-glow: radial-gradient(1200px 600px at 15% -10%, hsl(239 84% 67% / 0.18), transparent 60%),
       radial-gradient(900px 500px at 100% 10%, hsl(275 89% 64% / 0.16), transparent 60%);
