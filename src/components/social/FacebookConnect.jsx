@@ -4,7 +4,6 @@ import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Facebook, CheckCircle, AlertCircle, Loader2, Link2, Unlink, Send, Copy, CheckCheck } from "lucide-react";
-import { toast } from "sonner";
 
 // Connect card for the signed-in user's own Facebook Page. Once connected,
 // api/facebookAutoPost.js posts one product a day to it, and "Post one now"
@@ -46,21 +45,22 @@ export default function FacebookConnect() {
     mutationFn: () => base44.functions.invoke("facebookDisconnect", {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["facebook-connection"] });
-      setOutcome(null);
-      toast.success("Facebook disconnected — daily posts stopped");
+      setOutcome({ ok: true, text: "Facebook disconnected — daily posts stopped." });
     },
-    onError: (err) => toast.error(err?.message || "Could not disconnect"),
+    onError: (err) => setOutcome({ ok: false, text: err?.message || "Could not disconnect." }),
   });
 
   const postNow = useMutation({
     mutationFn: async () => (await base44.functions.invoke("facebookAutoPost", {})).data,
     onSuccess: (res) => {
       const r = res?.results?.[0];
-      if (r?.posted) toast.success(`Posted ${r.product} to your Page`);
-      else if (r?.reason === "reconnect_needed") toast.error("Facebook needs you to reconnect your Page.");
-      else toast.error(r?.reason || "Nothing was posted");
+      // The app mounts the shadcn toaster, not sonner's, so results show in
+      // the card itself.
+      if (r?.posted) setOutcome({ ok: true, text: `Posted ${r.product} to your Page${r.video ? " as a video" : ""}.` });
+      else if (r?.reason === "reconnect_needed") setOutcome({ ok: false, text: "Facebook needs you to reconnect your Page." });
+      else setOutcome({ ok: false, text: r?.reason || "Nothing was posted." });
     },
-    onError: (err) => toast.error(err?.message || "Could not post"),
+    onError: (err) => setOutcome({ ok: false, text: err?.message || "Could not post." }),
   });
 
   const copyRedirect = async () => {

@@ -1208,9 +1208,25 @@ Category: ${product.category || "N/A"}`,
         if (status.status !== "done") return { status: status.status, message: "Still rendering -- check again in a bit, not immediately." };
 
         let title = "AI-generated video ad";
+        let productId = null;
         if (input.product_id) {
           const owned = await D.Product.filter({ created_by_id: user.id, id: String(input.product_id) });
-          if (owned[0]) title = `${owned[0].name} -- AI video ad`;
+          if (owned[0]) {
+            title = `${owned[0].name} -- AI video ad`;
+            productId = owned[0].id;
+          }
+        }
+
+        // JSON2Video's render links expire: every render saved in September
+        // answered 403 by mid-October, so 15 of 16 saved ads were lost. Keep
+        // our own copy; fall back to the render link only if copying fails.
+        let fileUrl = status.url;
+        try {
+          const res = await (ctx.fetch || fetch)(status.url);
+          if (!res.ok) throw new Error(`download failed (${res.status})`);
+          fileUrl = await videoAds.uploadPublicAsset(storageClient(), Buffer.from(await res.arrayBuffer()), `${renderId}.mp4`, "video/mp4");
+        } catch (e) {
+          console.error("check_video_ad: could not keep a copy, saving the render link:", e.message);
         }
 
         // Only columns ad_assets actually has. A `source` field was being sent
@@ -1221,8 +1237,11 @@ Category: ${product.category || "N/A"}`,
         const asset = await D.AdAsset.create({
           created_by_id: user.id,
           title,
-          file_url: status.url,
+          file_url: fileUrl,
           file_type: "video",
+          // Without this no ad was ever tied to its product, so nothing could
+          // post one with the right link and vendor rules.
+          ...(productId ? { product_id: productId } : {}),
           platform: shape.platform,
           notes: `AI-generated video ad, ${shape.width}x${shape.height} for ${shape.where}. Rendered via JSON2Video (render ${renderId}).`,
         });
@@ -1254,7 +1273,7 @@ Category: ${product.category || "N/A"}`,
 
         return {
           status: "done",
-          url: status.url,
+          url: fileUrl,
           ad_asset_id: asset.id,
           ...(onSharePage ? { share_page: onSharePage } : {}),
           message:

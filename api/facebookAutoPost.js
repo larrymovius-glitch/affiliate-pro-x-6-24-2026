@@ -38,6 +38,15 @@ async function writeBody(product) {
   return fallbackBody(product);
 }
 
+async function reachable(url) {
+  try {
+    const r = await fetch(url, { method: "HEAD" });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
 async function notify(admin, userId, title, body) {
   await admin.from("notifications").insert({ user_id: userId, type: "general", title, body, link_to: "/social", read: false });
 }
@@ -46,21 +55,25 @@ async function postFor(admin, connection, { dryRun = false } = {}) {
   const userId = connection.user_id;
   const since = new Date(Date.now() - REPOST_AFTER_DAYS * 86400000).toISOString();
 
-  const [{ data: products }, { data: links }, { data: recentPosts }] = await Promise.all([
+  const [{ data: products }, { data: links }, { data: recentPosts }, { data: videos }] = await Promise.all([
     admin.from("products").select("*").eq("created_by_id", userId).eq("is_active", true),
     admin.from("affiliate_links").select("id, product_id, short_code, destination_url, clicks, is_active").eq("created_by_id", userId).eq("is_active", true),
     admin.from("generated_posts").select("product_id, published_at").eq("created_by_id", userId).eq("platform", "facebook").gte("published_at", since),
+    admin.from("ad_assets").select("product_id, file_url, file_type, is_official, created_at").eq("created_by_id", userId).eq("file_type", "video").not("product_id", "is", null),
   ]);
 
-  const { next, held } = pickNextPost({ products: products || [], links: links || [], recentPosts: recentPosts || [] });
+  const { next, held } = pickNextPost({ products: products || [], links: links || [], recentPosts: recentPosts || [], videos: videos || [] });
   if (!next) return { posted: false, reason: "Nothing ready to post today.", held: held.length };
 
   const body = await writeBody(next.product);
   const message = assemblePost({ product: next.product, link: next.link, body, origin: APP_ORIGIN });
   const imageUrl = next.withImage ? next.product.image_url : null;
-  if (dryRun) return { posted: false, dryRun: true, product: next.product.name, message, imageUrl, held: held.length };
+  // A saved video can point at a link that has since expired; post the
+  // picture instead of handing Facebook a dead file.
+  const videoUrl = next.video && (await reachable(next.video.file_url)) ? next.video.file_url : null;
+  if (dryRun) return { posted: false, dryRun: true, product: next.product.name, message, imageUrl, videoUrl, held: held.length };
 
-  const request = publishRequest({ pageId: connection.account_id, pageToken: connection.access_token, message, imageUrl });
+  const request = publishRequest({ pageId: connection.account_id, pageToken: connection.access_token, message, imageUrl, videoUrl });
   const r = await fetch(request.url, { method: "POST", body: request.body });
   const result = await r.json().catch(() => ({}));
   if (!r.ok || result.error) {
@@ -90,7 +103,7 @@ async function postFor(admin, connection, { dryRun = false } = {}) {
     created_at: now,
   });
 
-  return { posted: true, product: next.product.name, facebookPostId: result.post_id || result.id, held: held.length };
+  return { posted: true, product: next.product.name, video: Boolean(videoUrl), facebookPostId: result.post_id || result.id, held: held.length };
 }
 
 export default async function handler(req, res) {

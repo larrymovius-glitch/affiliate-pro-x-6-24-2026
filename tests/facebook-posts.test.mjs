@@ -142,3 +142,18 @@ test("reads the ticked Page ids from Login for Business's granted scopes", async
   assert.deepEqual(pageIdsFromGranularScopes(debug), ["111", "222"]);
   assert.deepEqual(pageIdsFromGranularScopes({}), []);
 });
+
+test("a product with an allowed video posts the video first", async () => {
+  const { pickNextPost, videoFor, publishRequest } = await import("../api/_lib/facebookPosts.js");
+  const products = [product({ id: "a", name: "Advanced Memory Formula" }), product({ id: "b", name: "Advanced Amino Formula" })];
+  const links = [link({ id: "la", product_id: "a", clicks: 500 }), link({ id: "lb", product_id: "b", clicks: 1 })];
+  const videos = [{ product_id: "b", file_type: "video", file_url: "https://store.test/b.mp4", is_official: false, created_at: "2026-09-23" }];
+  const { next } = pickNextPost({ products, links, videos });
+  assert.equal(next.product.id, "b");
+  assert.equal(next.video.file_url, "https://store.test/b.mp4");
+  assert.match(publishRequest({ pageId: "9", pageToken: "t", message: "m", videoUrl: next.video.file_url }).url, /graph-video\.facebook\.com\/v[\d.]+\/9\/videos$/);
+
+  // official_only vendors: a clip not marked official is never used.
+  assert.equal(videoFor(product({ id: "b", creative_rule: "official_only", image_source: "official" }), videos), null);
+  assert.ok(videoFor(product({ id: "b", creative_rule: "official_only", image_source: "official" }), [{ ...videos[0], is_official: true }]));
+});

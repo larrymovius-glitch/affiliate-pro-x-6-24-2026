@@ -164,7 +164,7 @@ test("check_video_ad saves a completed render as an AdAsset owned by the caller"
   // ad_assets has no `source` column, and Postgres rejects the whole insert
   // when one is named -- which is why no finished render was ever saved.
   assert.deepEqual(
-    Object.keys(insert).filter((k) => !["created_by_id", "title", "file_url", "file_type", "platform", "notes"].includes(k)),
+    Object.keys(insert).filter((k) => !["created_by_id", "title", "file_url", "file_type", "platform", "notes", "product_id"].includes(k)),
     [],
     "only columns ad_assets actually has"
   );
@@ -282,4 +282,25 @@ test("a product with no link is reported, not invented", async () => {
   assert.equal(r.status, "done", "the ad itself is still saved");
   assert.equal(r.share_page, "no_link");
   assert.match(r.message, /no affiliate link/);
+});
+
+test("a finished render is copied into our own storage and tied to its product", async () => {
+  // JSON2Video's links expire; a saved ad that points at one is lost within weeks.
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any", ...APPROVED }] });
+  const uploads = [];
+  const videoAds = { ...configured, uploadPublicAsset: async (_c, buf, name, type) => { uploads.push({ name, type, size: buf.length }); return "https://uploads.test/ad-videos/render-123.mp4"; } };
+  const fetch = async () => ({ ok: true, arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer });
+  const r = await executeTool("check_video_ad", { render_id: "render-123", product_id: "p1" }, ctxFor(D, { videoAds, fetch }));
+  assert.equal(r.url, "https://uploads.test/ad-videos/render-123.mp4");
+  assert.equal(D.seen[0].file_url, "https://uploads.test/ad-videos/render-123.mp4");
+  assert.equal(D.seen[0].product_id, "p1");
+  assert.deepEqual(uploads, [{ name: "render-123.mp4", type: "video/mp4", size: 3 }]);
+});
+
+test("if the copy fails, the render is still saved with its own link", async () => {
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", image_url: "https://x.com/i.png", creative_rule: "any", ...APPROVED }] });
+  const fetch = async () => ({ ok: false, status: 403 });
+  const r = await executeTool("check_video_ad", { render_id: "render-123", product_id: "p1" }, ctxFor(D, { videoAds: configured, fetch }));
+  assert.equal(r.status, "done");
+  assert.equal(D.seen[0].file_url, "https://cdn.test/video.mp4");
 });

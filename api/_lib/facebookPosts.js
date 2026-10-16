@@ -15,6 +15,8 @@ import { shareUrlFor } from "./tracking.js";
 
 export const GRAPH_VERSION = "v23.0";
 export const GRAPH = `https://graph.facebook.com/${GRAPH_VERSION}`;
+// Facebook takes video uploads on its own host.
+export const GRAPH_VIDEO = `https://graph-video.facebook.com/${GRAPH_VERSION}`;
 export const DIALOG_URL = `https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth`;
 // pages_manage_posts needs the other two alongside it to find the Page and
 // read back what it published.
@@ -61,9 +63,13 @@ export function facebookEligibility(product, link) {
 /**
  * The next product to post for one owner, or null when nothing qualifies.
  *
- * @param {{ products: any[], links: any[], recentPosts: { product_id?: string, published_at?: string }[], now?: Date }} input
+ * Videos come from ad_assets: only ones tied to a product, and only where the
+ * vendor's rules allow footage of that kind (official_only vendors need one
+ * marked official).
+ *
+ * @param {{ products: any[], links: any[], recentPosts: { product_id?: string, published_at?: string }[], videos?: any[], now?: Date }} input
  */
-export function pickNextPost({ products, links, recentPosts = [], now = new Date() }) {
+export function pickNextPost({ products, links, recentPosts = [], videos = [], now = new Date() }) {
   const cutoff = now.getTime() - REPOST_AFTER_DAYS * 86400000;
   const recentlyPosted = new Set(
     recentPosts
@@ -82,12 +88,26 @@ export function pickNextPost({ products, links, recentPosts = [], now = new Date
     const verdict = facebookEligibility(product, link);
     if (verdict.status === "hold") held.push({ product: product.name, reason: verdict.reason });
     if (verdict.status !== "post" || recentlyPosted.has(product.id)) continue;
-    candidates.push({ product, link, withImage: verdict.withImage });
+    candidates.push({ product, link, withImage: verdict.withImage, video: videoFor(product, videos) });
   }
 
-  // A picture stops the scroll; then what people already click.
-  candidates.sort((a, b) => Number(b.withImage) - Number(a.withImage) || (b.link.clicks || 0) - (a.link.clicks || 0));
+  // Video gets the most reach, then a picture; then what people already click.
+  candidates.sort(
+    (a, b) =>
+      Number(Boolean(b.video)) - Number(Boolean(a.video)) ||
+      Number(b.withImage) - Number(a.withImage) ||
+      (b.link.clicks || 0) - (a.link.clicks || 0)
+  );
   return { next: candidates[0] || null, held };
+}
+
+/** The newest video for this product whose footage the vendor's rules allow, or null. */
+export function videoFor(product, videos = []) {
+  const usable = videos
+    .filter((v) => v?.product_id === product.id && v.file_type === "video" && v.file_url)
+    .filter((v) => vendorCreativeCheck(product, { footage: true, footageIsOfficial: v.is_official === true }).ok)
+    .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+  return usable[0] || null;
 }
 
 /**
@@ -157,7 +177,13 @@ export function pageIdsFromGranularScopes(debugData) {
 }
 
 /** The Graph API request that publishes the post. */
-export function publishRequest({ pageId, pageToken, message, imageUrl }) {
+export function publishRequest({ pageId, pageToken, message, imageUrl, videoUrl }) {
+  if (videoUrl) {
+    return {
+      url: `${GRAPH_VIDEO}/${encodeURIComponent(pageId)}/videos`,
+      body: new URLSearchParams({ file_url: videoUrl, description: message, access_token: pageToken }),
+    };
+  }
   if (imageUrl) {
     return {
       url: `${GRAPH}/${encodeURIComponent(pageId)}/photos`,
