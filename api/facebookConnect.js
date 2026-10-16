@@ -32,9 +32,9 @@ export default async function handler(req, res) {
     const { user } = await getAuthedUser(req);
     if (!user) return res.status(401).json({ error: "Unauthorized" });
 
-    const appId = process.env.FACEBOOK_APP_ID;
-    const appSecret = process.env.FACEBOOK_APP_SECRET;
-    const configId = process.env.FACEBOOK_LOGIN_CONFIG_ID;
+    const appId = (process.env.FACEBOOK_APP_ID || "").trim();
+    const appSecret = (process.env.FACEBOOK_APP_SECRET || "").trim();
+    const configId = (process.env.FACEBOOK_LOGIN_CONFIG_ID || "").trim();
     const origin = req.headers.origin || `https://${req.headers.host}`;
 
     // Never selects access_token: a live Page token has no reason to reach a browser.

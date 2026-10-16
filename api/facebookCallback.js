@@ -23,8 +23,8 @@ export default async function handler(req, res) {
   const origin = req.headers.origin || `https://${req.headers.host}`;
 
   try {
-    const appId = process.env.FACEBOOK_APP_ID;
-    const appSecret = process.env.FACEBOOK_APP_SECRET;
+    const appId = (process.env.FACEBOOK_APP_ID || "").trim();
+    const appSecret = (process.env.FACEBOOK_APP_SECRET || "").trim();
     if (!appId || !appSecret) return back(res, origin, { status: "error", reason: "not_configured" });
 
     const { code, state, error: fbError } = req.query || {};

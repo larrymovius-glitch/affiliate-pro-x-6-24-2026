@@ -19,7 +19,7 @@ const OUTCOMES = {
   no_code: { ok: false, text: "Facebook redirected back without an authorization code." },
   bad_state: { ok: false, text: "The connection request could not be verified. Start again from this page." },
   unknown_user: { ok: false, text: "The account that started this connection no longer exists." },
-  code_exchange_failed: { ok: false, text: "Facebook rejected the authorization code. Check the redirect URL in the app's Facebook Login settings matches exactly." },
+  code_exchange_failed: { ok: false, text: "Facebook rejected the connection. Check that FACEBOOK_APP_SECRET in Vercel matches the app secret exactly, and that the redirect URL in the app's Facebook Login settings matches." },
   token_exchange_failed: { ok: false, text: "Could not get a lasting connection. Check the app secret." },
   no_pages: { ok: false, text: "No Facebook Page came back that you can post to. Connect again and tick your Page when Facebook asks which Pages to share." },
   unexpected: { ok: false, text: "Something went wrong completing the connection. Check the function logs." },
