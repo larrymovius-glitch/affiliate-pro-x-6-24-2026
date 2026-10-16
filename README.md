@@ -57,7 +57,7 @@ project's environment variables (full list in `CLAUDE.md`), and a changed value
 only takes effect on the next deploy.
 
 `vercel.json` rewrites the legacy `/functions/<name>` paths to `/api/<name>` and
-schedules eight jobs — one every 5 minutes, one hourly, six daily (times in UTC):
+schedules nine jobs — one every 5 minutes, one hourly, seven daily (times in UTC):
 
 | Job                       | Time   | Does                                                    |
 | ------------------------- | ------ | ------------------------------------------------------- |
@@ -69,6 +69,7 @@ schedules eight jobs — one every 5 minutes, one hourly, six daily (times in UT
 | `optimizeAutopilotPosts`  | 09:00  | Autopilot's 48-hour keep-what-earned rotation           |
 | `dailyPerformanceSummary` | 12:00  | Emails admins a summary of links, clicks and earnings   |
 | `processAutoPayouts`      | 13:00  | Creates payouts that are due under users' schedules     |
+| `facebookAutoPost`        | 14:00  | Posts one product a day to each connected Facebook Page |
 
 The 5-minute and hourly jobs need Vercel Pro (Hobby allows daily crons only);
 the hourly one also needs the PayPal variables under "PayPal setup".

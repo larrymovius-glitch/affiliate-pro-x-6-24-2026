@@ -9,6 +9,7 @@ import { Instagram, CheckCircle, Loader2, Settings } from "lucide-react";
 import SocialPlatformCard from "@/components/social/SocialPlatformCard";
 import InstagramConnect from "@/components/social/InstagramConnect";
 import LinkedInConnect from "@/components/social/LinkedInConnect";
+import FacebookConnect from "@/components/social/FacebookConnect";
 import { SOCIAL_PLATFORMS } from "@/lib/socialPlatforms";
 
 export default function SocialConnect() {
@@ -53,7 +54,7 @@ export default function SocialConnect() {
         <div>
           <h1 className="text-2xl font-bold text-foreground font-display">Social Media & Payments</h1>
           <p className="text-sm text-muted-foreground">
-            Connect your own Instagram or LinkedIn below and posts publish straight to it from the app.
+            Connect your own Facebook Page, Instagram or LinkedIn below and posts publish straight to it from the app.
             The rest have no self-serve connect flow for an app like this one, so each card links
             straight to the platform plus a copy-paste posting guide.
           </p>
@@ -61,6 +62,7 @@ export default function SocialConnect() {
       </div>
 
       {/* Real connect flows, where they exist */}
+      <FacebookConnect />
       <InstagramConnect />
       <LinkedInConnect />
 

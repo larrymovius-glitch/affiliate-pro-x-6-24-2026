@@ -43,6 +43,21 @@ const SUPPLEMENT =
   /supplement|\bformula\b|capsule|probiotic|vitamin|gumm(y|ies)|\bbottles?\b|\btonic\b|\bpills?\b|\bamino\b|nutrition|prodentim|nervovive|prostavive|audifort|gluco/i;
 
 /**
+ * Which sensitive categories a product's name or description puts it in.
+ * Shared by the TikTok rule below and Facebook auto-posting.
+ *
+ * @param {{ name?: string, description?: string }} product
+ */
+export function productFlags(product) {
+  const text = `${product?.name || ""} ${product?.description || ""}`;
+  return {
+    weightLoss: WEIGHT_LOSS.test(text),
+    getRich: GET_RICH.test(text),
+    supplement: SUPPLEMENT.test(text),
+  };
+}
+
+/**
  * @param {{ name?: string, description?: string, category?: string }} product
  * @param {{ isEbay?: boolean }} [opts]
  * @returns {{ status: "banned"|"restricted"|"allowed", reason: string }}

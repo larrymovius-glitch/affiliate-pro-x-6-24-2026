@@ -35,3 +35,6 @@ base44/.app.jsonc
 .claude/settings.local.json
 .claude/launch.json
 exports/
+
+# Daily ready-to-paste posts made by the scheduled helper
+daily-posts/

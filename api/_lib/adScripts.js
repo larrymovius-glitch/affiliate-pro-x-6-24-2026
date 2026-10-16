@@ -35,7 +35,7 @@ const PRICE = /[$€£]\s?\d|\b\d+(\.\d+)?\s?(dollars|usd|bucks)\b|\b\d+\s?%\s?o
 // health, disease, symptom, weight and body-change claims. Errs toward
 // dropping a sentence: a dropped sentence costs nothing, a claim can cost the
 // account.
-const SUPPLEMENT_CLAIM =
+export const SUPPLEMENT_CLAIM =
   /\b(cure[sd]?|treat(s|ed|ment)?|prevent(s|ed)?|heal(s|ed|ing)?|diseases?|diabet\w*|blood (sugar|pressure)|cholesterol|pain|inflammat\w*|anxiety|depress\w*|memory|brain fog|tinnitus|hearing|vision|eyesight|prostate|liver|kidney|immun\w*|lose|loss|losing|weight|pounds|lbs|fat|belly|slim\w*|burn\w*|metabol\w*|energy|sleep|clinically|proven|doctors?|scientists?|study|studies|research|results?|before and after|guarantee\w*|miracle|breakthrough|secret|risk[- ]free|i (lost|tried|feel)|my (doctor|husband|wife))\b/i;
 
 function words(text) {
