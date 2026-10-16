@@ -82,7 +82,7 @@ export default async function handler(req, res) {
       const fetched = [];
       for (const id of grantedIds) {
         const p = await getJson(`${GRAPH}/${encodeURIComponent(id)}?${new URLSearchParams({
-          fields: "id,name,access_token,tasks",
+          fields: "id,name,access_token",
           access_token: long.data.access_token,
         })}`);
         if (p.ok && p.data?.access_token) fetched.push(p.data);
