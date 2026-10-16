@@ -1,5 +1,5 @@
 import { adminClient } from "./_lib/supabase.js";
-import { GRAPH, choosePage } from "./_lib/facebookPosts.js";
+import { GRAPH, choosePage, pageIdsFromGranularScopes } from "./_lib/facebookPosts.js";
 import { redirectUri } from "./facebookConnect.js";
 import { verifyState } from "./instagramConnect.js";
 
@@ -68,9 +68,35 @@ export default async function handler(req, res) {
       fields: "id,name,access_token,tasks",
       access_token: long.data.access_token,
     })}`);
-    const page = choosePage(pages.data?.data);
+    let page = choosePage(pages.data?.data);
+
+    // Business-owned Pages are often missing from /me/accounts. Ask which
+    // Pages were ticked, then fetch each one's token directly.
+    let grantedIds = [];
     if (!page) {
-      console.error("facebookCallback: no postable Page:", pages.data?.error);
+      const debug = await getJson(`${GRAPH}/debug_token?${new URLSearchParams({
+        input_token: long.data.access_token,
+        access_token: `${appId}|${appSecret}`,
+      })}`);
+      grantedIds = pageIdsFromGranularScopes(debug.data);
+      const fetched = [];
+      for (const id of grantedIds) {
+        const p = await getJson(`${GRAPH}/${encodeURIComponent(id)}?${new URLSearchParams({
+          fields: "id,name,access_token,tasks",
+          access_token: long.data.access_token,
+        })}`);
+        if (p.ok && p.data?.access_token) fetched.push(p.data);
+        else console.error("facebookCallback: could not read granted Page", id, p.data?.error);
+      }
+      page = choosePage(fetched);
+    }
+
+    if (!page) {
+      console.error("facebookCallback: no postable Page", {
+        accountsCount: pages.data?.data?.length ?? null,
+        accountsError: pages.data?.error,
+        grantedIds,
+      });
       return back(res, origin, { status: "error", reason: "no_pages" });
     }
 

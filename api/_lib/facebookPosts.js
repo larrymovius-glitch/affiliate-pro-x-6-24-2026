@@ -140,6 +140,22 @@ export function choosePage(pages = []) {
   return usable.find((p) => /\bapx\b|affiliate\s*pro/i.test(p.name || "")) || usable[0] || null;
 }
 
+/**
+ * Page ids the person granted, read from a debug_token response. Pages owned
+ * by a business portfolio often don't come back from /me/accounts unless the
+ * app also holds business_management, but Login for Business still records
+ * which Pages were ticked as the target_ids of each granted scope.
+ */
+export function pageIdsFromGranularScopes(debugData) {
+  const wanted = new Set(["pages_manage_posts", "pages_show_list", "pages_read_engagement"]);
+  const ids = new Set();
+  for (const s of debugData?.data?.granular_scopes || []) {
+    if (!wanted.has(s?.scope)) continue;
+    for (const id of s.target_ids || []) ids.add(String(id));
+  }
+  return [...ids];
+}
+
 /** The Graph API request that publishes the post. */
 export function publishRequest({ pageId, pageToken, message, imageUrl }) {
   if (imageUrl) {

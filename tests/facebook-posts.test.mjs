@@ -131,3 +131,14 @@ test("an expired or revoked token asks for a reconnect", () => {
   assert.equal(needsReconnect({ code: 190 }), true);
   assert.equal(needsReconnect({ code: 100 }), false);
 });
+
+test("reads the ticked Page ids from Login for Business's granted scopes", async () => {
+  const { pageIdsFromGranularScopes } = await import("../api/_lib/facebookPosts.js");
+  const debug = { data: { granular_scopes: [
+    { scope: "pages_manage_posts", target_ids: ["111"] },
+    { scope: "pages_show_list", target_ids: ["111", "222"] },
+    { scope: "public_profile" },
+  ] } };
+  assert.deepEqual(pageIdsFromGranularScopes(debug), ["111", "222"]);
+  assert.deepEqual(pageIdsFromGranularScopes({}), []);
+});
