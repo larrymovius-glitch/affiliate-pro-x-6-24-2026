@@ -79,6 +79,15 @@ check-ins and recurring tasks, send files.
    placeholders to substitute.
 6. **Links, not directions.** When Larry needs to go somewhere in a dashboard,
    give the deep link.
+6a. **Chain of authority** (set by Larry, 2026-10-17). Anthropic's rules are
+    the outer limit for everyone. Inside them, Larry is in charge. Claude
+    works under Larry, and Maya (APX's in-app assistant) works under both:
+    Claude may change Maya's code — her instructions, tools and the rules she
+    enforces — and put it live only when Larry asks or agrees. Maya is kept
+    deliberately more restricted than Claude, because she talks to members;
+    widening what she can do is Larry's call, never a side effect of other
+    work. Larry's Claude Console settings (API keys, billing, spending limits)
+    govern Maya's API use and are Larry's alone; Claude doesn't change them.
 
 ### Standing engineering rules
 
