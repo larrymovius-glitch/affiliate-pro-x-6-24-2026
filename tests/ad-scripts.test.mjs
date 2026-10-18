@@ -206,3 +206,18 @@ test("each ad takes the next line in turn and gets its own link carrying that li
   assert.match(first.ad_link, /^https:\/\/app\.test\/r\/[A-Z0-9]+$/);
   assert.notEqual(first.ad_link, second.ad_link);
 });
+
+test("symptom wording counts as a supplement claim, even in the vendor's own copy", async () => {
+  const { usableSentences } = await import("../api/_lib/adScripts.js");
+  // Nervovive's approved swipe, as rendered into an ad on 2026-10-18.
+  const copy =
+    "If your feet are acting up as soon as you wake up and those pins and needles won't give you a rest. " +
+    "Then you need to give this a try. You just need some sugar and a few minutes a day. " +
+    "Click the button below to watch the short video!";
+  const { usable, excluded } = usableSentences(copy, { supplement: true });
+  assert.ok(!usable.some((s) => /pins and needles|sugar/i.test(s)), usable.join(" | "));
+  assert.ok(excluded.some((e) => /pins and needles/.test(e.sentence)));
+  assert.ok(excluded.some((e) => /sugar/.test(e.sentence)));
+  // A neutral sentence still survives.
+  assert.ok(usable.includes("Then you need to give this a try."));
+});

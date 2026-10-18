@@ -35,8 +35,13 @@ const PRICE = /[$€£]\s?\d|\b\d+(\.\d+)?\s?(dollars|usd|bucks)\b|\b\d+\s?%\s?o
 // health, disease, symptom, weight and body-change claims. Errs toward
 // dropping a sentence: a dropped sentence costs nothing, a claim can cost the
 // account.
+//
+// Symptoms count as claims too: Nervovive's approved copy ("If your feet are
+// acting up... those pins and needles won't give you a rest... You just need
+// some sugar") names no disease, yet points squarely at neuropathy, and it
+// went into a rendered ad on 2026-10-18 because only disease words were listed.
 export const SUPPLEMENT_CLAIM =
-  /\b(cure[sd]?|treat(s|ed|ment)?|prevent(s|ed)?|heal(s|ed|ing)?|diseases?|diabet\w*|blood (sugar|pressure)|cholesterol|pain|inflammat\w*|anxiety|depress\w*|memory|brain fog|tinnitus|hearing|vision|eyesight|prostate|liver|kidney|immun\w*|lose|loss|losing|weight|pounds|lbs|fat|belly|slim\w*|burn\w*|metabol\w*|energy|sleep|clinically|proven|doctors?|scientists?|study|studies|research|results?|before and after|guarantee\w*|miracle|breakthrough|secret|risk[- ]free|i (lost|tried|feel)|my (doctor|husband|wife))\b/i;
+  /\b(cure[sd]?|treat(s|ed|ment)?|prevent(s|ed)?|heal(s|ed|ing)?|diseases?|diabet\w*|blood (sugar|pressure)|sugar|cholesterol|pain\w*|ache[sd]?|aching|sore(ness)?|stiff(ness)?|swell\w*|cramp\w*|discomfort|relie(f|ve[sd]?|ving)|symptoms?|pins and needles|tingl\w*|numb\w*|burning|nerves?|nerve damage|neuropath\w*|feet|foot|toes|joints?|inflammat\w*|anxiety|depress\w*|stress|memory|brain fog|focus|tinnitus|ringing|hearing|vision|eyesight|prostate|bladder|liver|kidney|gut|bloat\w*|digest\w*|immun\w*|recover(y|s|ed)?|muscle|strength|stronger|lose|loss|losing|weight|pounds|lbs|fat|belly|slim\w*|burn\w*|metabol\w*|energy|sleep|clinically|proven|doctors?|scientists?|study|studies|research|results?|before and after|guarantee\w*|miracle|breakthrough|secret|risk[- ]free|i (lost|tried|feel)|my (doctor|husband|wife))\b/i;
 
 function words(text) {
   return String(text || "").trim().split(/\s+/).filter(Boolean);
