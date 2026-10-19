@@ -157,3 +157,13 @@ test("a product with an allowed video posts the video first", async () => {
   assert.equal(videoFor(product({ id: "b", creative_rule: "official_only", image_source: "official" }), videos), null);
   assert.ok(videoFor(product({ id: "b", creative_rule: "official_only", image_source: "official" }), [{ ...videos[0], is_official: true }]));
 });
+
+test("a no-alteration vendor posts only its official picture, unchanged, and never a video", async () => {
+  const { facebookEligibility, videoFor } = await import("../api/_lib/facebookPosts.js");
+  // Nervovive's Advertising Rules §5: no altering their ads without written approval.
+  const nervovive = product({ id: "nv", name: "Nervovive - 1 Bottle", creative_rule: "unaltered", image_source: "official" });
+  assert.deepEqual(facebookEligibility(nervovive, link({ product_id: "nv" })), { status: "post", withImage: true });
+  assert.equal(facebookEligibility({ ...nervovive, image_source: "sales_page" }, link({ product_id: "nv" })).status, "skip");
+  const clip = { product_id: "nv", file_type: "video", file_url: "https://store.test/nv.mp4", is_official: true };
+  assert.equal(videoFor(nervovive, [clip]), null);
+});

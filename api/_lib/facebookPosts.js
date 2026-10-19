@@ -46,7 +46,17 @@ export function facebookEligibility(product, link) {
     return { status: "hold", reason: "The vendor's rules haven't been checked yet, so it isn't known whether social posts are allowed." };
   }
   if (product.creative_rule === "unaltered") {
-    return { status: "skip", reason: "The vendor allows only its own ads, posted exactly as supplied." };
+    // The vendor's own picture, posted as supplied, under a caption of ours
+    // that makes no claim: nothing of theirs is altered. Anything else of
+    // theirs -- an AI video, an edited banner -- is (videoFor refuses those).
+    if (product.image_source === "official" && product.image_url) {
+      const flags = productFlags(product);
+      if (flags.weightLoss || flags.getRich) {
+        return { status: "hold", reason: "Weight-loss and make-money offers go out by hand." };
+      }
+      return { status: "post", withImage: true };
+    }
+    return { status: "skip", reason: "The vendor allows only its own ads, posted exactly as supplied, and no official picture is saved yet." };
   }
 
   const flags = productFlags(product);
