@@ -75,30 +75,54 @@ function initials(name) {
 export const DISCLOSURE =
   "Some links below are affiliate links. If you buy through one of them, I may earn a commission at no extra cost to you.";
 
+/**
+ * A short "where this goes" label under each product, so a visitor knows
+ * before tapping whether they are headed to eBay or a brand's own site. Only
+ * the label leaves the server -- never the destination itself.
+ */
+export function storeLabel(destinationUrl) {
+  let host = "";
+  try {
+    host = new URL(String(destinationUrl || "")).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+  if (/(^|\.)ebay\.[a-z.]+$/.test(host)) return "eBay";
+  if (/(^|\.)shopify\.com$/.test(host)) return "Shopify";
+  return "Official site";
+}
+
 const STYLES = `
 *{box-sizing:border-box;margin:0;padding:0}
-:root{color-scheme:light dark;--bg:#f6f6f8;--card:#fff;--fg:#17171c;--muted:#5d5d6b;--line:#e6e6ec;--accent:#6d28d9}
-@media(prefers-color-scheme:dark){:root{--bg:#0d0d12;--card:#17171f;--fg:#f4f4f6;--muted:#a0a0ae;--line:#2a2a36;--accent:#a78bfa}}
-body{background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.45;-webkit-font-smoothing:antialiased;padding:32px 16px 48px}
-.wrap{max-width:520px;margin:0 auto}
-header{text-align:center;margin-bottom:22px}
-.avatar{width:84px;height:84px;border-radius:50%;margin:0 auto 14px;object-fit:cover;display:block;background:var(--accent);color:#fff;font-size:30px;font-weight:700;line-height:84px;text-align:center}
-h1{font-size:23px;font-weight:700;letter-spacing:-.01em}
+:root{color-scheme:light dark;--bg:#f4f3f8;--card:#fff;--fg:#15151b;--muted:#62626f;--line:#e7e5ee;--accent:#6d28d9;--accent-soft:#ede7fb;--hero:linear-gradient(160deg,#7c3aed 0%,#db2777 55%,#f59e0b 100%);--shadow:0 1px 2px rgba(20,20,40,.05),0 6px 20px rgba(20,20,40,.06)}
+@media(prefers-color-scheme:dark){:root{--bg:#0c0c11;--card:#17171f;--fg:#f4f4f6;--muted:#a3a3b2;--line:#272733;--accent:#b79cff;--accent-soft:#2a2240;--hero:linear-gradient(160deg,#4c1d95 0%,#9d174d 60%,#92400e 100%);--shadow:none}}
+body{background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.45;-webkit-font-smoothing:antialiased;min-height:100vh}
+.hero{background:var(--hero);height:132px}
+.wrap{max-width:520px;margin:32px auto 0;padding:0 16px 48px}
+.hero+.wrap{margin-top:-64px}
+header{text-align:center;margin-bottom:20px}
+.avatar{width:104px;height:104px;border-radius:50%;margin:0 auto 12px;object-fit:cover;display:block;background:var(--accent);color:#fff;font-size:36px;font-weight:700;line-height:104px;text-align:center;border:4px solid var(--bg);box-shadow:var(--shadow)}
+h1{font-size:24px;font-weight:800;letter-spacing:-.02em}
 .sub{color:var(--muted);font-size:15px;margin-top:4px}
-.disclosure{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;color:var(--muted);font-size:13px;margin-bottom:18px}
+.disclosure{display:flex;gap:8px;align-items:flex-start;background:var(--accent-soft);border-radius:12px;padding:10px 12px;color:var(--muted);font-size:12.5px;margin-bottom:18px}
+.disclosure b{color:var(--accent);font-weight:700;flex:none}
 ul{list-style:none;display:flex;flex-direction:column;gap:12px}
-a.link{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;min-height:64px;text-decoration:none;color:var(--fg);font-size:16px;font-weight:600;transition:transform .08s ease,border-color .15s ease}
+a.link{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:10px 12px 10px 10px;min-height:92px;text-decoration:none;color:var(--fg);box-shadow:var(--shadow);transition:transform .08s ease,border-color .15s ease}
 a.link:active{transform:scale(.985)}
 a.link:hover{border-color:var(--accent)}
-.thumb{width:44px;height:44px;border-radius:10px;object-fit:cover;flex:none;background:var(--line)}
-.name{flex:1;min-width:0;overflow-wrap:anywhere}
-.chev{color:var(--muted);flex:none;font-size:20px;line-height:1}
-.empty{background:var(--card);border:1px dashed var(--line);border-radius:14px;padding:28px 18px;text-align:center;color:var(--muted);font-size:15px}
+.thumb{width:72px;height:72px;border-radius:12px;object-fit:contain;flex:none;background:#fff;border:1px solid var(--line)}
+.thumb.blank{display:flex;align-items:center;justify-content:center;background:var(--accent-soft);color:var(--accent);font-size:26px;font-weight:700}
+.info{flex:1;min-width:0}
+.name{font-size:15.5px;font-weight:650;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.store{display:block;color:var(--muted);font-size:12.5px;margin-top:4px}
+.go{flex:none;background:var(--accent);color:#fff;font-size:13px;font-weight:700;border-radius:999px;padding:8px 13px;white-space:nowrap}
+@media(prefers-color-scheme:dark){.go{color:#15151b}}
+.empty{background:var(--card);border:1px dashed var(--line);border-radius:18px;padding:28px 18px;text-align:center;color:var(--muted);font-size:15px}
 footer{margin-top:28px;text-align:center;color:var(--muted);font-size:12px}
 footer a{color:var(--muted)}
 `.trim();
 
-function shell({ title, description, canonical, body, noindex = false }) {
+function shell({ title, description, canonical, body, noindex = false, hero = false }) {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -114,7 +138,7 @@ ${canonical ? `<meta property="og:url" content="${escapeHtml(canonical)}">\n<lin
 <meta name="twitter:card" content="summary">
 <style>${STYLES}</style>
 </head>
-<body><div class="wrap">${body}</div></body>
+<body>${hero ? '<div class="hero" aria-hidden="true"></div>' : ""}<div class="wrap">${body}</div></body>
 </html>`;
 }
 
@@ -124,7 +148,7 @@ ${canonical ? `<meta property="og:url" content="${escapeHtml(canonical)}">\n<lin
  * @param {string} [input.displayName] profiles.full_name
  * @param {string} [input.avatarUrl] profiles.avatar_url
  * @param {string} [input.origin] e.g. https://apx.amhere4utoday.com
- * @param {Array<{short_code: string, direct_url?: string, product_name?: string, image_url?: string}>} input.links
+ * @param {Array<{short_code: string, direct_url?: string, product_name?: string, image_url?: string, store?: string}>} input.links
  *        direct_url: the program's own link, for one whose terms forbid the
  *        /r/ short link (see mustShareAsGiven in tracking.js).
  */
@@ -132,7 +156,7 @@ export function renderBioPage({ handle, displayName, avatarUrl, origin = "", lin
   const name = String(displayName || "").trim() || `@${handle}`;
   const avatar = safeImageUrl(avatarUrl);
   const head = avatar
-    ? `<img class="avatar" src="${escapeHtml(avatar)}" alt="" width="84" height="84">`
+    ? `<img class="avatar" src="${escapeHtml(avatar)}" alt="" width="104" height="104">`
     : `<div class="avatar" aria-hidden="true">${escapeHtml(initials(displayName || handle))}</div>`;
 
   // Relative hrefs: the page is served from the same origin as /r/, so the
@@ -144,14 +168,18 @@ export function renderBioPage({ handle, displayName, avatarUrl, origin = "", lin
       const label = String(link.product_name || "").trim() || link.short_code;
       const direct = /^https:\/\//i.test(String(link.direct_url || "")) ? link.direct_url : "";
       const href = direct ? escapeHtml(direct) : `/r/${encodeURIComponent(link.short_code)}`;
-      return `<li><a class="link" href="${href}" rel="sponsored nofollow noopener">${
-        image ? `<img class="thumb" src="${escapeHtml(image)}" alt="" width="44" height="44" loading="lazy">` : ""
-      }<span class="name">${escapeHtml(label)}</span><span class="chev" aria-hidden="true">›</span></a></li>`;
+      const store = String(link.store || "").trim();
+      const thumb = image
+        ? `<img class="thumb" src="${escapeHtml(image)}" alt="" width="72" height="72" loading="lazy">`
+        : `<span class="thumb blank" aria-hidden="true">${escapeHtml(label.charAt(0).toUpperCase())}</span>`;
+      return `<li><a class="link" href="${href}" rel="sponsored nofollow noopener">${thumb}<span class="info"><span class="name">${escapeHtml(label)}</span>${
+        store ? `<span class="store">${escapeHtml(store)}</span>` : ""
+      }</span><span class="go" aria-hidden="true">View ›</span></a></li>`;
     })
     .join("");
 
-  const body = `<header>${head}<h1>${escapeHtml(name)}</h1><p class="sub">Everything I'm sharing right now</p></header>
-<p class="disclosure">${escapeHtml(DISCLOSURE)}</p>
+  const body = `<header>${head}<h1>${escapeHtml(name)}</h1><p class="sub">Picks I'm sharing right now</p></header>
+<p class="disclosure"><b aria-hidden="true">ⓘ</b><span>${escapeHtml(DISCLOSURE)}</span></p>
 ${items ? `<ul>${items}</ul>` : `<p class="empty">Nothing here yet — check back soon.</p>`}
 <footer><p>Powered by <a href="${escapeHtml(origin)}/" rel="noopener">Affiliate Pro X</a></p></footer>`;
 
@@ -160,6 +188,7 @@ ${items ? `<ul>${items}</ul>` : `<p class="empty">Nothing here yet — check bac
     description: `Links shared by ${name}. ${DISCLOSURE}`,
     canonical: origin ? `${origin}/go/${handle}` : "",
     body,
+    hero: true,
   });
 }
 

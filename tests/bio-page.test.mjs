@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { DISCLOSURE, escapeHtml, normalizeHandle, renderBioPage, renderMissingPage } from "../api/_lib/bio.js";
+import { DISCLOSURE, escapeHtml, normalizeHandle, renderBioPage, renderMissingPage, storeLabel } from "../api/_lib/bio.js";
 
 // The share page is the one public page this app serves, opened by strangers
 // from a TikTok or Instagram profile. Two things must hold no matter what was
@@ -97,6 +97,20 @@ test("the page carries what a social preview needs", () => {
 
 test("a name is only a fallback for a missing one", () => {
   assert.ok(page({ displayName: "" }).includes("@larry"));
+});
+
+test("each button says where it leads, without exposing the destination", () => {
+  assert.equal(storeLabel("https://www.ebay.com/itm/1?campid=5339155721"), "eBay");
+  assert.equal(storeLabel("https://getnervovive24.com/text.php#aff=Here4_you"), "Official site");
+  assert.equal(storeLabel("https://notebay.com/x"), "Official site", "a lookalike host is not eBay");
+  assert.equal(storeLabel("not a url"), "");
+  const html = page({ links: [{ short_code: "e1", product_name: "Air Fryer", store: "eBay" }] });
+  assert.ok(html.includes('<span class="store">eBay</span>'));
+  assert.ok(!html.includes("ebay.com"));
+});
+
+test("a link with no picture still gets a tile instead of a gap", () => {
+  assert.ok(page().includes('class="thumb blank"'));
 });
 
 test("an unclaimed handle gets a plain page that search engines skip", () => {

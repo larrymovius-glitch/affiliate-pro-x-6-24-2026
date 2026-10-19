@@ -1,5 +1,5 @@
 import { adminClient } from "./_lib/supabase.js";
-import { normalizeHandle, renderBioPage, renderMissingPage } from "./_lib/bio.js";
+import { normalizeHandle, renderBioPage, renderMissingPage, storeLabel } from "./_lib/bio.js";
 import { mustShareAsGiven } from "./_lib/tracking.js";
 
 // Serves the public share page at /go/<handle> (see the rewrite in
@@ -68,6 +68,7 @@ export default async function handler(req, res) {
           short_code: link.short_code,
           ...(mustShareAsGiven(link.destination_url) ? { direct_url: link.destination_url } : {}),
           product_name: link.product_name,
+          store: storeLabel(link.destination_url),
           image_url: imageById.get(link.product_id) || "",
         })),
       })
