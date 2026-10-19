@@ -144,3 +144,34 @@ test("a database failure becomes an error result, not an exception", async () =>
   const r = await executeTool("list_my_links", {}, ctxFor(D));
   assert.match(r.error, /connection reset/);
 });
+
+test("Maya sees only the caller's own posts, and records a hand-made post against their product", async () => {
+  const posts = [
+    { id: "g1", created_by_id: "me", platform: "facebook", status: "posted", product_name: "Nervovive", published_at: "2026-10-18T14:00:00Z", content: "#ad ..." },
+    { id: "g2", created_by_id: "me", platform: "general", status: "draft", content: "draft" },
+    { id: "g3", created_by_id: "other", platform: "tiktok", status: "posted", content: "theirs" },
+  ];
+  const D = { ...fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Advanced Amino Formula" }, { id: "p2", created_by_id: "other", name: "Theirs" }] }) };
+  const rows = posts;
+  D.GeneratedPost = {
+    filter: async (f) => rows.filter((r) => Object.entries(f).every(([k, v]) => r[k] === v)),
+    create: async (payload) => { const row = { id: `g${rows.length + 1}`, ...payload }; rows.push(row); return row; },
+  };
+
+  const listed = await executeTool("list_my_posts", {}, ctxFor(D));
+  assert.deepEqual(listed.posts.map((p) => p.platform), ["facebook"], "drafts and other users' posts stay out");
+
+  const bad = await executeTool("record_post", { platform: "tiktok", product_id: "p2" }, ctxFor(D));
+  assert.match(bad.error, /No product of yours/);
+
+  const ok = await executeTool("record_post", { platform: "TikTok", product_id: "p1", kind: "video" }, ctxFor(D));
+  assert.equal(ok.recorded, true);
+  const saved = rows[rows.length - 1];
+  assert.equal(saved.created_by_id, "me");
+  assert.equal(saved.platform, "tiktok");
+  assert.equal(saved.status, "posted");
+  assert.equal(saved.product_name, "Advanced Amino Formula");
+
+  const unknown = await executeTool("record_post", { platform: "myspace" }, ctxFor(D));
+  assert.match(unknown.error, /Which app/);
+});

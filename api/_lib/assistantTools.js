@@ -140,6 +140,36 @@ export const TOOL_DEFINITIONS = [
     },
   },
   {
+    name: "list_my_posts",
+    description:
+      "Where the user's products have actually been posted, newest first: the daily Facebook Page auto-posts, posts the user recorded with record_post (TikTok and other apps the app can't see), and saved drafts. status 'posted' or 'published' means it went out; 'draft' or 'archived' means it didn't. Use this before saying what has or hasn't been posted, or before suggesting what to post next -- never guess.",
+    input_schema: {
+      type: "object",
+      properties: {
+        platform: { type: "string", description: "Only this platform: facebook, instagram, tiktok, linkedin, twitter, email or general." },
+        posted_only: { type: "boolean", description: "true to leave out drafts and archived posts. Default true." },
+        limit: { type: "number", description: `1-${MAX_LIST_ROWS}. Default 30.` },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "record_post",
+    description:
+      "Write down a post the user made themselves on an app this one can't see -- TikTok, or a manual Instagram or Facebook post -- so it shows up in list_my_posts. Call it when the user tells you they posted something. Ask which product it was for if that isn't clear; never invent the caption -- leave it out if the user didn't give it.",
+    input_schema: {
+      type: "object",
+      properties: {
+        platform: { type: "string", description: "tiktok, instagram, facebook, linkedin, twitter or email." },
+        product_id: { type: "string", description: "The product it promoted, from list_my_products." },
+        kind: { type: "string", description: "video, photo or text." },
+        caption: { type: "string", description: "The caption, if the user gave it." },
+        posted_at: { type: "string", description: "When it went up (ISO date). Default now." },
+      },
+      required: ["platform"],
+    },
+  },
+  {
     name: "list_my_products",
     description:
       "Products the user has added, newest first, which are what links and ads get built from. image_url shows whether a product already has its picture: one that does is ready for create_video_ad. tiktok says what TikTok allows for it: 'banned' (weight-loss products and get-rich offers -- never suggest a TikTok ad for these), 'restricted' (supplements: adults only, mild wording) or 'allowed'. creative_rule is the vendor's rule on which pictures and videos an ad may use: 'own_or_official' (the user's own footage, or the vendor's affiliate-kit creatives -- never anything from the sales page or sales video), 'official_only' (the vendor's official creatives only), 'unaltered' (the vendor's ads posted as supplied, no AI ads), 'any', 'ebay', or 'not_checked' (no ad until the vendor's affiliate page has been checked). image_source says where the saved picture came from: 'official', 'own', 'sales_page' or null (unknown). When asked which products are ready, or about all of them, set limit to the maximum.",
@@ -528,6 +558,53 @@ export async function executeTool(name, input = {}, ctx = {}) {
       case "list_my_links": {
         const rows = await D.AffiliateLink.filter({ created_by_id: user.id }, "-created_at", listLimit(input.limit));
         return { links: rows.map((l) => linkSummary(l, origin)) };
+      }
+
+      case "list_my_posts": {
+        const where = { created_by_id: user.id };
+        const platform = String(input.platform || "").trim().toLowerCase();
+        if (platform) where.platform = platform;
+        const rows = await D.GeneratedPost.filter(where, "-created_at", MAX_LIST_ROWS);
+        const postedOnly = input.posted_only !== false;
+        const keep = rows
+          .filter((p) => !postedOnly || ["posted", "published"].includes(p.status))
+          .slice(0, input.limit ? listLimit(input.limit) : 30);
+        return {
+          posts: keep.map((p) => ({
+            platform: p.platform,
+            product: p.product_name || null,
+            product_id: p.product_id || null,
+            status: p.status,
+            posted_at: p.published_at || null,
+            caption: String(p.content || "").slice(0, 200),
+          })),
+        };
+      }
+
+      case "record_post": {
+        const RECORDABLE = ["tiktok", "instagram", "facebook", "linkedin", "twitter", "email"];
+        const platform = String(input.platform || "").trim().toLowerCase();
+        if (!RECORDABLE.includes(platform)) {
+          return { error: `Which app was it posted on? One of: ${RECORDABLE.join(", ")}.` };
+        }
+        let product = null;
+        if (input.product_id) {
+          product = (await D.Product.filter({ created_by_id: user.id, id: String(input.product_id) }))[0];
+          if (!product) return { error: "No product of yours with that id. Check list_my_products." };
+        }
+        const when = input.posted_at && !Number.isNaN(Date.parse(input.posted_at)) ? new Date(input.posted_at) : new Date();
+        const kind = ["video", "photo", "text"].includes(input.kind) ? input.kind : null;
+        const caption = String(input.caption || "").trim().slice(0, 4000);
+        const row = await D.GeneratedPost.create({
+          created_by_id: user.id,
+          product_id: product?.id || null,
+          product_name: product?.name || null,
+          platform,
+          status: "posted",
+          published_at: when.toISOString(),
+          content: caption || `${kind ? `${kind[0].toUpperCase()}${kind.slice(1)} post` : "Post"} made by hand on ${platform}.`,
+        });
+        return { recorded: true, id: row.id, platform, product: product?.name || null, posted_at: when.toISOString() };
       }
 
       case "list_my_products": {
