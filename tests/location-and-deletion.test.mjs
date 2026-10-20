@@ -41,7 +41,7 @@ function fakeDb(profile) {
       delete: async () => { throw new Error("payments are never deleted"); },
     },
   };
-  for (const n of ["AffiliateLink", "Product", "Campaign", "Payout", "GeneratedPost", "AdReview", "AdAsset", "PayoutSchedule", "CreativeImport"]) D[n] = table(n);
+  for (const n of ["AffiliateLink", "Product", "Campaign", "Payout", "GeneratedPost", "AdReview", "AdAsset", "PayoutSchedule", "CreativeImport", "IncomeEntry"]) D[n] = table(n);
   return D;
 }
 

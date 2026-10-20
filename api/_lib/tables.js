@@ -19,6 +19,7 @@ export const TABLES = {
   EbayToken: "ebay_tokens",
   GeneratedPost: "generated_posts",
   GoogleReviewer: "google_reviewers",
+  IncomeEntry: "income_entries",
   Notification: "notifications",
   Payment: "payments",
   Payout: "payouts",

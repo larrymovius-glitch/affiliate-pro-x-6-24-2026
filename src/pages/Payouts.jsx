@@ -12,6 +12,7 @@ import { Wallet, DollarSign, ArrowUpRight, RefreshCw } from "lucide-react";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import PayoutScheduleCard from "@/components/payouts/PayoutScheduleCard";
 import TaxSetAsideCard from "@/components/payouts/TaxSetAsideCard";
+import TaxYearReport from "@/components/payouts/TaxYearReport";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -86,6 +87,8 @@ export default function Payouts() {
       </div>
 
       <TaxSetAsideCard totalPaid={totalPaid} />
+
+      <TaxYearReport payouts={payouts} />
 
       <PayoutScheduleCard />
 

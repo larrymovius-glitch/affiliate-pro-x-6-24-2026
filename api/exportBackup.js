@@ -12,7 +12,7 @@ export default async function handler(req, res) {
     const entities = [
       "User", "AffiliateLink", "Product", "GeneratedPost", "Campaign",
       "Payout", "PayoutSchedule", "Payment", "Subscription", "Notification",
-      "ClickEvent", "ConversionEvent", "AdAsset", "AdReview", "CreativeImport",
+      "ClickEvent", "ConversionEvent", "AdAsset", "AdReview", "CreativeImport", "IncomeEntry",
     ];
 
     const backup = { exported_at: new Date().toISOString(), exported_by: user.email };

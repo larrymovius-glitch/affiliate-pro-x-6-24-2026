@@ -33,7 +33,7 @@ export async function cancelStripeSubscriptions(email) {
   }
 }
 
-const OWNED = ["AffiliateLink", "Product", "Campaign", "Payout", "GeneratedPost", "AdReview", "AdAsset", "PayoutSchedule", "CreativeImport"];
+const OWNED = ["AffiliateLink", "Product", "Campaign", "Payout", "GeneratedPost", "AdReview", "AdAsset", "PayoutSchedule", "CreativeImport", "IncomeEntry"];
 
 /**
  * Deletes everything the account owns, then its login (which cascades to the
