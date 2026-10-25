@@ -49,7 +49,7 @@ export default async function handler(req, res) {
         amount,
         currency,
         status: "completed",
-        description: "PayPal Lifetime payment captured",
+        description: "PayPal payment captured",
       });
     } else {
       // No pending row: an order started before createPaypalOrder recorded one.
@@ -62,7 +62,7 @@ export default async function handler(req, res) {
         transaction_id: orderId,
         plan_type: "lifetime",
         veteran_status: "regular",
-        description: "PayPal Lifetime payment captured",
+        description: "PayPal payment captured",
       });
     }
 

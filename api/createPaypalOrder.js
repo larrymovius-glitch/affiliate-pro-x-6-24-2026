@@ -2,9 +2,15 @@ import { getAuthedUser } from "./_lib/supabase.js";
 import { paypalFetch } from "./_lib/paypal.js";
 import { db } from "./_lib/db.js";
 
-// PayPal checkout currently only covers the one-time Lifetime plan.
-// Monthly/Yearly stay Stripe-only until PayPal subscriptions are built.
-const LIFETIME_PRICE = "997.00";
+// PayPal checkout currently only covers one-time plans. Monthly/Yearly stay
+// Stripe-only until PayPal subscriptions are built.
+//
+// "test" is a $1 charge that exists only to exercise the real payment path end
+// to end. It's admin-only and enforced below, not just hidden in the UI.
+const PAYPAL_PLANS = {
+  lifetime: { price: "997.00", description: "Affiliate Pro X - Lifetime Access" },
+  test: { price: "1.00", description: "Affiliate Pro X - Payment Test ($1)" },
+};
 
 export default async function handler(req, res) {
   try {
@@ -16,8 +22,15 @@ export default async function handler(req, res) {
     const { user } = await getAuthedUser(req);
     const { planType } = req.body || {};
 
-    if (planType !== "lifetime") {
+    const plan = PAYPAL_PLANS[planType];
+    if (!plan) {
       return res.status(400).json({ error: "PayPal checkout is currently available for the Lifetime plan only" });
+    }
+
+    // Hiding the button in Pricing.jsx is not a gate -- without this anyone
+    // could POST planType:"test" and buy full access for a dollar.
+    if (planType === "test" && user?.role !== "admin") {
+      return res.status(403).json({ error: "PayPal checkout is currently available for the Lifetime plan only" });
     }
 
     if (["verified_veteran", "disabled_vet", "homeless_vet"].includes(user?.veteran_status)) {
@@ -33,8 +46,8 @@ export default async function handler(req, res) {
         purchase_units: [
           {
             custom_id: user?.id || "",
-            description: "Affiliate Pro X - Lifetime Access",
-            amount: { currency_code: "USD", value: LIFETIME_PRICE },
+            description: plan.description,
+            amount: { currency_code: "USD", value: plan.price },
           },
         ],
         application_context: {
@@ -60,14 +73,14 @@ export default async function handler(req, res) {
         // owner still records that money moved (visible to an admin), it just
         // can't have a tier granted against it -- reconciliation logs that case.
         user_id: user?.id || null,
-        amount: Number(LIFETIME_PRICE),
+        amount: Number(plan.price),
         currency: "usd",
         status: "pending",
         payment_method: "paypal",
         transaction_id: order.id,
-        plan_type: "lifetime",
+        plan_type: planType,
         veteran_status: "regular",
-        description: "PayPal Lifetime checkout started",
+        description: `${plan.description} - checkout started`,
       });
     } catch (recordError) {
       // Don't block checkout on this -- the buyer can still pay and the normal
