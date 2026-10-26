@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Package, ExternalLink, Trash2, Pencil, Search, RefreshCw, Download, Upload, Filter } from "lucide-react";
+import { Plus, Package, ExternalLink, Trash2, Pencil, Search, RefreshCw, Download, Upload, Filter, Star } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
@@ -84,6 +84,27 @@ function ProductForm({ product, onSave, onCancel, saving }) {
   );
 }
 
+const PER_PAGE_OPTIONS = [100, 50, 25];
+const PER_PAGE_KEY = "products:perPage";
+
+function readPerPage() {
+  try {
+    const saved = Number(localStorage.getItem(PER_PAGE_KEY));
+    return PER_PAGE_OPTIONS.includes(saved) ? saved : 25;
+  } catch {
+    return 25;
+  }
+}
+
+// The share page lists links, not products, so starring a product stars one
+// of its links -- the same pick Maya makes when an ad goes out: an active link
+// that isn't an ad's own (its clicks would score that ad's opening line).
+function linkToStar(productLinks) {
+  const active = productLinks.filter((l) => l.is_active !== false);
+  const general = active.filter((l) => !l.ad_opening_line);
+  return (general.length ? general : active)[0] || null;
+}
+
 export default function Products() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -91,15 +112,21 @@ export default function Products() {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [editProduct, setEditProduct] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 12;
+  const [perPage, setPerPage] = useState(readPerPage);
+  const changePerPage = (value) => {
+    const n = Number(value);
+    setPerPage(n);
+    setCurrentPage(1);
+    try { localStorage.setItem(PER_PAGE_KEY, String(n)); } catch { /* storage blocked */ }
+  };
   const queryClient = useQueryClient();
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ["products", currentPage, search, categoryFilter],
+    queryKey: ["products", currentPage, perPage, search, categoryFilter],
     queryFn: async () => {
       const response = await base44.functions.invoke('getProductsPaginated', {
         page: currentPage,
-        limit: ITEMS_PER_PAGE,
+        limit: perPage,
         search,
         category: categoryFilter
       });
@@ -108,9 +135,76 @@ export default function Products() {
   });
 
   const products = data?.products || [];
-  const pagination = data?.pagination || { currentPage: 1, totalPages: 0, totalItems: 0, itemsPerPage: ITEMS_PER_PAGE };
+  const pagination = data?.pagination || { currentPage: 1, totalPages: 0, totalItems: 0, itemsPerPage: perPage };
+
+  // Same query key as the Links page, so a star made on either page shows on both.
+  const { data: links = [] } = useQuery({
+    queryKey: ["links"],
+    queryFn: () => base44.entities.AffiliateLink.list("-created_at", 1000),
+  });
+  const linksByProduct = {};
+  for (const l of links) {
+    if (l.product_id) (linksByProduct[l.product_id] ||= []).push(l);
+  }
 
   const { onTouchStart, onTouchMove, onTouchEnd, pullDistance, pulling } = usePullToRefresh(() => refetch());
+
+  // Unstarring clears every starred link of the product, so it really leaves the share page.
+  const starMutation = useMutation({
+    mutationFn: async (/** @type {any} */ { starred, productLinks }) => {
+      if (starred) {
+        const featured = productLinks.filter((l) => l.bio_featured_at);
+        await Promise.all(featured.map((l) => base44.entities.AffiliateLink.update(l.id, { bio_featured_at: null })));
+      } else {
+        const link = linkToStar(productLinks);
+        if (!link) throw new Error("no link");
+        await base44.entities.AffiliateLink.update(link.id, { bio_featured_at: new Date().toISOString() });
+      }
+    },
+    onMutate: async ({ starred, productLinks }) => {
+      await queryClient.cancelQueries({ queryKey: ["links"] });
+      const previous = queryClient.getQueryData(["links"]);
+      const now = new Date().toISOString();
+      const pick = starred ? null : linkToStar(productLinks);
+      const ids = new Set(productLinks.map((l) => l.id));
+      queryClient.setQueryData(["links"], (/** @type {any} */ old) =>
+        (old || []).map((l) => {
+          if (starred && ids.has(l.id)) return { ...l, bio_featured_at: null };
+          if (pick && l.id === pick.id) return { ...l, bio_featured_at: now };
+          return l;
+        })
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      queryClient.setQueryData(["links"], context.previous);
+      toast.error("Couldn't update your share page");
+    },
+    onSuccess: (_data, { starred }) => {
+      queryClient.invalidateQueries({ queryKey: ["links"] });
+      toast.success(starred ? "Removed from your share page" : "Added to your share page");
+    },
+  });
+
+  const renderStar = (product, className) => {
+    const productLinks = linksByProduct[product.id] || [];
+    const starred = productLinks.some((l) => l.bio_featured_at);
+    const canStar = starred || !!linkToStar(productLinks);
+    return (
+      <Button
+        variant="ghost"
+        size="icon"
+        className={className}
+        disabled={!canStar || starMutation.isPending}
+        onClick={() => starMutation.mutate({ starred, productLinks })}
+        aria-pressed={starred}
+        aria-label={`${starred ? "Remove" : "Add"} ${product.name} ${starred ? "from" : "to"} your share page`}
+        title={!canStar ? "Make a link for this product first (Links page)" : starred ? "On your share page" : "Add to your share page"}
+      >
+        <Star className={`w-4 h-4 ${starred ? "fill-amber-400 text-amber-500" : "text-muted-foreground"}`} />
+      </Button>
+    );
+  };
 
   const createMutation = useMutation({
     // network set here: the column's 'clickbank' default mislabels every other network.
@@ -267,8 +361,19 @@ export default function Products() {
             ))}
           </SelectContent>
         </Select>
-        <div className="ml-auto text-sm text-muted-foreground">
-          Showing {pagination.totalItems} products
+        <div className="sm:ml-auto flex items-center gap-2 text-sm text-muted-foreground">
+          <span>Show</span>
+          <Select value={String(perPage)} onValueChange={changePerPage}>
+            <SelectTrigger className="h-9 w-20" aria-label="Products per page">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PER_PAGE_OPTIONS.map((n) => (
+                <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="whitespace-nowrap">per page · {pagination.totalItems} products</span>
         </div>
       </div>
 
@@ -287,8 +392,9 @@ export default function Products() {
             {products.map((product) => (
               <Card key={product.id} className="overflow-hidden group hover:shadow-lg transition-shadow">
                 {product.image_url && (
-                  <div className="h-36 bg-muted overflow-hidden">
+                  <div className="relative h-36 bg-muted overflow-hidden">
                     <img src={product.image_url} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    {renderStar(product, "absolute top-2 right-2 h-9 w-9 rounded-full bg-white/90 hover:bg-white shadow-sm dark:bg-black/60 dark:hover:bg-black/80")}
                   </div>
                 )}
                 <CardContent className="p-4">
@@ -303,6 +409,7 @@ export default function Products() {
                   </div>
                   {product.description && <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{product.description}</p>}
                   <div className="flex items-center gap-1 mt-3 pt-3 border-t">
+                    {!product.image_url && renderStar(product, "h-8 w-8")}
                     {product.url && (
                       <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
                         <a href={product.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-3.5 h-3.5" /></a>
