@@ -23,12 +23,12 @@ export default function Analytics() {
 
   const { data: clickEvents = [], isLoading: loadingClicks } = useQuery({
     queryKey: ["click-events"],
-    queryFn: () => base44.entities.ClickEvent.list("-created_at", 500),
+    queryFn: () => base44.entities.ClickEvent.list("-clicked_at", 500),
   });
 
   const { data: conversionEvents = [], isLoading: loadingConversions } = useQuery({
     queryKey: ["conversion-events"],
-    queryFn: () => base44.entities.ConversionEvent.list("-created_at", 500),
+    queryFn: () => base44.entities.ConversionEvent.list("-converted_at", 500),
   });
 
   const isLoading = loadingLinks || loadingPayouts || loadingClicks || loadingConversions;
