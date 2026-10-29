@@ -134,6 +134,21 @@ export default function MayaDock() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, pageName, location.pathname, experienceLevel, getOrInitConversation, saveConversation]);
 
+  // Other screens open Maya with a ready-made question by firing
+  // `apx:ask-maya` (e.g. a dashboard card's "Ask Maya about this").
+  const sendRef = useRef(send);
+  sendRef.current = send;
+  useEffect(() => {
+    const onAsk = (e) => {
+      const text = e.detail?.text;
+      if (!text) return;
+      setMode((m) => (m === "closed" ? "compact" : m));
+      sendRef.current(text);
+    };
+    window.addEventListener("apx:ask-maya", onAsk);
+    return () => window.removeEventListener("apx:ask-maya", onAsk);
+  }, []);
+
   if (mode === "closed") {
     return (
       <button
