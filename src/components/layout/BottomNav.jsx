@@ -1,7 +1,9 @@
 import React, { useRef } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Link2, BarChart3, Zap, Target, Globe2 } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { LayoutDashboard, Link2, BarChart3, Zap, Target, Globe2, Menu, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/AuthContext";
+import { navItems as allPages } from "./Sidebar";
 
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, root: "/" },
@@ -12,9 +14,15 @@ const navItems = [
   { label: "AutoPilot", icon: Zap, root: "/autopilot" },
 ];
 
-export default function BottomNav() {
+export default function BottomNav({ onMoreClick }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  // Laptops have the width to show every page in one row. Phones keep the
+  // short list, with More opening the full menu.
+  const laptopPages = user?.role === "admin"
+    ? [...allPages, { label: "Admin", icon: Shield, path: "/admin" }]
+    : allPages;
   // Store the last visited path within each tab's section
   const lastPaths = useRef({});
 
@@ -44,41 +52,87 @@ export default function BottomNav() {
     location.pathname === item.root || location.pathname.startsWith(item.root + "/");
 
   return (
-    <nav
-      aria-label="Main mobile navigation"
-      className="lg:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around"
-      style={{
-        background: "rgba(10,8,30,0.97)",
-        borderTop: "1px solid rgba(167,139,250,0.2)",
-        paddingBottom: "env(safe-area-inset-bottom)",
-        backdropFilter: "blur(20px)",
-      }}
-    >
-      {navItems.map((item) => {
-        const active = isActive(item);
-        const Icon = item.icon;
-        return (
-          <button
-            key={item.root}
-            onClick={() => handleTabPress(item)}
-            aria-label={item.label}
-            aria-current={active ? "page" : undefined}
-            className="relative flex flex-col items-center justify-center flex-1 py-2 gap-1 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
-            style={{ minHeight: 56, userSelect: "none", WebkitUserSelect: "none" }}
-          >
-            <Icon className={cn("w-5 h-5 transition-colors", active ? "text-violet-400" : "text-slate-500")} />
-            <span className={cn("text-[10px] font-medium transition-colors", active ? "text-violet-400" : "text-slate-500")}>
-              {item.label}
-            </span>
-            {active && (
-              <span
-                className="absolute bottom-0 w-6 h-0.5 rounded-full"
-                style={{ background: "linear-gradient(90deg, #7c3aed, #f59e0b)" }}
-              />
-            )}
-          </button>
-        );
-      })}
-    </nav>
+    <>
+      <nav
+        aria-label="All pages"
+        className="hidden lg:flex fixed bottom-0 left-0 right-0 z-50 items-stretch overflow-x-auto"
+        style={{
+          background: "rgba(10,8,30,0.97)",
+          borderTop: "1px solid rgba(167,139,250,0.2)",
+          backdropFilter: "blur(20px)",
+        }}
+      >
+        {laptopPages.map((page) => {
+          const active = location.pathname === page.path;
+          const Icon = page.icon;
+          return (
+            <Link
+              key={page.path}
+              to={page.path}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "relative flex flex-1 min-w-[72px] flex-col items-center justify-start gap-1 px-1 py-2 transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-300",
+                active ? "text-violet-400" : "text-slate-400 hover:text-white"
+              )}
+            >
+              <Icon className="w-5 h-5 flex-shrink-0" />
+              <span className="text-[11px] font-medium leading-tight text-center">{page.label}</span>
+              {active && (
+                <span
+                  className="absolute bottom-0 w-8 h-0.5 rounded-full"
+                  style={{ background: "linear-gradient(90deg, #7c3aed, #f59e0b)" }}
+                />
+              )}
+            </Link>
+          );
+        })}
+      </nav>
+
+      <nav
+        aria-label="Main mobile navigation"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around"
+        style={{
+          background: "rgba(10,8,30,0.97)",
+          borderTop: "1px solid rgba(167,139,250,0.2)",
+          paddingBottom: "env(safe-area-inset-bottom)",
+          backdropFilter: "blur(20px)",
+        }}
+      >
+        {navItems.map((item) => {
+          const active = isActive(item);
+          const Icon = item.icon;
+          return (
+            <button
+              key={item.root}
+              onClick={() => handleTabPress(item)}
+              aria-label={item.label}
+              aria-current={active ? "page" : undefined}
+              className="relative flex flex-col items-center justify-center flex-1 py-2 gap-1 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
+              style={{ minHeight: 56, userSelect: "none", WebkitUserSelect: "none" }}
+            >
+              <Icon className={cn("w-5 h-5 transition-colors", active ? "text-violet-400" : "text-slate-500")} />
+              <span className={cn("text-[10px] font-medium leading-tight text-center transition-colors", active ? "text-violet-400" : "text-slate-500")}>
+                {item.label}
+              </span>
+              {active && (
+                <span
+                  className="absolute bottom-0 w-6 h-0.5 rounded-full"
+                  style={{ background: "linear-gradient(90deg, #7c3aed, #f59e0b)" }}
+                />
+              )}
+            </button>
+          );
+        })}
+        <button
+          onClick={onMoreClick}
+          aria-label="More pages"
+          className="relative flex flex-col items-center justify-center flex-1 py-2 gap-1 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
+          style={{ minHeight: 56, userSelect: "none", WebkitUserSelect: "none" }}
+        >
+          <Menu className="w-5 h-5 text-slate-500" />
+          <span className="text-[10px] font-medium leading-tight text-center text-slate-500">More</span>
+        </button>
+      </nav>
+    </>
   );
 }

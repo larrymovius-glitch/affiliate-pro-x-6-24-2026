@@ -6,7 +6,7 @@ import BottomNav from "./BottomNav";
 import MayaDock from "@/components/assistant/MayaDock";
 
 export default function AppLayout() {
-  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
 
   return (
@@ -21,13 +21,13 @@ export default function AppLayout() {
         <main id="main-content" className="flex-1 overflow-y-auto" tabIndex={-1}>
           <div
             key={location.pathname}
-            className="page-enter py-4 px-4 landscape:pl-[max(1rem,env(safe-area-inset-left))] landscape:pr-[max(1rem,env(safe-area-inset-right))] lg:py-6 lg:px-6 lg:landscape:pl-[max(1.5rem,env(safe-area-inset-left))] lg:landscape:pr-[max(1.5rem,env(safe-area-inset-right))] max-w-7xl mx-auto pb-20 lg:pb-6"
+            className="page-enter py-4 px-4 landscape:pl-[max(1rem,env(safe-area-inset-left))] landscape:pr-[max(1rem,env(safe-area-inset-right))] lg:py-6 lg:px-6 lg:landscape:pl-[max(1.5rem,env(safe-area-inset-left))] lg:landscape:pr-[max(1.5rem,env(safe-area-inset-right))] max-w-7xl mx-auto pb-20 lg:pb-20"
           >
             <Outlet />
           </div>
         </main>
       </div>
-      <BottomNav />
+      <BottomNav onMoreClick={() => setSidebarOpen(true)} />
       {/* Outside <Outlet>, so navigating pages never unmounts Maya. */}
       <MayaDock />
     </div>

@@ -7,7 +7,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
 
-const navItems = [
+export const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/" },
   { label: "Make Money", icon: Target, path: "/make-money" },
   { label: "Products", icon: Package, path: "/products" },
@@ -53,14 +53,14 @@ export default function Sidebar({ open, onClose }) {
       {/* Mobile overlay */}
       {open && (
         <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden" 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[55]" 
           onClick={onClose} 
         />
       )}
 
       <aside
         className={cn(
-          "fixed top-0 left-0 h-full w-64 z-50 flex flex-col transition-transform duration-300 ease-out bg-sidebar text-sidebar-foreground border-r border-sidebar-border",
+          "fixed top-0 left-0 h-full w-64 z-[60] flex flex-col transition-transform duration-300 ease-out bg-sidebar text-sidebar-foreground border-r border-sidebar-border",
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -80,7 +80,7 @@ export default function Sidebar({ open, onClose }) {
               <span className="text-[10px] text-sidebar-foreground/40 tracking-wide mt-0.5">amhere4utoday.com</span>
             </div>
           </Link>
-          <button onClick={onClose} aria-label="Close navigation menu" className="lg:hidden min-h-11 min-w-11 rounded-lg text-sidebar-foreground/70 hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
+          <button onClick={onClose} aria-label="Close navigation menu" className="min-h-11 min-w-11 rounded-lg text-sidebar-foreground/70 hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
             <X className="w-5 h-5 mx-auto" />
           </button>
         </div>

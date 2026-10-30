@@ -154,7 +154,7 @@ export default function MayaDock() {
       <button
         onClick={() => setMode("compact")}
         aria-label="Open Maya, your assistant"
-        className="fixed bottom-20 right-4 lg:bottom-6 lg:right-6 z-40 flex items-center gap-2 rounded-full pl-1.5 pr-4 py-1.5 shadow-xl transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+        className="fixed bottom-20 right-4 lg:right-6 z-40 flex items-center gap-2 rounded-full pl-1.5 pr-4 py-1.5 shadow-xl transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
         style={{ background: "linear-gradient(135deg, rgba(236,72,153,0.95), rgba(168,85,247,0.95))" }}
       >
         <img src={mayaAvatar} alt="" className="w-9 h-9 rounded-full object-cover border-2 border-white/60" />
@@ -169,7 +169,7 @@ export default function MayaDock() {
     <div
       className={cn(
         "fixed z-40 flex flex-col rounded-2xl shadow-2xl overflow-hidden border border-white/15",
-        "bottom-20 right-4 lg:bottom-6 lg:right-6",
+        "bottom-20 right-4 lg:right-6",
         expanded
           ? "w-[min(38rem,calc(100vw-2rem))] h-[min(40rem,calc(100vh-8rem))]"
           : "w-[min(23rem,calc(100vw-2rem))] h-[min(30rem,calc(100vh-8rem))]"
