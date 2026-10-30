@@ -54,7 +54,7 @@ export default function TopBar({ onMenuClick }) {
     window.addEventListener("open-maya-assistant", handler);
     return () => window.removeEventListener("open-maya-assistant", handler);
   }, []);
-  const [themeMode, setThemeMode] = useState(() => localStorage.getItem("affiliateProThemeMode") || "light");
+  const [themeMode, setThemeMode] = useState(() => localStorage.getItem("affiliateProThemeMode") || "dark");
   const isMobile = useIsMobile();
   const isRoot = location.pathname === "/";
   const initials = user?.full_name 

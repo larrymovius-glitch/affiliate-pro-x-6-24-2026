@@ -18,7 +18,8 @@ export default function AppLayout() {
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <TopBar onMenuClick={() => setSidebarOpen(prev => !prev)} />
-        <main id="main-content" className="flex-1 overflow-y-auto" tabIndex={-1}>
+        {/* The dashboard is always navy and narrower than a wide screen, so the page behind it has to match. */}
+        <main id="main-content" className="flex-1 overflow-y-auto" tabIndex={-1} style={location.pathname === "/" ? { backgroundColor: "#071A35" } : undefined}>
           <div
             key={location.pathname}
             className="page-enter py-4 px-4 landscape:pl-[max(1rem,env(safe-area-inset-left))] landscape:pr-[max(1rem,env(safe-area-inset-right))] lg:py-6 lg:px-6 lg:landscape:pl-[max(1.5rem,env(safe-area-inset-left))] lg:landscape:pr-[max(1.5rem,env(safe-area-inset-right))] max-w-7xl mx-auto pb-20 lg:pb-20"

@@ -103,8 +103,7 @@ const AuthenticatedApp = () => {
 function App() {
   useEffect(() => {
     const savedTheme = localStorage.getItem("affiliateProThemeMode");
-    const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-    const activeTheme = savedTheme === "dark" || savedTheme === "light" ? savedTheme : systemTheme;
+    const activeTheme = savedTheme === "light" ? "light" : "dark";
 
     document.documentElement.classList.toggle("dark", activeTheme === "dark");
     localStorage.setItem("affiliateProThemeMode", activeTheme);
