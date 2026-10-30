@@ -55,21 +55,21 @@ PRODUCT: ${productName}
 AFFILIATE LINK: ${affiliateUrl}
 PLATFORM: ${platform}
 TONE: ${tone}
-TARGET AUDIENCE: Veterans, disabled individuals, single parents, and people facing financial hardship who want to earn money without experience
+TARGET AUDIENCE: Everyone who has the everyday problem this product is meant for, including people on a tight budget. Use plain, respectful words anyone can follow. Never pressure or shame anyone, and never play on money worries
 ${learningContext}
 
 Write 3 unique, high-converting social media posts for ${platform}. Each should:
 - Open with a scroll-stopping hook
-- Address pain points of the target audience (struggling financially, want simple income)
+- Speak to the everyday problem this product is meant for. Do not mention money troubles or making money
 - Naturally include the affiliate link
 - End with a strong call to action
 - Feel authentic, NOT spammy
 - Be optimized for ${platform}'s algorithm
 
 
-REQUIRED — these are not optional, especially given this audience:
+REQUIRED — these are not optional, especially given who may read this:
 - Include a disclosure like "#ad" or "#affiliate" naturally in the hashtags
-- Never state or imply a specific income amount, guaranteed earnings, or "get rich quick" framing — this audience is financially vulnerable and deserves honesty, not hype
+- Never state or imply a specific income amount, guaranteed earnings, or "get rich quick" framing — many readers are financially vulnerable and deserve honesty, not hype
 - Never make health, medical, or "cure" claims of any kind
 - Enthusiasm and confidence are welcome; false promises are not
 

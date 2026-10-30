@@ -171,7 +171,7 @@ export default function Sidebar({ open, onClose }) {
               <span className="text-xs font-semibold text-sidebar-foreground">💙 Our Mission</span>
             </div>
             <p className="text-xs text-sidebar-foreground/60 leading-relaxed">
-              Built for veterans, disabled individuals, single parents, and anyone facing hardship — real income, fully automated, no experience needed.
+              Built for everyone, with a special focus on veterans, disabled individuals, single parents, and anyone facing hardship: simple tools and plain steps for beginners. Results depend on your effort and are not guaranteed.
             </p>
           </div>
         </div>

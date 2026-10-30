@@ -32,7 +32,7 @@ export default function Splash() {
             Affiliate Pro<span className="text-primary">X</span>
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-lg text-muted-foreground font-body leading-relaxed">
-            A polished workspace for finding products, creating compliant content, and growing affiliate income with AI guidance.
+            A polished workspace for finding products, creating compliant content, and tracking your affiliate results with AI guidance.
           </p>
         </div>
 

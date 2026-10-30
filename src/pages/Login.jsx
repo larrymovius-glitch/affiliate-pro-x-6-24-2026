@@ -50,7 +50,7 @@ export default function Login() {
     <AuthLayout
       icon={LogIn}
       title="Welcome Back"
-      subtitle="Your income is running. No hustle required."
+      subtitle="Your links, posts and numbers are right where you left them."
       footer={
         <>
           New here?{" "}

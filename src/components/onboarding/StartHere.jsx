@@ -52,7 +52,7 @@ export default function StartHere({ steps, compact = false }) {
     >
       <div className="flex items-baseline justify-between gap-3">
         <h2 className={`font-bold ${compact ? "text-base" : "text-xl sm:text-2xl"}`} style={{ color: "#EAF3FF" }}>
-          {doneCount === 0 ? "Start here — 3 steps to your first sale" : "Keep going — you're almost set up"}
+          {doneCount === 0 ? "Start here — 3 steps to get set up" : "Keep going — you're almost set up"}
         </h2>
         <span className="text-sm font-semibold shrink-0" style={{ color: "#F5B942" }}>
           {doneCount} of {steps.length} done

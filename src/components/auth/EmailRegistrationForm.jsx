@@ -9,17 +9,17 @@ export default function EmailRegistrationForm({ email, password, error, loading,
     <form onSubmit={onSubmit} className="space-y-4">
       {error && <div role="alert" className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
       <div className="space-y-2">
-        <Label htmlFor="register-email">Email</Label>
+        <Label htmlFor="register-email" className="font-medium text-slate-200">Email</Label>
         <div className="relative">
-          <Mail aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input id="register-email" type="email" autoComplete="email" value={email} onChange={(event) => onEmailChange(event.target.value)} className="h-12 pl-10" placeholder="you@example.com" required />
+          <Mail aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Input id="register-email" type="email" autoComplete="email" value={email} onChange={(event) => onEmailChange(event.target.value)} className="h-14 rounded-xl pl-10 text-base text-white placeholder:text-slate-400" style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(167,139,250,0.5)", color: "#fff" }} placeholder="you@example.com" required />
         </div>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="register-password">Password</Label>
+        <Label htmlFor="register-password" className="font-medium text-slate-200">Password</Label>
         <div className="relative">
-          <Lock aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input id="register-password" type="password" autoComplete="new-password" value={password} onChange={(event) => onPasswordChange(event.target.value)} className="h-12 pl-10" placeholder="At least 8 characters" minLength={8} required />
+          <Lock aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Input id="register-password" type="password" autoComplete="new-password" value={password} onChange={(event) => onPasswordChange(event.target.value)} className="h-14 rounded-xl pl-10 text-base text-white placeholder:text-slate-400" style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(167,139,250,0.5)", color: "#fff" }} placeholder="At least 8 characters" minLength={8} required />
         </div>
       </div>
       <Button type="submit" className="h-12 w-full font-medium" disabled={loading}>

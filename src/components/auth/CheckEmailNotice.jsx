@@ -11,12 +11,12 @@ export default function CheckEmailNotice({ email, error, resending, onResend }) 
   return (
     <div className="space-y-5 text-center">
       <MailCheck className="mx-auto h-10 w-10 text-primary" />
-      <p className="text-sm text-muted-foreground">
-        We sent a confirmation link to <span className="font-medium text-foreground">{email}</span>.
+      <p className="text-sm text-slate-300">
+        We sent a confirmation link to <span className="font-medium text-white">{email}</span>.
         Click it to finish creating your account.
       </p>
       {error && <div role="alert" className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
-      <Button type="button" variant="ghost" className="w-full" onClick={onResend} disabled={resending}>
+      <Button type="button" variant="ghost" className="w-full text-slate-200 hover:bg-white/10 hover:text-white" onClick={onResend} disabled={resending}>
         {resending ? "Sending another email..." : "Resend email"}
       </Button>
     </div>

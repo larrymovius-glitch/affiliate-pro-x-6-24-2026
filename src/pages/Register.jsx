@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
-import { Button } from "@/components/ui/button";
 import { UserPlus } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 import GoogleIcon from "@/components/GoogleIcon";
@@ -115,11 +114,27 @@ export default function Register() {
     >
       {step === "register" ? (
         <>
-          <Button variant="outline" className="h-12 w-full text-sm font-medium" onClick={handleGoogle}>
-            <GoogleIcon className="mr-2 h-5 w-5" />Continue with Google
-          </Button>
-          <div className="relative my-6"><div className="absolute inset-0 flex items-center"><div className="w-full border-t" /></div><div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-3 text-muted-foreground">Or</span></div></div>
+          <button
+            type="button"
+            onClick={handleGoogle}
+            className="flex h-14 w-full items-center justify-center gap-3 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
+            style={{
+              background: "linear-gradient(135deg, rgba(30,27,75,0.8) 0%, rgba(15,12,41,0.9) 100%)",
+              border: "1px solid #f59e0b",
+              boxShadow: "0 0 16px rgba(245,158,11,0.3)",
+              color: "#f59e0b",
+            }}
+          >
+            <GoogleIcon className="h-5 w-5" />Continue with Google
+          </button>
+          <div className="relative my-6"><div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10" /></div><div className="relative flex justify-center text-xs uppercase"><span className="px-3 text-slate-400">Or</span></div></div>
           <EmailRegistrationForm email={email} password={password} error={error} loading={loading} onEmailChange={setEmail} onPasswordChange={setPassword} onSubmit={handleRegister} />
+          <p className="mt-4 text-center text-xs leading-relaxed text-slate-400">
+            By creating an account, you agree to our{" "}
+            <Link to="/terms-of-service" className="text-slate-200 underline hover:text-white">Terms of Service</Link>
+            {" "}and{" "}
+            <Link to="/privacy-policy" className="text-slate-200 underline hover:text-white">Privacy Policy</Link>.
+          </p>
         </>
       ) : (
         <CheckEmailNotice email={email} error={error} resending={resending} onResend={handleResend} />

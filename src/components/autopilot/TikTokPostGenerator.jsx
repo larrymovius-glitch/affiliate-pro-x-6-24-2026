@@ -37,7 +37,7 @@ export default function TikTokPostGenerator() {
 PRODUCT: ${productName}
 AFFILIATE LINK: ${affiliateUrl} (put in bio, mention "link in bio")
 TONE: ${tone}
-TARGET AUDIENCE: Veterans, disabled individuals, single parents, and people facing financial hardship
+TARGET AUDIENCE: Everyone who has the everyday problem this product is meant for, including people on a tight budget. Use plain, respectful words anyone can follow. Never pressure or shame anyone, and never play on money worries
 
 Create 3 TikTok video scripts. Each should include:
 - HOOK (0-3 seconds): Scroll-stopping opening line
@@ -49,9 +49,9 @@ Create 3 TikTok video scripts. Each should include:
 - HASHTAGS: 5-7 relevant TikTok hashtags
 
 
-REQUIRED — these are not optional, especially given this audience:
+REQUIRED — these are not optional, especially given who may read this:
 - Include a disclosure like "#ad" or "#affiliate" naturally in the hashtags
-- Never state or imply a specific income amount, guaranteed earnings, or "get rich quick" framing — this audience is financially vulnerable and deserves honesty, not hype
+- Never state or imply a specific income amount, guaranteed earnings, or "get rich quick" framing — many readers are financially vulnerable and deserve honesty, not hype
 - Never make health, medical, or "cure" claims of any kind
 - Enthusiasm and confidence are welcome; false promises are not
 

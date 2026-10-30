@@ -78,15 +78,15 @@ export default function SocialConnect() {
         <CardHeader>
           <CardTitle className="text-foreground text-base flex items-center gap-2">
             <Settings className="w-5 h-5 text-blue-700 dark:text-blue-300" />
-            Payment Setup (Get Paid Automatically)
+            Payment Setup
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="rounded-xl p-4 bg-blue-500/10 border border-blue-500/20">
-            <p className="text-sm text-blue-700 dark:text-blue-300 font-semibold mb-1">💰 Automatic Commissions</p>
+            <p className="text-sm text-blue-700 dark:text-blue-300 font-semibold mb-1">💰 How payments work</p>
             <p className="text-xs text-muted-foreground">
-              When a sale happens, commissions automatically route to your Stripe account.
-              Veterans get FREE access with instant payouts!
+              Networks like ClickBank and Digistore24 pay commissions to your own account with them, on their schedule.
+              Any payout through this app is reviewed by an admin before it is sent.
             </p>
           </div>
 
