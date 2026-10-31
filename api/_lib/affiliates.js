@@ -128,6 +128,38 @@ export function getClickBankAffiliateId(user) {
 }
 
 /**
+ * The ID a member's own links are built under, or null if they haven't saved
+ * one. Never the house account: a new member's link built under it would pay
+ * their sale to APX, with nothing on screen to tell them.
+ */
+export function ownClickBankId(user) {
+  return user?.clickbank_nickname?.trim() || null;
+}
+
+export function ownDigistoreId(user) {
+  return user?.affiliate_network_ids?.digistore24?.trim() || null;
+}
+
+export function isClickBankHopLink(value) {
+  try {
+    const { hostname } = new URL(value);
+    return hostname === "hop.clickbank.net" || hostname.endsWith(".hop.clickbank.net");
+  } catch (_) {
+    return false;
+  }
+}
+
+export const NEED_CLICKBANK_ID = "Save your own ClickBank nickname on the Networks page first, so sales are credited to you.";
+
+/** Where a member's link for this product should point, or why it can't be made yet. */
+export function destinationForUser(user, productUrl) {
+  if (!isClickBankHopLink(productUrl)) return { url: productUrl, error: null };
+  const id = ownClickBankId(user);
+  if (!id) return { url: null, error: NEED_CLICKBANK_ID };
+  return { url: applyClickBankAffiliateId(productUrl, id), error: null };
+}
+
+/**
  * Rewrite a ClickBank hoplink so the commission is credited to `affiliateId`.
  * Handles both documented shapes -- `hop.clickbank.net/?affiliate=` and
  * `<affiliate>.<vendor>.hop.clickbank.net`. Anything that is not a ClickBank

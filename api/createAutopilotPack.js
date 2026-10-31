@@ -1,7 +1,7 @@
 import { db } from "./_lib/db.js";
 import { getAuthedUser } from "./_lib/supabase.js";
 import { invokeLLM } from "./_lib/llm.js";
-import { applyClickBankAffiliateId } from "./_lib/affiliates.js";
+import { destinationForUser } from "./_lib/affiliates.js";
 import { networkForDestination } from "./_lib/tracking.js";
 
 function cleanCode(v) { return String(v || "product").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 18) || "product"; }
@@ -30,7 +30,6 @@ export async function createAutopilotPack({ user, payload = {}, origin }) {
 
     const existingLinks = await D.AffiliateLink.filter({ created_by_id: user.id }, "-created_at", 500);
     const existingCodes = new Set(existingLinks.map((l) => l.short_code).filter(Boolean));
-    const affiliateId = String(user.clickbank_nickname || "apxalaska").trim() || "apxalaska";
     const trustedAppOrigin = origin;
     if (!trustedAppOrigin) throw new Error("Missing application origin");
     const regeneration = Math.max(0, Number(payload.regeneration) || 0);
@@ -45,7 +44,8 @@ export async function createAutopilotPack({ user, payload = {}, origin }) {
           : `autopilot:${product.id}:v${variant}`;
         let link = existingLinks.find((l) => l.product_id === product.id && l.campaign_id === campaignId);
         if (!link) {
-          const destination = applyClickBankAffiliateId(product.url, affiliateId);
+          const { url: destination, error: idError } = destinationForUser(user, product.url);
+          if (idError) throw new Error(idError);
           link = await D.AffiliateLink.create({
             created_by_id: user.id,
             product_id: product.id,

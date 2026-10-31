@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Link as RouterLink } from "react-router-dom";
 import { Plus, Link2, Copy, Trash2, ExternalLink, Search, MousePointerClick, RefreshCw, ShoppingBag, Star } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -15,10 +16,11 @@ import { format } from "date-fns";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import AffiliateDisclosure from "@/components/AffiliateDisclosure";
 import SharePageCard from "@/components/links/SharePageCard";
+import StarterProducts from "@/components/links/StarterProducts";
 import { useAuth } from "@/lib/AuthContext";
-import { applyClickBankAffiliateId, getClickBankAffiliateId } from "@/lib/affiliate-id";
+import { destinationForUser, ownClickBankId, ownDigistoreId, NEED_CLICKBANK_ID } from "@/lib/affiliate-id";
 import { getTrackableUrl as buildTrackingUrl } from "@/lib/links";
-import { getDigistoreAffiliateId, parseDigistoreInput } from "../../api/_lib/affiliates.js";
+import { parseDigistoreInput } from "../../api/_lib/affiliates.js";
 import { networkForDestination } from "../../api/_lib/tracking.js";
 import { countProducts, groupLinks, limitProducts, PRODUCT_LIMIT_OPTIONS } from "@/lib/linkGroups";
 
@@ -75,9 +77,18 @@ function generateShortCode(links = []) {
 
 
 
+function NeedId({ network }) {
+  return (
+    <div className="p-3 rounded-lg text-sm bg-amber-500/10 border border-amber-500/30">
+      Save your {network} on the <RouterLink to="/networks" className="font-semibold underline">Networks page</RouterLink> first, so sales are credited to you.
+    </div>
+  );
+}
+
 export default function Links() {
   const { user } = useAuth();
-  const affiliateId = getClickBankAffiliateId(user);
+  const affiliateId = ownClickBankId(user);
+  const digistoreId = ownDigistoreId(user);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [cbDialogOpen, setCbDialogOpen] = useState(false);
   const [cbVendor, setCbVendor] = useState("");
@@ -86,7 +97,7 @@ export default function Links() {
   const [dsProductName, setDsProductName] = useState("");
   // Parsed on every keystroke so the dialog shows exactly what will be saved,
   // or why it won't be, before anything is created.
-  const dsParsed = dsProductId.trim() ? parseDigistoreInput(dsProductId, getDigistoreAffiliateId(user)) : null;
+  const dsParsed = digistoreId && dsProductId.trim() ? parseDigistoreInput(dsProductId, digistoreId) : null;
   const [jvProductName, setJvProductName] = useState("");
   const [jvProductUrl, setJvProductUrl] = useState("");
   const [search, setSearch] = useState("");
@@ -117,7 +128,8 @@ export default function Links() {
     mutationFn: async (productId) => {
       const product = products.find(p => p.id === productId);
       if (!product) throw new Error("Product not found");
-      const destination = applyClickBankAffiliateId(product.url, affiliateId);
+      const { url: destination, error: idError } = destinationForUser(user, product.url);
+      if (idError) throw new Error(idError);
       return base44.entities.AffiliateLink.create({
         product_id: product.id,
         product_name: product.name,
@@ -146,9 +158,9 @@ export default function Links() {
       queryClient.setQueryData(["links"], (/** @type {any} */ old) => [optimistic, ...(old || [])]);
       return { previous };
     },
-    onError: (_err, _vars, context) => {
+    onError: (err, _vars, context) => {
       queryClient.setQueryData(["links"], context.previous);
-      toast.error("Failed to create link");
+      toast.error(err?.message === NEED_CLICKBANK_ID ? NEED_CLICKBANK_ID : "Failed to create link");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["links"] });
@@ -176,10 +188,11 @@ export default function Links() {
     },
   });
 
-  const cbHopLink = cbVendor ? `https://${affiliateId}.${cbVendor.trim().toLowerCase()}.hop.clickbank.net` : "";
+  const cbHopLink = cbVendor && affiliateId ? `https://${affiliateId}.${cbVendor.trim().toLowerCase()}.hop.clickbank.net` : "";
 
   const addClickBankMutation = useMutation({
     mutationFn: async () => {
+      if (!affiliateId) throw new Error(NEED_CLICKBANK_ID);
       const vendor = cbVendor.trim().toLowerCase();
       const hopLink = `https://${affiliateId}.${vendor}.hop.clickbank.net`;
       // Create product if not exists
@@ -218,7 +231,8 @@ export default function Links() {
 
   const addDigistoreMutation = useMutation({
     mutationFn: async () => {
-      const parsed = parseDigistoreInput(dsProductId, getDigistoreAffiliateId(user));
+      if (!digistoreId) throw new Error("Save your Digistore24 ID on the Networks page first.");
+      const parsed = parseDigistoreInput(dsProductId, digistoreId);
       if (parsed.error) throw new Error(parsed.error);
       const { url, productId } = parsed;
       // A vendor-page link has no product number, so name and code it after
@@ -363,6 +377,8 @@ export default function Links() {
 
       <SharePageCard links={links} />
 
+      {!isLoading && links.length === 0 && <StarterProducts links={links} />}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex gap-2 flex-wrap">
         {/* ClickBank HopLink Dialog */}
@@ -377,6 +393,7 @@ export default function Links() {
               <DialogTitle className="font-display">Add ClickBank HopLink</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
+              {!affiliateId && <NeedId network="ClickBank nickname" />}
               <p className="text-sm text-muted-foreground">Enter the <strong>vendor nickname</strong> found in the ClickBank Marketplace product URL.</p>
               <div className="space-y-2">
                 <Label>Vendor Nickname</Label>
@@ -384,7 +401,7 @@ export default function Links() {
                   placeholder="e.g. vendorname"
                   value={cbVendor}
                   onChange={e => setCbVendor(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && cbVendor.trim() && addClickBankMutation.mutate()}
+                  onKeyDown={e => e.key === "Enter" && affiliateId && cbVendor.trim() && addClickBankMutation.mutate()}
                 />
               </div>
               {cbVendor.trim() && (
@@ -395,7 +412,7 @@ export default function Links() {
               )}
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={() => setCbDialogOpen(false)}>Cancel</Button>
-                <Button onClick={() => addClickBankMutation.mutate()} disabled={addClickBankMutation.isPending || !cbVendor.trim()}>
+                <Button onClick={() => addClickBankMutation.mutate()} disabled={addClickBankMutation.isPending || !affiliateId || !cbVendor.trim()}>
                   {addClickBankMutation.isPending ? "Adding..." : "Add HopLink"}
                 </Button>
               </div>
@@ -415,6 +432,7 @@ export default function Links() {
               <DialogTitle className="font-display">Add Digistore24 Link</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
+              {!digistoreId && <NeedId network="Digistore24 ID" />}
               <p className="text-sm text-muted-foreground">
                 Paste the product&apos;s link from Digistore24 → <strong>Go to advertising media</strong>. Many vendors
                 only accept links on their own domain, and that page has the one they expect. A plain product number

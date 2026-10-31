@@ -4,6 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Instagram, CheckCircle, AlertCircle, Loader2, Link2, Unlink, RefreshCw, Copy, CheckCheck } from "lucide-react";
+import { useAuth } from "@/lib/AuthContext";
 import { toast } from "sonner";
 
 // Connect card for the signed-in user's own Instagram account. Shown to
@@ -31,6 +32,7 @@ const OUTCOMES = {
 };
 
 export default function InstagramConnect() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [outcome, setOutcome] = useState(null);
   const [copied, setCopied] = useState(false);
@@ -112,7 +114,14 @@ export default function InstagramConnect() {
           </div>
         )}
 
-        {!data?.configured && (
+        {!data?.configured && user?.role !== "admin" && (
+          <p className="text-sm text-muted-foreground">
+            Instagram posting isn&apos;t available yet. For now, you can copy your posts and paste them into Instagram yourself.
+          </p>
+        )}
+
+        {/* Setup notes are for whoever runs the app, never its members. */}
+        {!data?.configured && user?.role === "admin" && (
           <div className="flex items-start gap-2 rounded-xl p-4 bg-orange-500/10 border border-orange-500/20">
             <AlertCircle className="w-5 h-5 text-orange-700 dark:text-orange-300 flex-shrink-0 mt-0.5" />
             <div className="space-y-2 min-w-0">

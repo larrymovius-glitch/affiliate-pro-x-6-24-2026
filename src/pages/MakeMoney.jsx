@@ -10,7 +10,8 @@ import SharePostBox from "@/components/make-money/SharePostBox";
 import NicheAutopilot from "@/components/make-money/NicheAutopilot";
 import { ArrowRight, Loader2, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
-import { applyClickBankAffiliateId, getClickBankAffiliateId } from "@/lib/affiliate-id";
+import { destinationForUser } from "@/lib/affiliate-id";
+import StarterProducts from "@/components/links/StarterProducts";
 import { networkForDestination } from "../../api/_lib/tracking.js";
 
 function cleanCode(value) {
@@ -39,7 +40,6 @@ function buildPost(product, url) {
 
 export default function MakeMoney() {
   const { user } = useAuth();
-  const affiliateId = getClickBankAffiliateId(user);
   const queryClient = useQueryClient();
   const [selectedNiche, setSelectedNiche] = useState("all");
   const [selectedId, setSelectedId] = useState("");
@@ -80,6 +80,11 @@ export default function MakeMoney() {
 
   const createSharePack = async () => {
     if (!selectedProduct) return;
+    const { url: destination, error: idError } = destinationForUser(user, selectedProduct.url);
+    if (idError) {
+      setError(idError);
+      return;
+    }
     setIsBusy(true);
     setError("");
     setCopied(false);
@@ -87,7 +92,6 @@ export default function MakeMoney() {
     try {
       let link = links.find(item => item.product_id === selectedProduct.id);
       if (!link) {
-        const destination = applyClickBankAffiliateId(selectedProduct.url, affiliateId);
         link = await base44.entities.AffiliateLink.create({
           product_id: selectedProduct.id,
           product_name: selectedProduct.name,
@@ -130,12 +134,15 @@ export default function MakeMoney() {
 
   if (!productsLoading && recommended.length === 0) {
     return (
-      <Card className="p-8 text-center">
-        <Sparkles className="mx-auto h-10 w-10 text-primary" />
-        <h1 className="mt-4 font-display text-3xl font-bold">Add one product first</h1>
-        <p className="mx-auto mt-2 max-w-xl text-muted-foreground">The Make Money flow needs at least one product so it can create a tracking link and share message.</p>
-        <Button asChild className="mt-6"><Link to="/products">Go to Products</Link></Button>
-      </Card>
+      <div className="space-y-4">
+        <Card className="p-8 text-center">
+          <Sparkles className="mx-auto h-10 w-10 text-primary" />
+          <h1 className="mt-4 font-display text-3xl font-bold">Add one product first</h1>
+          <p className="mx-auto mt-2 max-w-xl text-muted-foreground">Pick one below, or add your own on the Products page. Then this page can make your link and a post to share.</p>
+          <Button asChild variant="outline" className="mt-6"><Link to="/products">Go to Products</Link></Button>
+        </Card>
+        <StarterProducts links={links} />
+      </div>
     );
   }
 

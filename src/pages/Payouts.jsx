@@ -1,20 +1,14 @@
-import React, { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import React from "react";
+import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Wallet, DollarSign, ArrowUpRight, RefreshCw } from "lucide-react";
+import { Wallet, RefreshCw } from "lucide-react";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
-import PayoutScheduleCard from "@/components/payouts/PayoutScheduleCard";
 import TaxSetAsideCard from "@/components/payouts/TaxSetAsideCard";
 import TaxYearReport from "@/components/payouts/TaxYearReport";
 import { Skeleton } from "@/components/ui/skeleton";
-import { toast } from "sonner";
 import { format } from "date-fns";
 import { calculatePayoutBalance } from "@/lib/performance-calculations";
 
@@ -26,9 +20,6 @@ const statusStyles = {
 };
 
 export default function Payouts() {
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [amount, setAmount] = useState("");
-  const queryClient = useQueryClient();
 
   const { data: payouts = [], isLoading, refetch } = useQuery({
     queryKey: ["payouts"],
@@ -36,20 +27,7 @@ export default function Payouts() {
   });
   const { onTouchStart, onTouchMove, onTouchEnd, pullDistance, pulling } = usePullToRefresh(() => refetch());
 
-  const requestMutation = useMutation({
-    mutationFn: async (/** @type {any} */ data) => {
-      const response = await base44.functions.invoke("requestPayout", { amount: data.amount });
-      return response.data;
-    },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["payouts"] }); queryClient.invalidateQueries({ queryKey: ["all-links-balance"] }); setDialogOpen(false); setAmount(""); toast.success("Payout requested!"); },
-    onError: (/** @type {any} */ err) => toast.error(err.response?.data?.error || err.message || "Failed to request payout"),
-  });
-
-  const { data: allLinks = [] } = useQuery({
-    queryKey: ["all-links-balance"],
-    queryFn: () => base44.entities.AffiliateLink.list(),
-  });
-  const { totalPaid, totalPending, availableBalance } = calculatePayoutBalance(allLinks, payouts);
+  const { totalPaid } = calculatePayoutBalance([], payouts);
 
   return (
     <div className="space-y-6" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
@@ -59,81 +37,20 @@ export default function Payouts() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-display font-bold tracking-tight">Payouts</h1>
-          <p className="text-muted-foreground text-sm mt-1">Track and request your earnings payouts</p>
+          <p className="text-muted-foreground text-sm mt-1">Your networks pay you directly, to your own account with them. APX doesn't hold or send your commissions. Keep your records here for tax time.</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2"><ArrowUpRight className="w-4 h-4" /> Request Payout</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle className="font-display">Request Payout</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="payout-amount">Amount ($)</Label>
-                <Input id="payout-amount" type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="50.00" />
-                <p className="text-xs text-muted-foreground">Available now: ${availableBalance.toFixed(2)}. Pending and paid payouts are already reserved.</p>
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-                <Button onClick={() => requestMutation.mutate({ amount: parseFloat(amount) })} disabled={requestMutation.isPending || !amount || parseFloat(amount) > availableBalance}>
-                  {requestMutation.isPending ? "Requesting..." : "Request"}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
 
       <TaxSetAsideCard totalPaid={totalPaid} />
 
       <TaxYearReport payouts={payouts} />
 
-      <PayoutScheduleCard />
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Card className="p-5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-              <DollarSign className="w-5 h-5 text-emerald-600" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Total Paid</p>
-              <p className="text-xl font-bold font-display">${totalPaid.toFixed(2)}</p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
-              <Wallet className="w-5 h-5 text-amber-600" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Pending</p>
-              <p className="text-xl font-bold font-display">${totalPending.toFixed(2)}</p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-5 border-primary/30">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-              <DollarSign className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Available Balance</p>
-              <p className="text-xl font-bold font-display text-primary">${availableBalance.toFixed(2)}</p>
-            </div>
-          </div>
-        </Card>
-      </div>
-
       {isLoading ? (
         <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 rounded-xl" />)}</div>
       ) : payouts.length === 0 ? (
         <Card className="p-12 text-center">
           <Wallet className="w-12 h-12 mx-auto text-muted-foreground/40" />
-          <p className="text-muted-foreground mt-4">No payout requests yet</p>
+          <p className="text-muted-foreground mt-4">No older payout records</p>
         </Card>
       ) : (
         <Card className="overflow-hidden">

@@ -25,7 +25,7 @@ const STEPS = {
   },
   link: {
     title: "Make your first link",
-    body: "Pick a product and the app builds a tracking link that pays you.",
+    body: "Pick a product and the app builds a tracking link under your own ID.",
     cta: "Make a link",
     to: "/links",
   },

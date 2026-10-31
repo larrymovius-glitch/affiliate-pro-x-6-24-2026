@@ -1,5 +1,5 @@
 import { db } from "./db.js";
-import { getClickBankAffiliateId, applyClickBankAffiliateId } from "./affiliates.js";
+import { destinationForUser } from "./affiliates.js";
 import { detectNetwork, isShopifyUrl, networkForDestination, shareUrlFor } from "./tracking.js";
 import { largestEbayImage } from "./images.js";
 import { findVendorImage } from "./productImages.js";
@@ -659,8 +659,9 @@ export async function executeTool(name, input = {}, ctx = {}) {
         const product = owned[0];
         if (!product) return { error: "No product of yours with that id. Call list_my_products first." };
 
+        const { url: destination, error: idError } = destinationForUser(user, product.url);
+        if (idError) return { error: idError };
         const code = await newShortCode(D, user.id);
-        const destination = applyClickBankAffiliateId(product.url, getClickBankAffiliateId(user));
         const link = await D.AffiliateLink.create({
           created_by_id: user.id,
           product_id: product.id,
@@ -1228,7 +1229,8 @@ Category: ${product.category || "N/A"}`,
         // ad is already paid for, so a failure here mustn't report it lost.
         let adLink = null;
         try {
-          const destination = applyClickBankAffiliateId(product.url, getClickBankAffiliateId(user));
+          const { url: destination, error: idError } = destinationForUser(user, product.url);
+          if (idError) throw new Error(idError);
           const link = await D.AffiliateLink.create({
             created_by_id: user.id,
             product_id: product.id,

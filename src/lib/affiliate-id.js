@@ -9,3 +9,4 @@ import {
 // the UI cannot drift apart.
 export const DEFAULT_CLICKBANK_AFFILIATE_ID = CLICKBANK_AFFILIATE_ID;
 export { getClickBankAffiliateId, applyClickBankAffiliateId };
+export { ownClickBankId, ownDigistoreId, destinationForUser, NEED_CLICKBANK_ID } from "../../api/_lib/affiliates.js";

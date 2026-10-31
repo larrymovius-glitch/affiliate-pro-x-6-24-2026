@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import test from "node:test";
 import vm from "node:vm";
-import { applyClickBankAffiliateId } from "../api/_lib/affiliates.js";
+import { destinationForUser } from "../api/_lib/affiliates.js";
 import { networkForDestination } from "../api/_lib/tracking.js";
 
 test("a regeneration creates isolated links and carries its round number", async () => {
@@ -34,7 +34,7 @@ test("a regeneration creates isolated links and carries its round number", async
     // importing this from api/_lib/affiliates.js once the duplicate local
     // copy was consolidated there, and the module graph here needs updating
     // to match every time that import list changes.
-    if (specifier === "./_lib/affiliates.js") return synthetic(["applyClickBankAffiliateId"], { applyClickBankAffiliateId });
+    if (specifier === "./_lib/affiliates.js") return synthetic(["destinationForUser"], { destinationForUser });
     if (specifier === "./_lib/tracking.js") return synthetic(["networkForDestination"], { networkForDestination });
     throw new Error(`Unexpected import ${specifier}`);
   });

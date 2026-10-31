@@ -86,7 +86,7 @@ export default function SocialConnect() {
             <p className="text-sm text-blue-700 dark:text-blue-300 font-semibold mb-1">💰 How payments work</p>
             <p className="text-xs text-muted-foreground">
               Networks like ClickBank and Digistore24 pay commissions to your own account with them, on their schedule.
-              Any payout through this app is reviewed by an admin before it is sent.
+              APX doesn't hold or send your commissions.
             </p>
           </div>
 
