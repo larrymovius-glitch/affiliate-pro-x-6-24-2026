@@ -149,11 +149,25 @@ export function isClickBankHopLink(value) {
   }
 }
 
+/**
+ * `<token>.hop.clickbank.net` -- the token seals the affiliate and the vendor
+ * together, so it can't be edited and whose ID is inside can't be read.
+ * The classic `<affiliate>.<vendor>.hop.clickbank.net` has one more label.
+ */
+export function isEncryptedHopLink(value) {
+  if (!isClickBankHopLink(value)) return false;
+  return new URL(value).hostname.split(".").length === 4;
+}
+
 export const NEED_CLICKBANK_ID = "Save your own ClickBank nickname on the Networks page first, so sales are credited to you.";
 
-/** Where a member's link for this product should point, or why it can't be made yet. */
+/**
+ * Where a member's link for this product should point, or why it can't be made
+ * yet. Products are per-member, so an encrypted link here is one this member
+ * added themselves; it already carries an ID and is used as given.
+ */
 export function destinationForUser(user, productUrl) {
-  if (!isClickBankHopLink(productUrl)) return { url: productUrl, error: null };
+  if (!isClickBankHopLink(productUrl) || isEncryptedHopLink(productUrl)) return { url: productUrl, error: null };
   const id = ownClickBankId(user);
   if (!id) return { url: null, error: NEED_CLICKBANK_ID };
   return { url: applyClickBankAffiliateId(productUrl, id), error: null };
@@ -161,9 +175,10 @@ export function destinationForUser(user, productUrl) {
 
 /**
  * Rewrite a ClickBank hoplink so the commission is credited to `affiliateId`.
- * Handles both documented shapes -- `hop.clickbank.net/?affiliate=` and
+ * Handles `hop.clickbank.net/?affiliate=` and the classic
  * `<affiliate>.<vendor>.hop.clickbank.net`. Anything that is not a ClickBank
- * URL, or not a URL at all, is returned untouched.
+ * URL, or not a URL at all, is returned untouched -- as is an encrypted
+ * hoplink, because overwriting its token leaves a link to no product at all.
  */
 export function applyClickBankAffiliateId(value, affiliateId) {
   try {
@@ -173,6 +188,7 @@ export function applyClickBankAffiliateId(value, affiliateId) {
       return url.toString();
     }
     if (url.hostname.endsWith(".hop.clickbank.net")) {
+      if (isEncryptedHopLink(value)) return value;
       const parts = url.hostname.split(".");
       parts[0] = affiliateId;
       url.hostname = parts.join(".");

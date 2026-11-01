@@ -4,6 +4,7 @@ import {
   CLICKBANK_AFFILIATE_ID,
   DIGISTORE_AFFILIATE_ID,
   NEED_CLICKBANK_ID,
+  applyClickBankAffiliateId,
   destinationForUser,
   ownClickBankId,
   ownDigistoreId,
@@ -11,6 +12,7 @@ import {
 import { STARTER_PRODUCTS, starterHopLink, starterShortCode } from "../src/lib/starterProducts.js";
 
 const HOP = "https://someone.vendor.hop.clickbank.net";
+const ENCRYPTED = "https://2932f2ztddoo-91gljhlinczeq.hop.clickbank.net";
 
 test("a member's own ID never falls back to the house account", () => {
   assert.equal(ownClickBankId({}), null);
@@ -31,6 +33,16 @@ test("a saved nickname replaces whoever's ID was in the product link", () => {
   const { url, error } = destinationForUser({ clickbank_nickname: "mine" }, HOP);
   assert.equal(error, null);
   assert.match(url, /^https:\/\/mine\.vendor\.hop\.clickbank\.net/);
+});
+
+test("an encrypted hoplink is never rewritten", () => {
+  assert.equal(applyClickBankAffiliateId(ENCRYPTED, "mine"), ENCRYPTED);
+  assert.equal(applyClickBankAffiliateId(ENCRYPTED, CLICKBANK_AFFILIATE_ID), ENCRYPTED);
+});
+
+test("a member's encrypted link is used as given, with or without a saved nickname", () => {
+  assert.deepEqual(destinationForUser({ clickbank_nickname: "mine" }, ENCRYPTED), { url: ENCRYPTED, error: null });
+  assert.deepEqual(destinationForUser({}, ENCRYPTED), { url: ENCRYPTED, error: null });
 });
 
 test("links outside ClickBank need no nickname and pass through untouched", () => {

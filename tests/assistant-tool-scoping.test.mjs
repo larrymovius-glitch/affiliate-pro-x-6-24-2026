@@ -75,12 +75,12 @@ test("create_affiliate_link refuses another user's product", async () => {
 });
 
 test("create_affiliate_link builds a share URL and applies the user's affiliate id", async () => {
-  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", url: "https://vendor.hop.clickbank.net/" }] });
+  const D = fakeDb({ products: [{ id: "p1", created_by_id: "me", name: "Mine", url: "https://someone.vendor.hop.clickbank.net/" }] });
   const r = await executeTool("create_affiliate_link", { product_id: "p1" }, ctxFor(D));
   assert.match(r.share_url, /^https:\/\/app\.test\/r\/[A-Z0-9]{6}$/);
   const insert = D.seen.find((s) => s && s.short_code);
   assert.equal(insert.created_by_id, "me");
-  assert.match(insert.destination_url, /mynick\.hop\.clickbank\.net/, "must use the caller's nickname");
+  assert.match(insert.destination_url, /mynick\.vendor\.hop\.clickbank\.net/, "must use the caller's nickname");
 });
 
 test("balance subtracts what has already been claimed", async () => {
