@@ -16,7 +16,7 @@ export default function ProRuleList({ rules, onToggle, isUpdating }) {
             <div>
               <h3 className="font-semibold text-foreground">{rule.name}</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                When {labelFor(metricOptions, rule.trigger_metric)} reaches {rule.trigger_value}, {labelFor(actionOptions, rule.action).toLowerCase()}.
+                When {labelFor(metricOptions, rule.trigger_metric)} reaches {rule.threshold}, {labelFor(actionOptions, rule.action).toLowerCase()}.
               </p>
             </div>
             <Badge variant={rule.is_active ? "default" : "secondary"}>{rule.is_active ? "Active" : "Paused"}</Badge>

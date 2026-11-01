@@ -11,7 +11,10 @@ export default function ProRuleForm({ onCreate, isSaving }) {
 
   const submit = (event) => {
     event.preventDefault();
-    onCreate({ ...form, trigger_operator: "gte", trigger_value: Number(form.trigger_value), connected_surface: "autopilot", is_active: true });
+    // The table's column is `threshold`, and it has no `connected_surface`;
+    // sending the old Base44 field names made every save fail.
+    const { trigger_value, ...rest } = form;
+    onCreate({ ...rest, trigger_operator: "gte", threshold: Number(trigger_value), is_active: true });
   };
 
   return (

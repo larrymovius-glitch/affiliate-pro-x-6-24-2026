@@ -35,6 +35,9 @@ export default function ProGrowthCommandCenter({ metrics, links, rules }) {
       <div className="mt-5 space-y-4">
         <ProSignalStrip metrics={metrics} topLink={topLink} activeRules={activeRules} />
         <ProRuleForm onCreate={(rule) => createRule.mutate(rule)} isSaving={createRule.isPending} />
+        {createRule.isError && (
+          <p role="alert" className="text-sm text-destructive">The rule did not save. Please try again.</p>
+        )}
         <ProRuleList rules={rules} onToggle={(rule) => toggleRule.mutate(rule)} isUpdating={toggleRule.isPending} />
       </div>
     </Card>

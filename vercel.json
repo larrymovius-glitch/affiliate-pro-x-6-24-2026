@@ -47,6 +47,10 @@
       "schedule": "0 7 * * *"
     },
     {
+      "path": "/api/runAutomationRules",
+      "schedule": "0 11 * * *"
+    },
+    {
       "path": "/api/optimizeAutopilotPosts",
       "schedule": "0 9 * * *"
     },
