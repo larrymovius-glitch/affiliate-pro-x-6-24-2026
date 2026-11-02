@@ -6,7 +6,7 @@ import { actionOptions, metricOptions } from "@/components/dashboard/pro-growth/
 import MobileSelect from "@/components/ui/MobileSelect";
 
 export default function ProRuleForm({ onCreate, isSaving }) {
-  const [form, setForm] = useState({ name: "Scale winning ad", trigger_metric: "epc", trigger_value: 1, action: "promote_winner" });
+  const [form, setForm] = useState({ name: "Tell me when a link takes off", trigger_metric: "clicks", trigger_value: 10, action: "send_alert" });
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
 
   const submit = (event) => {

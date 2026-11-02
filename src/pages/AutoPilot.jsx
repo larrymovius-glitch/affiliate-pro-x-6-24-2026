@@ -1,11 +1,12 @@
 import React from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Zap, Star, FileSearch, Upload, Video } from "lucide-react";
+import { Zap, Star, FileSearch, Upload, Video, Bell } from "lucide-react";
 import PostGenerator from "@/components/autopilot/PostGenerator";
 import PostLibrary from "@/components/autopilot/PostLibrary";
 import AdReviewer from "@/components/autopilot/AdReviewer";
 import AdAssetUploader from "@/components/autopilot/AdAssetUploader";
 import TikTokPostGenerator from "@/components/autopilot/TikTokPostGenerator";
+import AutomationRules from "@/components/autopilot/AutomationRules";
 import AffiliateDisclosure from "@/components/AffiliateDisclosure";
 
 export default function AutoPilot() {
@@ -24,7 +25,7 @@ export default function AutoPilot() {
       <AffiliateDisclosure />
 
       <Tabs defaultValue="generate">
-        <TabsList className="bg-card border border-border">
+        <TabsList className="bg-card border border-border h-auto flex-wrap">
           <TabsTrigger value="generate" className="gap-2">
             <Zap className="w-4 h-4" /> Generate Posts
           </TabsTrigger>
@@ -39,6 +40,9 @@ export default function AutoPilot() {
           </TabsTrigger>
           <TabsTrigger value="assets" className="gap-2">
             <Upload className="w-4 h-4" /> My Creatives
+          </TabsTrigger>
+          <TabsTrigger value="rules" className="gap-2">
+            <Bell className="w-4 h-4" /> Rules
           </TabsTrigger>
         </TabsList>
 
@@ -56,6 +60,9 @@ export default function AutoPilot() {
         </TabsContent>
         <TabsContent value="assets" className="mt-6">
           <AdAssetUploader />
+        </TabsContent>
+        <TabsContent value="rules" className="mt-6">
+          <AutomationRules />
         </TabsContent>
       </Tabs>
     </div>
