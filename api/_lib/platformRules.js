@@ -34,10 +34,10 @@ export const FDA_DISCLAIMER =
 // catch innocent names; "burn\b" is left open at the front so it catches
 // compound names like HepatoBurn.
 const WEIGHT_LOSS =
-  /weight[\s-]*(loss|management|control)|lose weight|fat[\s-]*(burn|loss|melt)|\bslim|\bbelly\b|burn\b|\blipo|\bketo\b|appetite|\bdetox|\bdiet\s+(pill|tea|drink|supplement)|metaboli[cs]|hydrolean/i;
+  /weight[\s-]*(loss|management|control)|lose weight|fat[\s-]*(burn|loss|melt)|\bslim|\bbelly\b|burn\b|\blipo|\bketo(genic)?\b|appetite|\bdetox|\bdiet\s+(pill|tea|drink|supplement)|metaboli[cs]|hydrolean/i;
 
 const GET_RICH =
-  /\bwealth|\bincome\b|\bprofits?\b|make money|making money|get rich|passive income|\bcash\s+(system|machine|flow)|millionaire|side hustle/i;
+  /\bwealth|\bincome\b|\bprofits?\b|make money|making money|get rich|passive income|\bcash\s+(system|machine|flow)|millionaire|billionaire|side hustle|\bcrypto|\bbitcoin|\binvestors?\b/i;
 
 const SUPPLEMENT =
   /supplement|\bformula\b|capsule|probiotic|vitamin|gumm(y|ies)|\bbottles?\b|\btonic\b|\bpills?\b|\bamino\b|nutrition|prodentim|nervovive|prostavive|audifort|gluco/i;

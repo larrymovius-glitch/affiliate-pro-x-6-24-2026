@@ -35,3 +35,17 @@ test("the TikTok Scripts tab checks the rule before asking the AI", () => {
   assert.ok(guard !== -1 && guard < llm, "the banned check must run before the AI call");
   assert.match(src, /disabled=\{[^}]*banned/);
 });
+
+test("crypto, bitcoin, billionaire and investor offers are make-money offers", () => {
+  for (const name of ["Crypto Coin Sniper", "The Bitcoin Breakthrough", "The Billionaire AI Breakthrough - EBook", "Keystone Investors Club"]) {
+    assert.equal(tiktokRuleForLink({ product_name: name }).status, "banned", name);
+  }
+});
+
+test("a ketogenic diet plan counts as weight loss", () => {
+  assert.equal(tiktokRuleForLink({ product_name: "30-Days Ketogenic Meal Plan" }).status, "banned");
+});
+
+test("GLP-1 is left to the product's description, not banned by name", () => {
+  assert.equal(tiktokRuleForLink({ product_name: "GLP-1 Plus (1 Bottle)" }).status, "restricted");
+});
