@@ -94,6 +94,20 @@ export function tiktokRule(product, { isEbay = false } = {}) {
 // page or sales video -- which is exactly what a picture found on the sales
 // page is. products.image_source records where the saved picture came from; a
 // database trigger clears it whenever the picture changes.
+/**
+ * The TikTok rule for an affiliate link, as the AutoPilot TikTok Scripts tab
+ * sees it: the link's product when it has one, else the name on the link.
+ * That tab used to send any product straight to the AI, so a banned product
+ * still got a ready-to-post script. Maya already refused those.
+ *
+ * @param {{ product_name?: string, network?: string } | null | undefined} link
+ * @param {{ name?: string, description?: string } | null | undefined} [product]
+ */
+export function tiktokRuleForLink(link, product) {
+  const subject = product || { name: link?.product_name || "" };
+  return tiktokRule(subject, { isEbay: link?.network === "ebay" });
+}
+
 const IMAGE_OK = {
   any: ["official", "own", "sales_page", null],
   own_or_official: ["official", "own"],

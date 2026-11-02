@@ -6,10 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Copy, CheckCheck, Video, Music } from "lucide-react";
+import { Loader2, Copy, CheckCheck, Video, Music, Ban, AlertTriangle } from "lucide-react";
 import AffiliateDisclosure from "@/components/AffiliateDisclosure";
 import { withTimeout } from "@/lib/withTimeout";
 import { getTrackableUrl } from "@/lib/links";
+import { TIKTOK_POLICY_URL, tiktokRuleForLink } from "../../../api/_lib/platformRules.js";
 
 const tones = ["energetic", "storytelling", "educational", "trending", "humorous"];
 
@@ -25,10 +26,22 @@ export default function TikTokPostGenerator() {
     queryFn: () => base44.entities.AffiliateLink.list("-created_at")
   });
 
+  const selected = links.find(l => l.id === selectedLink || l._id === selectedLink);
+  // The product carries the description, which can show a banned category the
+  // name alone doesn't. Same check Maya uses (api/_lib/platformRules.js).
+  const { data: product, isFetching: checkingProduct } = useQuery({
+    queryKey: ["product", selected?.product_id],
+    queryFn: () => base44.entities.Product.get(selected.product_id),
+    enabled: !!selected?.product_id,
+  });
+  const rule = selected ? tiktokRuleForLink(selected, product) : null;
+  const banned = rule?.status === "banned";
+
   const handleGenerate = async () => {
+    if (!selected || banned || checkingProduct) return;
     setLoading(true);
     try {
-      const link = links.find(l => l.id === selectedLink || l._id === selectedLink);
+      const link = selected;
       const productName = link?.product_name || link?.title || "the product";
       const affiliateUrl = getTrackableUrl(link);
 
@@ -188,8 +201,28 @@ ${script.hashtags}`;
             </Select>
           </div>
         </CardContent>
+        {banned && (
+          <CardContent className="pt-0">
+            <div role="alert" className="flex gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-4">
+              <Ban className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+              <div className="text-sm text-foreground">
+                <p className="font-semibold">TikTok doesn&apos;t allow this product.</p>
+                <p className="mt-1">{rule.reason} Posting it could get your TikTok account removed. Pick a different product, or promote this one somewhere it&apos;s allowed.</p>
+                <a href={TIKTOK_POLICY_URL} target="_blank" rel="noreferrer" className="mt-1 inline-block underline">Read TikTok&apos;s rules</a>
+              </div>
+            </div>
+          </CardContent>
+        )}
+        {rule?.status === "restricted" && (
+          <CardContent className="pt-0">
+            <div className="flex gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+              <p className="text-sm text-foreground">{rule.reason} Set the post to adults only (18+) in TikTok.</p>
+            </div>
+          </CardContent>
+        )}
         <CardContent className="pt-0">
-          <Button onClick={handleGenerate} disabled={loading || !selectedLink} className="w-full gap-2">
+          <Button onClick={handleGenerate} disabled={loading || !selectedLink || banned || checkingProduct} className="w-full gap-2">
             {loading ? (
               <><Loader2 className="w-4 h-4 animate-spin" /> AI is writing viral scripts...</>
             ) : (
