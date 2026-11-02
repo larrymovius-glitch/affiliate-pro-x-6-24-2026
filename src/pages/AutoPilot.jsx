@@ -7,7 +7,6 @@ import AdReviewer from "@/components/autopilot/AdReviewer";
 import AdAssetUploader from "@/components/autopilot/AdAssetUploader";
 import TikTokPostGenerator from "@/components/autopilot/TikTokPostGenerator";
 import AutomationRules from "@/components/autopilot/AutomationRules";
-import AffiliateDisclosure from "@/components/AffiliateDisclosure";
 
 export default function AutoPilot() {
   return (
@@ -22,8 +21,8 @@ export default function AutoPilot() {
         </div>
       </div>
 
-      <AffiliateDisclosure />
-
+      {/* No page-level disclosure: Generate Posts, TikTok Scripts and Review
+          My Ad each show their own, so one here made it appear twice. */}
       <Tabs defaultValue="generate">
         <TabsList className="bg-card border border-border h-auto flex-wrap">
           <TabsTrigger value="generate" className="gap-2">
