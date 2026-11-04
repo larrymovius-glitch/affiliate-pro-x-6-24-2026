@@ -1,5 +1,8 @@
 import Stripe from "stripe";
 import { getAuthedUser } from "./_lib/supabase.js";
+import { TEST_SUBSCRIPTION_PLAN, canUseTestSubscription } from "./_lib/testSubscription.js";
+
+export { TEST_SUBSCRIPTION_PLAN, canUseTestSubscription };
 
 // Monthly/yearly prices are looked up by lookup_key in whichever Stripe
 // account STRIPE_SECRET_KEY belongs to, and created there the first time
@@ -10,6 +13,12 @@ import { getAuthedUser } from "./_lib/supabase.js";
 export const SUBSCRIPTION_PRICES = {
   monthly: { lookupKey: "affiliate_pro_x_monthly", unitAmount: 2900, interval: "month", name: "Affiliate Pro X Monthly" },
   yearly: { lookupKey: "affiliate_pro_x_yearly", unitAmount: 29000, interval: "year", name: "Affiliate Pro X Yearly" },
+  // Admin-only $1/month test subscription. Same subscription flow as
+  // monthly/yearly (Checkout session -> webhook -> tier grant), at $1, so
+  // the live subscription path can be verified without spending $29/$290.
+  // See docs/test-subscription.md. It is deliberately NOT in
+  // src/lib/pricingPlans.js -- that list is the public plans.
+  test_subscription: { lookupKey: "affiliate_pro_x_test_subscription", unitAmount: 100, interval: "month", name: "Affiliate Pro X Test Subscription ($1/month)" },
 };
 
 export async function resolvePlanPrice(stripe, planType) {
@@ -51,12 +60,19 @@ export default async function handler(req, res) {
     const { user } = await getAuthedUser(req);
     const { planType, email } = req.body || {};
 
-    const validPlans = ["monthly", "yearly", "lifetime"];
+    const validPlans = ["monthly", "yearly", "lifetime", TEST_SUBSCRIPTION_PLAN];
     if (!validPlans.includes(planType)) {
       return res.status(400).json({ error: "Invalid plan type" });
     }
 
-    if (["verified_veteran", "disabled_vet", "homeless_vet"].includes(user?.veteran_status)) {
+    if (planType === TEST_SUBSCRIPTION_PLAN && !canUseTestSubscription(user)) {
+      return res.status(403).json({ error: "Invalid plan type" });
+    }
+
+    // An admin testing the subscription path must actually be charged --
+    // the veteran shortcut would otherwise return free access and skip
+    // the payment entirely, which defeats the test.
+    if (planType !== TEST_SUBSCRIPTION_PLAN && ["verified_veteran", "disabled_vet", "homeless_vet"].includes(user?.veteran_status)) {
       return res.status(200).json({ message: "Veteran discount applied - free access granted", veteranAccess: true });
     }
 

@@ -1,5 +1,6 @@
 import Stripe from "stripe";
 import { db } from "./_lib/db.js";
+import { subscriptionTablePlanType } from "./_lib/testSubscription.js";
 
 // Stripe needs the raw request body to verify signatures, so this route
 // must NOT use Vercel's automatic JSON body parsing.
@@ -15,8 +16,9 @@ function readRawBody(req) {
 }
 
 // profiles.subscription_tier allows exactly: free | pro | veteran_free.
-// Every paid plan (monthly, yearly, lifetime) maps to "pro" -- there is no
-// separate lifetime tier value, lifetime is distinguished by its Payment row.
+// Every paid plan (monthly, yearly, lifetime, test_subscription) maps to
+// "pro" -- there is no separate lifetime tier value, lifetime is
+// distinguished by its Payment row.
 export const PAID_TIER = "pro";
 const ACTIVE_STATUSES = new Set(["active", "trialing"]);
 const DEAD_STATUSES = new Set(["canceled", "unpaid", "incomplete_expired"]);
@@ -140,7 +142,9 @@ export async function syncSubscription(D, stripe, eventSubscription) {
     user_email: subscription.metadata?.user_email || "",
     stripe_subscription_id: subscription.id,
     stripe_customer_id: typeof subscription.customer === "string" ? subscription.customer : "",
-    plan_type: subscription.metadata?.plan_type,
+    // The subscriptions table only accepts monthly | yearly | lifetime; see
+    // subscriptionTablePlanType for why the $1 test is stored as monthly.
+    plan_type: subscriptionTablePlanType(subscription.metadata?.plan_type),
     status: subscription.status,
     ...subscriptionPeriod(subscription),
     canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : null,

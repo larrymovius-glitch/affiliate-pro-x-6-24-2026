@@ -123,7 +123,9 @@ variables.
   that already exists. Create one Monthly and one Yearly plan (Pay & Get Paid →
   Subscriptions → Plans) at the amounts in `src/lib/pricingPlans.js`, and put
   their IDs (`P-…`) in `PAYPAL_MONTHLY_PLAN_ID` and `PAYPAL_YEARLY_PLAN_ID`.
-  Lifetime needs no plan.
+  Lifetime needs no plan. For the admin-only $1/month test subscription,
+  create a third $1/month plan the same way and put its ID in
+  `PAYPAL_TEST_PLAN_ID` — see `docs/test-subscription.md`.
 - **Webhook.** On the same app, add a webhook pointed at
   `https://<your-domain>/api/paypalWebhook` and subscribed to
   `BILLING.SUBSCRIPTION.ACTIVATED`, `BILLING.SUBSCRIPTION.CANCELLED`,

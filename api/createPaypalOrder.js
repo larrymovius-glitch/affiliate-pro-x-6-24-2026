@@ -1,6 +1,9 @@
 import { getAuthedUser } from "./_lib/supabase.js";
 import { paypalFetch } from "./_lib/paypal.js";
 import { db } from "./_lib/db.js";
+import { TEST_SUBSCRIPTION_PLAN, canUseTestSubscription } from "./_lib/testSubscription.js";
+
+export { TEST_SUBSCRIPTION_PLAN, canUseTestSubscription };
 
 // Lifetime is a one-time PayPal Order (v2 Checkout Orders API). Monthly/
 // yearly are recurring PayPal Subscriptions (v1 Billing Subscriptions API) --
@@ -13,10 +16,22 @@ import { db } from "./_lib/db.js";
 // once in the PayPal dashboard (Pay & Get Paid > Subscriptions > Plans),
 // exactly the same one-time setup api/createStripeCheckout.js's hardcoded
 // priceIds already require on the Stripe side.
+//
+// The same applies to the admin-only $1/month test subscription:
+// create a $1/month Billing Plan in the PayPal dashboard and put its ID
+// (P-...) in PAYPAL_TEST_PLAN_ID. Without it, a test subscription returns
+// "PayPal test subscription is not configured yet" instead of starting
+// a checkout. See docs/test-subscription.md.
 const LIFETIME_PRICE = "997.00";
 const SUBSCRIPTION_PLAN_IDS = {
   monthly: process.env.PAYPAL_MONTHLY_PLAN_ID,
   yearly: process.env.PAYPAL_YEARLY_PLAN_ID,
+  test_subscription: process.env.PAYPAL_TEST_PLAN_ID,
+};
+const SUBSCRIPTION_PLAN_ID_ENV_NAMES = {
+  monthly: "PAYPAL_MONTHLY_PLAN_ID",
+  yearly: "PAYPAL_YEARLY_PLAN_ID",
+  test_subscription: "PAYPAL_TEST_PLAN_ID",
 };
 
 export default async function handler(req, res) {
@@ -29,17 +44,24 @@ export default async function handler(req, res) {
     const { user } = await getAuthedUser(req);
     const { planType } = req.body || {};
 
-    if (!["lifetime", "monthly", "yearly"].includes(planType)) {
+    if (!["lifetime", "monthly", "yearly", TEST_SUBSCRIPTION_PLAN].includes(planType)) {
       return res.status(400).json({ error: "Invalid plan type" });
     }
 
-    if (["verified_veteran", "disabled_vet", "homeless_vet"].includes(user?.veteran_status)) {
+    if (planType === TEST_SUBSCRIPTION_PLAN && !canUseTestSubscription(user)) {
+      return res.status(403).json({ error: "Invalid plan type" });
+    }
+
+    // An admin testing the subscription path must actually be charged --
+    // the veteran shortcut would otherwise return free access and skip
+    // the payment entirely, which defeats the test.
+    if (planType !== TEST_SUBSCRIPTION_PLAN && ["verified_veteran", "disabled_vet", "homeless_vet"].includes(user?.veteran_status)) {
       return res.status(200).json({ message: "Veteran discount applied - free access granted", veteranAccess: true });
     }
 
     const origin = req.headers.origin || `https://${req.headers.host}`;
 
-    if (planType === "monthly" || planType === "yearly") {
+    if (planType === "monthly" || planType === "yearly" || planType === TEST_SUBSCRIPTION_PLAN) {
       return await createSubscription({ req, res, user, planType, origin });
     }
 
@@ -102,7 +124,11 @@ export default async function handler(req, res) {
 async function createSubscription({ res, user, planType, origin }) {
   const planId = SUBSCRIPTION_PLAN_IDS[planType];
   if (!planId) {
-    console.error(`PayPal ${planType} checkout error: PAYPAL_${planType.toUpperCase()}_PLAN_ID not configured`);
+    const envName = SUBSCRIPTION_PLAN_ID_ENV_NAMES[planType] || "PAYPAL_MONTHLY_PLAN_ID";
+    console.error(`PayPal ${planType} checkout error: ${envName} not configured`);
+    if (planType === TEST_SUBSCRIPTION_PLAN) {
+      return res.status(500).json({ error: "PayPal test subscription is not configured yet" });
+    }
     return res.status(500).json({ error: "PayPal subscriptions are not configured for this plan yet" });
   }
 

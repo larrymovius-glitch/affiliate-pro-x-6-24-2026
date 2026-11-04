@@ -5,10 +5,11 @@ import { supabase } from "@/lib/supabaseClient";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, Star, Shield, Heart } from "lucide-react";
+import { Check, Star, Shield, Heart, FlaskConical } from "lucide-react";
 import { toast } from "sonner";
 import { plans } from "@/lib/pricingPlans";
 import { useStripeCheckout } from "@/lib/useStripeCheckout";
+import { useAuth } from "@/lib/AuthContext";
 
 const veteranPlan = {
   name: "Veteran Access",
@@ -27,6 +28,8 @@ const veteranPlan = {
 export default function Pricing() {
   const [veteranRequestStatus, setVeteranRequestStatus] = useState("");
   const [verificationDocument, setVerificationDocument] = useState(null);
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
 
   const veteranMutation = useMutation({
     mutationFn: async () => {
@@ -186,6 +189,47 @@ export default function Pricing() {
             </Card>
           ))}
         </div>
+
+        {/* Admin-only subscription test -- $1/month, real live charge.
+            Hiding this card is convenience only; the server rejects
+            planType "test_subscription" for non-admins in
+            api/createStripeCheckout.js and api/createPaypalOrder.js. */}
+        {isAdmin && (
+          <Card className="border-amber-500/40 bg-amber-500/5">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                  <FlaskConical className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl font-display">Subscription Test — $1/month</CardTitle>
+                  <CardDescription>Admin only. Real, not sandbox, $1/month charge through the live subscription path.</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                This runs the exact Monthly/Yearly subscription flow — checkout, approval, activation, Payment row, and tier grant — for $1/month, so subscriptions can be verified without spending $29 or $290. It grants the same pro access a paid plan does. Cancel the subscription in Stripe / PayPal after testing, then reset the tier from Admin to test the upgrade again. PayPal needs a $1/month Billing Plan first — see docs/test-subscription.md.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  className="w-full"
+                  onClick={() => paypalCheckoutMutation.mutate({ planType: "test_subscription" })}
+                  disabled={paypalCheckoutMutation.isPending}
+                >
+                  {paypalCheckoutMutation.isPending ? "Processing..." : "Test $1/mo with PayPal"}
+                </Button>
+                <Button
+                  className="w-full"
+                  onClick={() => checkoutMutation.mutate({ planType: "test_subscription" })}
+                  disabled={checkoutMutation.isPending}
+                >
+                  {checkoutMutation.isPending ? "Processing..." : "Test $1/mo with Stripe"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Trust Badges */}
         <div className="text-center pt-8 border-t">
