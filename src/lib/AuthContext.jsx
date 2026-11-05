@@ -1,8 +1,13 @@
 
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { withTimeout, isTimeoutError } from '@/lib/withTimeout';
 
 const AuthContext = createContext(undefined);
+
+// How long startup waits before showing an error instead of "Loading...".
+const SETTINGS_TIMEOUT_MS = 8000;
+const STARTUP_TIMEOUT_MS = 15000;
 
 // Users whose location was already sent this page load.
 const locationSentFor = new Set();
@@ -108,26 +113,33 @@ export const AuthProvider = ({ children }) => {
       setIsLoadingAuth(true);
       setAuthError(null);
 
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) throw error;
+      // Bounded so a database that never answers shows the "can't connect"
+      // screen with a Retry button instead of "Loading..." forever.
+      const result = await withTimeout((async () => {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        if (!session?.user) return null;
+        let hydrated = await hydrateUser(session.user);
+        hydrated = await applyPendingReferral(hydrated);
+        return { hydrated, session };
+      })(), STARTUP_TIMEOUT_MS, 'Connecting');
 
-      if (!session?.user) {
+      if (!result) {
         setUser(null);
         setIsAuthenticated(false);
         return;
       }
 
-      let hydrated = await hydrateUser(session.user);
-      hydrated = await applyPendingReferral(hydrated);
-      recordLocation(hydrated, session);
-
-      setUser(hydrated);
+      recordLocation(result.hydrated, result.session);
+      setUser(result.hydrated);
       setIsAuthenticated(true);
     } catch (error) {
       console.error('User auth check failed:', error);
       setUser(null);
       setIsAuthenticated(false);
-      setAuthError({ type: 'auth_required', message: error.message || 'Authentication required' });
+      setAuthError(isTimeoutError(error)
+        ? { type: 'network', message: "We couldn't reach the server. Check your connection and try again." }
+        : { type: 'auth_required', message: error.message || 'Authentication required' });
     } finally {
       setIsLoadingAuth(false);
       setAuthChecked(true);
@@ -138,11 +150,12 @@ export const AuthProvider = ({ children }) => {
     try {
       setIsLoadingPublicSettings(true);
 
-      const { data, error } = await supabase
-        .from('app_settings')
-        .select('*')
-        .limit(1)
-        .maybeSingle();
+      // Settings are cosmetic, so give up after a few seconds and use defaults.
+      const { data, error } = await withTimeout(
+        supabase.from('app_settings').select('*').limit(1).maybeSingle(),
+        SETTINGS_TIMEOUT_MS,
+        'Loading settings'
+      );
 
       if (!error && data) {
         setAppPublicSettings({

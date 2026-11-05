@@ -57,8 +57,15 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Payment configuration is incomplete" });
     }
 
+    // A checkout must belong to a logged-in user. stripeWebhook.js grants the
+    // tier from metadata.user_id, so a session created without one takes the
+    // buyer's money and grants nothing. The Pricing page is behind login, so
+    // a missing user here means an expired session or a direct API call.
     const { user } = await getAuthedUser(req);
-    const { planType, email } = req.body || {};
+    if (!user?.id) {
+      return res.status(401).json({ error: "Please log in again to check out." });
+    }
+    const { planType } = req.body || {};
 
     const validPlans = ["monthly", "yearly", "lifetime", TEST_SUBSCRIPTION_PLAN];
     if (!validPlans.includes(planType)) {
@@ -72,17 +79,18 @@ export default async function handler(req, res) {
     // An admin testing the subscription path must actually be charged --
     // the veteran shortcut would otherwise return free access and skip
     // the payment entirely, which defeats the test.
-    if (planType !== TEST_SUBSCRIPTION_PLAN && ["verified_veteran", "disabled_vet", "homeless_vet"].includes(user?.veteran_status)) {
+    if (planType !== TEST_SUBSCRIPTION_PLAN && ["verified_veteran", "disabled_vet", "homeless_vet"].includes(user.veteran_status)) {
       return res.status(200).json({ message: "Veteran discount applied - free access granted", veteranAccess: true });
     }
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
     const subscriptionPriceId = planType === "lifetime" ? null : await resolvePlanPrice(stripe, planType);
     const origin = req.headers.origin || `https://${req.headers.host}`;
-    const customerEmail = user?.email || email || "";
+    // Identity comes only from the verified token, never the request body.
+    const customerEmail = user.email || "";
     const metadata = {
       app_id: "affiliate-pro-x",
-      user_id: user?.id || "",
+      user_id: user.id,
       user_email: customerEmail,
       plan_type: planType,
     };
@@ -97,6 +105,7 @@ export default async function handler(req, res) {
       success_url: `${origin}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/pricing?canceled=true`,
       metadata,
+      client_reference_id: user.id,
       ...(customerEmail ? { customer_email: customerEmail } : {}),
       ...(planType === "lifetime" ? { payment_intent_data: { metadata } } : { subscription_data: { metadata } }),
     });

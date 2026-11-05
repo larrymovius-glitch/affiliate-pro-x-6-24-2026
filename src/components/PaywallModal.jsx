@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Lock, PartyPopper, Loader2 } from "lucide-react";
 import { plans } from "@/lib/pricingPlans";
-import { useStripeCheckout } from "@/lib/useStripeCheckout";
+import { useStripeCheckout, isPendingFor } from "@/lib/useStripeCheckout";
 
 // Two ways this opens:
 // - variant="success": right when a free user's FIRST ad goes live (see
@@ -47,7 +47,7 @@ export default function PaywallModal({ open, onOpenChange, variant = "limit" }) 
                 onClick={() => checkout.mutate({ planType: plan.id })}
                 disabled={checkout.isPending}
               >
-                {checkout.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : `Choose ${plan.name}`}
+                {isPendingFor(checkout, plan.id) ? <Loader2 className="w-4 h-4 animate-spin" /> : `Choose ${plan.name}`}
               </Button>
             </div>
           ))}
