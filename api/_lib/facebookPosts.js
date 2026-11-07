@@ -30,6 +30,19 @@ const MAX_BODY_WORDS = 60;
 const INCOME_CLAIM = /\$\s?\d|\bearn(s|ed|ing)?\b|\bincome\b|\bprofits?\b|\bmoney\b|\brich\b|\bguarantee\w*/i;
 const LINKISH = /https?:\/\/|www\.|#\w/i;
 
+// Meta's personal-attributes rule: a post must never say or imply that it
+// knows something personal about the reader -- "you're a veteran", "struggling
+// with your diabetes?", "other disabled folks like you". "For veterans" is
+// fine; "you are a veteran" is not. Errs toward refusing: a refused sentence
+// costs a rewrite, an ad that targets someone's disability or money troubles
+// can cost the Page. https://transparency.meta.com/policies/ad-standards/
+const ATTRIBUTE_WORDS =
+  "veterans?|vets?|service ?members?|disab\\w*|handicap\\w*|wheelchair|homeless|diabet\\w*|depress\\w*|anxiety|ptsd|cancer|arthritis|neuropath\\w*|overweight|obes\\w*|bankrupt\\w*|debts?|broke|poor|unemployed|jobless|low[- ]income|credit scores?|divorc\\w*|pregnan\\w*|gay|lesbian|transgender|christians?|muslims?|jewish|catholics?|hispanic|latin[oa]s?|african americans?|seniors?|elderly|criminal record|felon\\w*";
+export const PERSONAL_ATTRIBUTE = new RegExp(
+  `\\b(you|you're|youre|you are|are you|your|yourself)\\b[^.!?\\n]{0,40}\\b(${ATTRIBUTE_WORDS})\\b|\\b(${ATTRIBUTE_WORDS})\\b[^.!?\\n]{0,15}\\b(like you|such as you|like yourself)\\b`,
+  "i"
+);
+
 /**
  * Whether a product may go out on the owner's Facebook Page unattended.
  *
@@ -79,13 +92,25 @@ export function facebookEligibility(product, link) {
  *
  * @param {{ products: any[], links: any[], recentPosts: { product_id?: string, published_at?: string }[], videos?: any[], now?: Date }} input
  */
-export function pickNextPost({ products, links, recentPosts = [], videos = [], now = new Date() }) {
+export function pickNextPost(input) {
+  const { options, held } = pickPostOptions({ ...input, count: 1 });
+  return { next: options[0] || null, held };
+}
+
+/**
+ * Up to `count` different products to offer the owner today, best first.
+ * The owner flicks through them and approves one; nothing here publishes.
+ *
+ * @param {{ products: any[], links: any[], recentPosts?: { product_id?: string, published_at?: string }[], videos?: any[], now?: Date, count?: number, exclude?: string[] }} input
+ */
+export function pickPostOptions({ products, links, recentPosts = [], videos = [], now = new Date(), count = 3, exclude = [] }) {
   const cutoff = now.getTime() - REPOST_AFTER_DAYS * 86400000;
   const recentlyPosted = new Set(
     recentPosts
       .filter((p) => p.product_id && new Date(p.published_at || 0).getTime() >= cutoff)
       .map((p) => p.product_id)
   );
+  const excluded = new Set(exclude);
   const byId = new Map(products.map((p) => [p.id, p]));
 
   const held = [];
@@ -97,7 +122,7 @@ export function pickNextPost({ products, links, recentPosts = [], videos = [], n
     seenProducts.add(product.id);
     const verdict = facebookEligibility(product, link);
     if (verdict.status === "hold") held.push({ product: product.name, reason: verdict.reason });
-    if (verdict.status !== "post" || recentlyPosted.has(product.id)) continue;
+    if (verdict.status !== "post" || recentlyPosted.has(product.id) || excluded.has(product.id)) continue;
     candidates.push({ product, link, withImage: verdict.withImage, video: videoFor(product, videos) });
   }
 
@@ -108,7 +133,7 @@ export function pickNextPost({ products, links, recentPosts = [], videos = [], n
       Number(b.withImage) - Number(a.withImage) ||
       (b.link.clicks || 0) - (a.link.clicks || 0)
   );
-  return { next: candidates[0] || null, held };
+  return { options: candidates.slice(0, Math.max(0, count)), held };
 }
 
 /** The newest video for this product whose footage the vendor's rules allow, or null. */
@@ -130,6 +155,7 @@ export function bodyProblem(body, product) {
   if (text.split(/\s+/).length > MAX_BODY_WORDS) return "too long";
   if (LINKISH.test(text)) return "has a link or hashtag";
   if (INCOME_CLAIM.test(text)) return "mentions money or a guarantee";
+  if (PERSONAL_ATTRIBUTE.test(text)) return "speaks to the reader's personal traits (Meta's personal-attributes rule)";
   if (productFlags(product).supplement && SUPPLEMENT_CLAIM.test(text)) return "makes a health or results claim";
   return null;
 }
@@ -152,6 +178,19 @@ export function bodyPrompt(product) {
     product.category ? `Category: ${product.category}` : "",
     description ? `Description: ${description}` : "",
   ].filter(Boolean).join("\n");
+}
+
+/**
+ * Why a finished post can't be published, or null when it can. Run again at
+ * the moment of publishing, so a draft that was fine yesterday is re-checked
+ * against today's rules.
+ */
+export function messageProblem(message) {
+  const text = String(message || "");
+  if (!text.trim()) return "empty";
+  if (!text.startsWith(DISCLOSURE)) return "the #ad disclosure is missing from the top";
+  if (PERSONAL_ATTRIBUTE.test(text)) return "speaks to the reader's personal traits (Meta's personal-attributes rule)";
+  return null;
 }
 
 /** The full post: disclosure first, the tracked link on its own line, the FDA line for supplements. */
