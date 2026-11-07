@@ -5,6 +5,7 @@ import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { startHereComplete, startHereSteps } from "@/lib/startHere";
 import StartHere from "@/components/onboarding/StartHere";
+import PostApprovalCard from "@/components/social/PostApprovalCard";
 import { buildPerformanceChartData } from "@/lib/performance-calculations";
 import { RANGES, rangeById, rangeSummary, topProducts, toCsv, greetingFor } from "@/lib/dashboard-ranges";
 import {
@@ -797,6 +798,10 @@ export default function PreviewDashboard() {
       style={BG_GLOW}
     >
       <div className="mx-auto max-w-[1200px]">
+        {/* Posts waiting for the member's OK come first: one look, one tap. */}
+        <div className="mb-4 empty:hidden">
+          <PostApprovalCard hideWhenEmpty />
+        </div>
         {d.links.length === 0 ? (
           // Charts of zeros tell a new user nothing about what to do. Until
           // their first link exists, the steps to get one are the dashboard.

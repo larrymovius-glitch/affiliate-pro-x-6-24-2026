@@ -40,7 +40,7 @@ export default async function handler(req, res) {
     // Never selects access_token: a live Page token has no reason to reach a browser.
     const { data: connection } = await adminClient()
       .from("social_connections")
-      .select("account_name, created_at")
+      .select("account_name, created_at, post_mode")
       .eq("platform", "facebook")
       .eq("user_id", user.id)
       .maybeSingle();
@@ -60,6 +60,7 @@ export default async function handler(req, res) {
       connected: Boolean(connection),
       page_name: connection?.account_name || null,
       connected_at: connection?.created_at || null,
+      post_mode: connection?.post_mode === "auto" ? "auto" : "approve",
       redirect_uri: redirectUri(origin),
       authorize_url: configured ? `${DIALOG_URL}?${new URLSearchParams(params)}` : null,
     });
