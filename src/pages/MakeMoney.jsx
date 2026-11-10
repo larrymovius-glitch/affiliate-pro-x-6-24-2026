@@ -35,7 +35,7 @@ function trackingUrl(link) {
 }
 
 function buildPost(product, url) {
-  return `I found a helpful deal worth checking out: ${product.name}.\n\n${product.description || "It may be useful for everyday needs, gifts, or saving money."}\n\nTake a look here: ${url}\n\n#AffiliateProX #HelpfulDeals #VeteransHelpingVeterans`;
+  return `#ad — I may earn a commission if you buy through my link.\n\nI found a helpful deal worth checking out: ${product.name}.\n\n${product.description || "It may be useful for everyday needs, gifts, or saving money."}\n\nTake a look here: ${url}\n\n#AffiliateProX #HelpfulDeals`;
 }
 
 export default function MakeMoney() {
@@ -111,7 +111,7 @@ export default function MakeMoney() {
         product_name: selectedProduct.name,
         platform: "general",
         content,
-        hashtags: "#AffiliateProX #HelpfulDeals #VeteransHelpingVeterans",
+        hashtags: "#AffiliateProX #HelpfulDeals",
         tone: "casual",
         status: "draft",
       });

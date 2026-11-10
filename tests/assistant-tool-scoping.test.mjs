@@ -97,18 +97,16 @@ test("balance subtracts what has already been claimed", async () => {
   assert.equal(b.available, 70);
 });
 
-test("request_payout will not overdraw", async () => {
+test("request_payout always refuses and files nothing", async () => {
+  // Payouts are records-only: networks pay members directly. Even a request
+  // that is fully covered by earnings must not create a Payout row.
   const D = fakeDb({ links: [{ id: "l1", created_by_id: "me", earnings: 20 }] });
-  const over = await executeTool("request_payout", { amount: 50 }, ctxFor(D));
-  assert.match(over.error, /Only \$20\.00 is available/);
-  assert.match((await executeTool("request_payout", { amount: 0 }, ctxFor(D))).error, /greater than zero/);
-  assert.match((await executeTool("request_payout", { amount: -5 }, ctxFor(D))).error, /greater than zero/);
-
-  const ok = await executeTool("request_payout", { amount: 20 }, ctxFor(D));
-  assert.equal(ok.payout.status, "pending");
-  const insert = D.seen.find((s) => s && s.status === "pending" && s.amount === 20);
-  assert.equal(insert.user_id, "me");
-  assert.equal(insert.created_by_id, "me");
+  for (const amount of [20, 5, 50, 0]) {
+    const res = await executeTool("request_payout", { amount }, ctxFor(D));
+    assert.match(res.error, /does not hold or send commissions/);
+    assert.equal(res.payout, undefined);
+  }
+  assert.equal(D.seen.find((s) => s && s.status === "pending"), undefined, "no payout claim may be written");
 });
 
 test("create_product refuses this app's own share link as a destination", async () => {

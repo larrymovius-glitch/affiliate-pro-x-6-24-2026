@@ -51,7 +51,10 @@ export default function PrivacyPolicy() {
           <p>
             We do not sell, trade, or rent your personal information to third parties. We may share data with
             trusted service providers who assist us in operating our platform, provided they agree to keep your
-            information confidential. We may also disclose information if required by law. See Section 5 for the
+            information confidential. Customer information may also be shared with third parties, including the
+            affiliate networks and vendors whose products appear on Affiliate Pro X, when that is needed to track a
+            referral, credit a commission, or handle a complaint about a product. We may also disclose information
+            if required by law. See Section 5 for the
             full list of providers we use and what each one receives.
           </p>
         </section>

@@ -44,8 +44,8 @@ import { FDA_DISCLAIMER, TIKTOK_POLICY_URL, tiktokPostingChecklist, tiktokRule, 
 // as a parameter.
 //
 // Read tools are cheap and safe. Write tools are deliberately few: creating a
-// link or a product is recoverable, and request_payout only files a claim that
-// an admin still reviews before any money moves (processStripePayout).
+// link or a product is recoverable. There is no payout tool: networks pay
+// members directly and Payouts is records-only, so request_payout refuses.
 //
 // Deliberately NOT exposed:
 //   savePaymentInfo   -- writes payout routing; an LLM should not be able to
@@ -204,18 +204,6 @@ export const TOOL_DEFINITIONS = [
         product_id: { type: "string", description: "id from list_my_products." },
       },
       required: ["product_id"],
-    },
-  },
-  {
-    name: "request_payout",
-    description:
-      "File a payout request for the user. This creates a pending claim an admin reviews; it does not move money by itself. Always call get_my_stats first and tell the user their available balance before filing. Never file one the user did not explicitly ask for.",
-    input_schema: {
-      type: "object",
-      properties: {
-        amount: { type: "number", description: "US dollars. Must be greater than zero and within the available balance." },
-      },
-      required: ["amount"],
     },
   },
   {
@@ -680,24 +668,13 @@ export async function executeTool(name, input = {}, ctx = {}) {
       }
 
       case "request_payout": {
-        const amount = money(input.amount);
-        if (!(amount > 0)) return { error: "Amount must be greater than zero." };
-        const { available } = await availableBalance(D, user.id);
-        if (amount > available) {
-          return { error: `Only $${available.toFixed(2)} is available to request right now.`, available };
-        }
-        const payout = await D.Payout.create({
-          created_by_id: user.id,
-          user_id: user.id,
-          amount,
-          status: "pending",
-          source: "assistant",
-          requested_at: new Date().toISOString(),
-          notes: `Requested through the assistant. Available at request: $${available.toFixed(2)}.`,
-        });
+        // Payouts are records-only: each network pays the member directly, so
+        // the assistant must never file a claim. The tool is no longer offered
+        // to the model; this refusal stays so a stale or invented call still
+        // writes nothing.
         return {
-          payout: { id: payout.id, amount, status: "pending" },
-          message: "Filed as pending. An admin reviews it before any money moves.",
+          error:
+            "APX does not hold or send commissions, so there is nothing to pay out here. Each affiliate network pays you directly, to your own account with them. The Payouts page keeps your records for tax time.",
         };
       }
 
