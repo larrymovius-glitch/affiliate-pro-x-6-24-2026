@@ -5,15 +5,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Facebook, CheckCircle, AlertCircle, Loader2, Link2, Unlink, Send, Copy, CheckCheck } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
+import PostApprovalCard from "@/components/social/PostApprovalCard";
 
 // Connect card for the signed-in user's own Facebook Page. Once connected,
-// api/facebookAutoPost.js posts one product a day to it, and "Post one now"
-// runs that same step on demand.
+// the member chooses how daily posts go out (api/setFacebookPostMode.js):
+// "Ask me first" -- api/facebookAutoPost.js writes a few options and nothing
+// posts until they approve one (PostApprovalCard) -- or "Post automatically".
 //
 // Reads its outcome from the ?fb=1&status=... query string that
 // api/facebookCallback.js redirects back with.
 const OUTCOMES = {
-  connected: { ok: true, text: "Facebook Page connected. APX will post one product to it every day." },
+  connected: { ok: true, text: "Facebook Page connected. Each day APX will get a post ready for you to approve." },
   cancelled: { ok: false, text: "Connection cancelled — nothing was changed." },
   not_configured: { ok: false, text: "FACEBOOK_APP_ID / FACEBOOK_APP_SECRET are not set in this deployment." },
   no_code: { ok: false, text: "Facebook redirected back without an authorization code." },
@@ -59,11 +61,28 @@ export default function FacebookConnect() {
       // The app mounts the shadcn toaster, not sonner's, so results show in
       // the card itself.
       if (r?.posted) setOutcome({ ok: true, text: `Posted ${r.product} to your Page${r.video ? " as a video" : ""}.` });
+      else if (r?.drafted) setOutcome({ ok: true, text: `${r.drafted === 1 ? "A post is" : `${r.drafted} posts are`} ready below. Pick one and approve it.` });
       else if (r?.reason === "reconnect_needed") setOutcome({ ok: false, text: "Facebook needs you to reconnect your Page." });
       else setOutcome({ ok: false, text: r?.reason || "Nothing was posted." });
+      queryClient.invalidateQueries({ queryKey: ["post-approvals"] });
     },
     onError: (err) => setOutcome({ ok: false, text: err?.message || "Could not post." }),
   });
+
+  const setMode = useMutation({
+    mutationFn: async (/** @type {string} */ mode) => (await base44.functions.invoke("setFacebookPostMode", { mode })).data,
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["facebook-connection"] });
+      setOutcome({
+        ok: true,
+        text: res.mode === "auto"
+          ? "Daily posts will now go out automatically."
+          : "Daily posts will now wait for your OK.",
+      });
+    },
+    onError: (err) => setOutcome({ ok: false, text: err?.message || "Could not change the setting." }),
+  });
+  const mode = data?.post_mode === "auto" ? "auto" : "approve";
 
   const copyRedirect = async () => {
     try {
@@ -137,8 +156,8 @@ export default function FacebookConnect() {
         {data?.configured && !data?.connected && (
           <>
             <p className="text-sm text-muted-foreground">
-              Connect your Facebook Page once. After that APX posts one product to it every day, with the #ad disclosure and
-              your tracked link — nothing to copy or paste.
+              Connect your Facebook Page once. After that APX gets a post ready every day, with the #ad disclosure and
+              your tracked link, and you choose whether it waits for your OK or posts automatically.
             </p>
             <a href={data.authorize_url}>
               <Button className="w-full h-11 font-semibold gap-2 text-white" style={{ background: "#1877F2" }}>
@@ -156,13 +175,38 @@ export default function FacebookConnect() {
                 <p className="text-sm font-semibold text-green-700 dark:text-green-300">
                   Connected{data.page_name ? `: ${data.page_name}` : ""}
                 </p>
-                <p className="text-xs text-muted-foreground mt-0.5">One product posts every day at about 10 AM Eastern.</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {mode === "auto" ? "One product posts automatically every day at about 10 AM Eastern." : "Each day at about 10 AM Eastern, new posts wait here for your OK."}
+                </p>
               </div>
             </div>
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-semibold text-foreground">How should daily posts go out?</legend>
+              {[
+                { value: "approve", label: "Ask me first", hint: "Flick through a few options and approve the one you like. Nothing posts without your OK." },
+                { value: "auto", label: "Post automatically", hint: "APX picks and posts one each day. The same safety checks run either way." },
+              ].map((o) => (
+                <label key={o.value} className={`flex items-start gap-3 rounded-xl border p-3 cursor-pointer ${mode === o.value ? "border-primary bg-primary/5" : "border-border"}`}>
+                  <input
+                    type="radio"
+                    name="facebook-post-mode"
+                    value={o.value}
+                    checked={mode === o.value}
+                    disabled={setMode.isPending}
+                    onChange={() => setMode.mutate(o.value)}
+                    className="mt-1 h-5 w-5"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium text-foreground">{o.label}</span>
+                    <span className="block text-xs text-muted-foreground">{o.hint}</span>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
             <div className="flex gap-2">
               <Button className="flex-1 gap-2" disabled={postNow.isPending} onClick={() => postNow.mutate()}>
                 {postNow.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                {postNow.isPending ? "Posting…" : "Post one now"}
+                {postNow.isPending ? (mode === "auto" ? "Posting…" : "Getting posts ready…") : mode === "auto" ? "Post one now" : "Get posts ready now"}
               </Button>
               <Button variant="outline" className="flex-1 gap-2 text-red-700 dark:text-red-300 hover:text-red-700 dark:hover:text-red-200 hover:bg-red-500/10"
                 disabled={disconnect.isPending} onClick={() => disconnect.mutate()}>
@@ -170,6 +214,7 @@ export default function FacebookConnect() {
                 {disconnect.isPending ? "Disconnecting…" : "Disconnect"}
               </Button>
             </div>
+            {mode === "approve" && <PostApprovalCard />}
           </>
         )}
       </CardContent>

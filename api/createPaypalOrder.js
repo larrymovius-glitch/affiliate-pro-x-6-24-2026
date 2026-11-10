@@ -41,7 +41,15 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Payment configuration is incomplete" });
     }
 
+    // A checkout must belong to a logged-in user. paypalWebhook.js and the
+    // capture routes grant the tier from custom_id, so an order without one
+    // takes the buyer's money and grants nothing. PayPal also rejects an
+    // empty custom_id outright ("Request is not well-formed..."), which is
+    // what a logged-out call used to hit as a 500.
     const { user } = await getAuthedUser(req);
+    if (!user?.id) {
+      return res.status(401).json({ error: "Please log in again to check out." });
+    }
     const { planType } = req.body || {};
 
     if (!["lifetime", "monthly", "yearly", TEST_SUBSCRIPTION_PLAN].includes(planType)) {
@@ -55,7 +63,7 @@ export default async function handler(req, res) {
     // An admin testing the subscription path must actually be charged --
     // the veteran shortcut would otherwise return free access and skip
     // the payment entirely, which defeats the test.
-    if (planType !== TEST_SUBSCRIPTION_PLAN && ["verified_veteran", "disabled_vet", "homeless_vet"].includes(user?.veteran_status)) {
+    if (planType !== TEST_SUBSCRIPTION_PLAN && ["verified_veteran", "disabled_vet", "homeless_vet"].includes(user.veteran_status)) {
       return res.status(200).json({ message: "Veteran discount applied - free access granted", veteranAccess: true });
     }
 
@@ -71,7 +79,7 @@ export default async function handler(req, res) {
         intent: "CAPTURE",
         purchase_units: [
           {
-            custom_id: user?.id || "",
+            custom_id: user.id,
             description: "Affiliate Pro X - Lifetime Access",
             amount: { currency_code: "USD", value: LIFETIME_PRICE },
           },
@@ -95,10 +103,7 @@ export default async function handler(req, res) {
     // captured just expires silently. reconcilePaypalPayments picks these up.
     try {
       await db().Payment.create({
-        // This route has no auth guard, so `user` can be null. A row with no
-        // owner still records that money moved (visible to an admin), it just
-        // can't have a tier granted against it -- reconciliation logs that case.
-        user_id: user?.id || null,
+        user_id: user.id,
         amount: Number(LIFETIME_PRICE),
         currency: "usd",
         status: "pending",
@@ -136,7 +141,7 @@ async function createSubscription({ res, user, planType, origin }) {
     method: "POST",
     body: JSON.stringify({
       plan_id: planId,
-      custom_id: user?.id || "",
+      custom_id: user.id,
       application_context: {
         brand_name: "Affiliate Pro X",
         user_action: "SUBSCRIBE_NOW",
@@ -157,7 +162,7 @@ async function createSubscription({ res, user, planType, origin }) {
   // active, whichever gets there first.
   try {
     await db().Payment.create({
-      user_id: user?.id || null,
+      user_id: user.id,
       amount: 0, // unknown until the plan's real price comes back on a paypalWebhook/capture event
       currency: "usd",
       status: "pending",

@@ -41,7 +41,7 @@ import AdTracker from '@/pages/AdTracker';
 import PreviewDashboard from '@/components/preview/PreviewDashboard';
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, checkAppState } = useAuth();
 
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
@@ -57,6 +57,21 @@ const AuthenticatedApp = () => {
   if (authError) {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
+    } else if (authError.type === 'network') {
+      return (
+        <div className="fixed inset-0 flex items-center justify-center bg-background px-4">
+          <div className="flex max-w-sm flex-col items-center gap-4 text-center">
+            <p className="text-base font-medium">{authError.message}</p>
+            <button
+              type="button"
+              onClick={() => checkAppState()}
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      );
     } else if (authError.type === 'auth_required') {
       navigateToLogin();
       return null;

@@ -23,6 +23,8 @@ export const TABLES = {
   Notification: "notifications",
   Payment: "payments",
   Payout: "payouts",
+  PostApproval: "pending_approvals",
+  PostAuditLog: "post_audit_log",
   PayoutSchedule: "payout_schedules",
   ProAutomationRule: "pro_automation_rules",
   Product: "products",

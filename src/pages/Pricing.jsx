@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Check, Star, Shield, Heart, FlaskConical } from "lucide-react";
 import { toast } from "sonner";
 import { plans } from "@/lib/pricingPlans";
-import { useStripeCheckout } from "@/lib/useStripeCheckout";
+import { useStripeCheckout, usePaypalCheckout, isPendingFor } from "@/lib/useStripeCheckout";
 import { useAuth } from "@/lib/AuthContext";
 
 const veteranPlan = {
@@ -56,23 +56,11 @@ export default function Pricing() {
 
   const checkoutMutation = useStripeCheckout();
 
-  const paypalCheckoutMutation = useMutation({
-    mutationFn: async (/** @type {any} */ data) => {
-      if (window.self !== window.top) {
-        throw new Error("Checkout works only from the published app. Please open the app in a new tab.");
-      }
-      const response = await base44.functions.invoke('createPaypalOrder', data);
-      return response.data;
-    },
-    onSuccess: (data) => {
-      if (data.veteranAccess) {
-        toast.success("Veteran discount applied! Free access granted.");
-      } else if (data.url) {
-        window.location.href = data.url;
-      }
-    },
-    onError: (/** @type {any} */ err) => toast.error(err.response?.data?.error || err.message || "Failed to start PayPal checkout")
-  });
+  const paypalCheckoutMutation = usePaypalCheckout();
+  // While either checkout is starting, every pay button stays disabled so a
+  // second click can't open a second session -- but only the clicked one
+  // says "Processing...".
+  const anyCheckoutPending = checkoutMutation.isPending || paypalCheckoutMutation.isPending;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 py-12 px-4">
@@ -173,16 +161,16 @@ export default function Pricing() {
                   <Button
                     className="w-full"
                     onClick={() => paypalCheckoutMutation.mutate({ planType: plan.id })}
-                    disabled={paypalCheckoutMutation.isPending || veteranRequestStatus === "verified"}
+                    disabled={anyCheckoutPending || veteranRequestStatus === "verified"}
                   >
-                    {paypalCheckoutMutation.isPending ? "Processing..." : "Pay with PayPal"}
+                    {isPendingFor(paypalCheckoutMutation, plan.id) ? "Processing..." : "Pay with PayPal"}
                   </Button>
                   <Button
                     className="w-full"
                     onClick={() => checkoutMutation.mutate({ planType: plan.id })}
-                    disabled={checkoutMutation.isPending || veteranRequestStatus === "verified"}
+                    disabled={anyCheckoutPending || veteranRequestStatus === "verified"}
                   >
-                    {checkoutMutation.isPending ? "Processing..." : "Pay with Stripe"}
+                    {isPendingFor(checkoutMutation, plan.id) ? "Processing..." : "Pay with Stripe"}
                   </Button>
                 </div>
               </CardContent>
@@ -215,16 +203,16 @@ export default function Pricing() {
                 <Button
                   className="w-full"
                   onClick={() => paypalCheckoutMutation.mutate({ planType: "test_subscription" })}
-                  disabled={paypalCheckoutMutation.isPending}
+                  disabled={anyCheckoutPending}
                 >
-                  {paypalCheckoutMutation.isPending ? "Processing..." : "Test $1/mo with PayPal"}
+                  {isPendingFor(paypalCheckoutMutation, "test_subscription") ? "Processing..." : "Test $1/mo with PayPal"}
                 </Button>
                 <Button
                   className="w-full"
                   onClick={() => checkoutMutation.mutate({ planType: "test_subscription" })}
-                  disabled={checkoutMutation.isPending}
+                  disabled={anyCheckoutPending}
                 >
-                  {checkoutMutation.isPending ? "Processing..." : "Test $1/mo with Stripe"}
+                  {isPendingFor(checkoutMutation, "test_subscription") ? "Processing..." : "Test $1/mo with Stripe"}
                 </Button>
               </div>
             </CardContent>
