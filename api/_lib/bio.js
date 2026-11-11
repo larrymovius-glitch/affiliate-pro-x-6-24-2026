@@ -92,37 +92,55 @@ export function storeLabel(destinationUrl) {
   return "Official site";
 }
 
+// The button says what a tap does and where it lands.
+function goLabel(store) {
+  if (store === "Official site") return "Visit official site";
+  return store ? `See it on ${store}` : "See it";
+}
+
+// The look: a small shop window rather than a list of buttons. Pictures do the
+// selling on a phone, so each pick is a square photo tile, two across, and the
+// most recently starred one runs full width at the top. System typefaces only
+// (a serif stack for the name), because a web font would be a second request
+// before anything paints.
 const STYLES = `
 *{box-sizing:border-box;margin:0;padding:0}
-:root{color-scheme:light dark;--bg:#f4f3f8;--card:#fff;--fg:#15151b;--muted:#62626f;--line:#e7e5ee;--accent:#6d28d9;--accent-soft:#ede7fb;--hero:linear-gradient(160deg,#7c3aed 0%,#db2777 55%,#f59e0b 100%);--shadow:0 1px 2px rgba(20,20,40,.05),0 6px 20px rgba(20,20,40,.06)}
-@media(prefers-color-scheme:dark){:root{--bg:#0c0c11;--card:#17171f;--fg:#f4f4f6;--muted:#a3a3b2;--line:#272733;--accent:#b79cff;--accent-soft:#2a2240;--hero:linear-gradient(160deg,#4c1d95 0%,#9d174d 60%,#92400e 100%);--shadow:none}}
+:root{color-scheme:light dark;--bg:#f6f1f4;--card:#fff;--fg:#23131f;--muted:#6f5d69;--line:#e6dae1;--accent:#a50f4d;--on-accent:#fff;--tint:#f3dfe8;--serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif}
+@media(prefers-color-scheme:dark){:root{--bg:#150d13;--card:#21151d;--fg:#f6eef3;--muted:#b49fae;--line:#36252f;--accent:#ff8ab5;--on-accent:#23131f;--tint:#3a1c2b}}
 body{background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.45;-webkit-font-smoothing:antialiased;min-height:100vh}
-.hero{background:var(--hero);height:132px}
-.wrap{max-width:520px;margin:32px auto 0;padding:0 16px 48px}
-.hero+.wrap{margin-top:-64px}
-header{text-align:center;margin-bottom:20px}
-.avatar{width:104px;height:104px;border-radius:50%;margin:0 auto 12px;object-fit:cover;display:block;background:var(--accent);color:#fff;font-size:36px;font-weight:700;line-height:104px;text-align:center;border:4px solid var(--bg);box-shadow:var(--shadow)}
-h1{font-size:24px;font-weight:800;letter-spacing:-.02em}
-.sub{color:var(--muted);font-size:15px;margin-top:4px}
-.disclosure{display:flex;gap:8px;align-items:flex-start;background:var(--accent-soft);border-radius:12px;padding:10px 12px;color:var(--muted);font-size:12.5px;margin-bottom:18px}
-.disclosure b{color:var(--accent);font-weight:700;flex:none}
-ul{list-style:none;display:flex;flex-direction:column;gap:12px}
-a.link{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:10px 12px 10px 10px;min-height:92px;text-decoration:none;color:var(--fg);box-shadow:var(--shadow);transition:transform .08s ease,border-color .15s ease}
+.wrap{max-width:560px;margin:0 auto;padding:28px 14px 48px}
+header{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+header.plain{display:block;text-align:center;padding-top:40px}
+.avatar{width:68px;height:68px;border-radius:50%;flex:none;object-fit:cover;display:block;background:var(--accent);color:var(--on-accent);font-family:var(--serif);font-size:26px;font-weight:700;line-height:68px;text-align:center}
+h1{font-family:var(--serif);font-size:27px;font-weight:700;line-height:1.15;letter-spacing:-.01em;overflow-wrap:anywhere}
+.sub{color:var(--muted);font-size:15px;margin-top:3px}
+.disclosure{border-left:3px solid var(--accent);padding:2px 0 2px 11px;color:var(--muted);font-size:12.5px;margin-bottom:18px}
+ul{list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+li{display:flex;min-width:0}
+a.link{display:flex;flex-direction:column;flex:1;min-width:0;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;text-decoration:none;color:var(--fg)}
 a.link:active{transform:scale(.985)}
 a.link:hover{border-color:var(--accent)}
-.thumb{width:72px;height:72px;border-radius:12px;object-fit:contain;flex:none;background:#fff;border:1px solid var(--line)}
-.thumb.blank{display:flex;align-items:center;justify-content:center;background:var(--accent-soft);color:var(--accent);font-size:26px;font-weight:700}
-.info{flex:1;min-width:0}
-.name{font-size:15.5px;font-weight:650;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+a.link:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.thumb{display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:contain;background:#fff;border-bottom:1px solid var(--line)}
+.thumb.blank{display:flex;align-items:center;justify-content:center;background:var(--tint);color:var(--accent);font-family:var(--serif);font-size:64px;font-weight:700}
+.info{display:flex;flex-direction:column;flex:1;padding:10px 12px 0}
+.name{font-size:14.5px;font-weight:650;line-height:1.3;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .store{display:block;color:var(--muted);font-size:12.5px;margin-top:4px}
-.go{flex:none;background:var(--accent);color:#fff;font-size:13px;font-weight:700;border-radius:999px;padding:8px 13px;white-space:nowrap}
-@media(prefers-color-scheme:dark){.go{color:#15151b}}
-.empty{background:var(--card);border:1px dashed var(--line);border-radius:18px;padding:28px 18px;text-align:center;color:var(--muted);font-size:15px}
+.go{display:block;margin:12px;background:var(--accent);color:var(--on-accent);font-size:13px;font-weight:700;border-radius:999px;padding:9px 6px;text-align:center}
+li.first{grid-column:1/-1}
+li.first a.link{flex-direction:row;align-items:stretch}
+li.first .thumb{width:46%;flex:none;border-bottom:0;border-right:1px solid var(--line)}
+li.first .side{display:flex;flex-direction:column;flex:1;min-width:0}
+li.first .info{padding-top:14px}
+li.first .name{font-family:var(--serif);font-size:19px;font-weight:700;line-height:1.2;-webkit-line-clamp:4}
+.new{align-self:flex-start;background:var(--tint);color:var(--accent);font-size:12px;font-weight:700;border-radius:999px;padding:2px 9px;margin-bottom:7px}
+.empty{background:var(--card);border:1px dashed var(--line);border-radius:14px;padding:28px 18px;text-align:center;color:var(--muted);font-size:15px}
 footer{margin-top:28px;text-align:center;color:var(--muted);font-size:12px}
 footer a{color:var(--muted)}
+@media(min-width:620px){.wrap{max-width:760px}ul{grid-template-columns:repeat(3,1fr)}li.first{grid-column:span 2}}
 `.trim();
 
-function shell({ title, description, canonical, body, noindex = false, hero = false }) {
+function shell({ title, description, canonical, body, noindex = false }) {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -138,7 +156,7 @@ ${canonical ? `<meta property="og:url" content="${escapeHtml(canonical)}">\n<lin
 <meta name="twitter:card" content="summary">
 <style>${STYLES}</style>
 </head>
-<body>${hero ? '<div class="hero" aria-hidden="true"></div>' : ""}<div class="wrap">${body}</div></body>
+<body><div class="wrap">${body}</div></body>
 </html>`;
 }
 
@@ -156,30 +174,39 @@ export function renderBioPage({ handle, displayName, avatarUrl, origin = "", lin
   const name = String(displayName || "").trim() || `@${handle}`;
   const avatar = safeImageUrl(avatarUrl);
   const head = avatar
-    ? `<img class="avatar" src="${escapeHtml(avatar)}" alt="" width="104" height="104">`
+    ? `<img class="avatar" src="${escapeHtml(avatar)}" alt="" width="68" height="68">`
     : `<div class="avatar" aria-hidden="true">${escapeHtml(initials(displayName || handle))}</div>`;
 
   // Relative hrefs: the page is served from the same origin as /r/, so the
   // links keep working on a preview deployment or a custom domain.
-  const items = links
-    .filter((link) => link?.short_code)
-    .map((link) => {
+  const shown = links.filter((link) => link?.short_code);
+  // The list arrives newest-starred first, so the first tile really is the
+  // newest pick. It only gets the wide treatment when there is a grid for it
+  // to stand out from.
+  const featureFirst = shown.length >= 3;
+  const items = shown
+    .map((link, index) => {
       const image = safeImageUrl(link.image_url);
       const label = String(link.product_name || "").trim() || link.short_code;
       const direct = /^https:\/\//i.test(String(link.direct_url || "")) ? link.direct_url : "";
       const href = direct ? escapeHtml(direct) : `/r/${encodeURIComponent(link.short_code)}`;
       const store = String(link.store || "").trim();
+      const first = featureFirst && index === 0;
+      // The first row is on screen at once; everything below it can wait.
       const thumb = image
-        ? `<img class="thumb" src="${escapeHtml(image)}" alt="" width="72" height="72" loading="lazy">`
+        ? `<img class="thumb" src="${escapeHtml(image)}" alt="" width="400" height="400"${index < 3 ? "" : ' loading="lazy"'}>`
         : `<span class="thumb blank" aria-hidden="true">${escapeHtml(label.charAt(0).toUpperCase())}</span>`;
-      return `<li><a class="link" href="${href}" rel="sponsored nofollow noopener">${thumb}<span class="info"><span class="name">${escapeHtml(label)}</span>${
+      const info = `<span class="info">${first ? '<span class="new">Newest pick</span>' : ""}<span class="name">${escapeHtml(label)}</span>${
         store ? `<span class="store">${escapeHtml(store)}</span>` : ""
-      }</span><span class="go" aria-hidden="true">View ›</span></a></li>`;
+      }</span><span class="go" aria-hidden="true">${escapeHtml(goLabel(store))}</span>`;
+      return `<li${first ? ' class="first"' : ""}><a class="link" href="${href}" rel="sponsored nofollow noopener">${thumb}${
+        first ? `<span class="side">${info}</span>` : info
+      }</a></li>`;
     })
     .join("");
 
-  const body = `<header>${head}<h1>${escapeHtml(name)}</h1><p class="sub">Picks I'm sharing right now</p></header>
-<p class="disclosure"><b aria-hidden="true">ⓘ</b><span>${escapeHtml(DISCLOSURE)}</span></p>
+  const body = `<header>${head}<div><h1>${escapeHtml(name)}</h1><p class="sub">Picks I'm sharing right now</p></div></header>
+<p class="disclosure">${escapeHtml(DISCLOSURE)}</p>
 ${items ? `<ul>${items}</ul>` : `<p class="empty">Nothing here yet — check back soon.</p>`}
 <footer><p>Powered by <a href="${escapeHtml(origin)}/" rel="noopener">Affiliate Pro X</a></p></footer>`;
 
@@ -188,7 +215,6 @@ ${items ? `<ul>${items}</ul>` : `<p class="empty">Nothing here yet — check bac
     description: `Links shared by ${name}. ${DISCLOSURE}`,
     canonical: origin ? `${origin}/go/${handle}` : "",
     body,
-    hero: true,
   });
 }
 
@@ -199,7 +225,7 @@ export function renderMissingPage(origin = "") {
     description: "This share page doesn't exist.",
     canonical: "",
     noindex: true,
-    body: `<header><h1>Page not found</h1><p class="sub">This link doesn't lead anywhere yet.</p></header>
+    body: `<header class="plain"><h1>Page not found</h1><p class="sub">This link doesn't lead anywhere yet.</p></header>
 <footer><p><a href="${escapeHtml(origin)}/" rel="noopener">Affiliate Pro X</a></p></footer>`,
   });
 }
